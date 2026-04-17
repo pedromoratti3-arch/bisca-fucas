@@ -722,7 +722,8 @@ function HomeScreen(P){
     var r = await RT.getRoom(cd.toUpperCase());
     if(!r){ setLd(false); setEr('Sala não encontrada'); return; }
     if(r.game){ setLd(false); setEr('Partida já começou'); return; }
-    if(r.players.length>=4){ setLd(false); setEr('Sala cheia'); return; }
+    var humanNJoin = r.players.filter(function(p){ return !p.isBot; }).length;
+    if(humanNJoin>=4){ setLd(false); setEr('Sala cheia'); return; }
     var pid = uid();
     r.players.push({id:pid,name:nm.trim(),seat:-1,team:null});
     var ok = await RT.setRoom(cd.toUpperCase(), r);
@@ -768,30 +769,46 @@ function HomeScreen(P){
 function LobbyScreen(P){
   var room=P.room, myId=P.myId, isHost=room.hostId===myId;
   var me = room.players.find(function(p){ return p.id===myId; });
-  var tA = room.players.filter(function(p){ return p.team==='A'; });
-  var tB = room.players.filter(function(p){ return p.team==='B'; });
-  var canStart = room.players.length===4 && tA.length===2 && tB.length===2;
+  var humans = room.players.filter(function(p){ return !p.isBot; });
+  var tA = humans.filter(function(p){ return p.team==='A'; });
+  var tB = humans.filter(function(p){ return p.team==='B'; });
+  var allHumansHaveTeam = humans.length>0 && humans.every(function(p){ return p.team==='A'||p.team==='B'; });
+  var canStart = isHost && humans.length>=1 && humans.length<=4 && allHumansHaveTeam && tA.length<=2 && tB.length<=2 && (tA.length+tB.length===humans.length);
 
   async function toggle(team){
     var r = await RT.getRoom(room.code); if(!r) return;
-    var pl = r.players.find(function(p){ return p.id===myId; }); if(!pl) return;
+    var pl = r.players.find(function(p){ return p.id===myId && !p.isBot; }); if(!pl) return;
+    var H = r.players.filter(function(p){ return !p.isBot; });
     if(pl.team===team) pl.team=null;
-    else if(r.players.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
+    else if(H.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
     await RT.setRoom(r.code, r);
   }
 
   async function start(){
     if(!canStart||!isHost) return;
     var r = await RT.getRoom(room.code); if(!r) return;
-    var a=r.players.filter(function(p){return p.team==='A';}), b=r.players.filter(function(p){return p.team==='B';});
-    var nm=['','','','']; nm[0]=a[0].name; nm[2]=a[1].name; nm[1]=b[0].name; nm[3]=b[1].name;
-    var sm={}; sm[a[0].id]=0; sm[a[1].id]=2; sm[b[0].id]=1; sm[b[1].id]=3;
+    var H = r.players.filter(function(p){ return !p.isBot; });
+    var a=H.filter(function(p){return p.team==='A';}), b=H.filter(function(p){return p.team==='B';});
+    if(a.length>2||b.length>2||a.length+b.length!==H.length) return;
+    var needA = 2-a.length, needB = 2-b.length;
+    var bots=[], bn=0;
+    for(var ia=0;ia<needA;ia++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'A',isBot:true}); }
+    for(var ib=0;ib<needB;ib++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'B',isBot:true}); }
+    var aFull=a.concat(bots.filter(function(p){ return p.team==='A'; }));
+    var bFull=b.concat(bots.filter(function(p){ return p.team==='B'; }));
+    var sm={};
+    sm[aFull[0].id]=0; sm[aFull[1].id]=2;
+    sm[bFull[0].id]=1; sm[bFull[1].id]=3;
+    r.players=H.concat(bots);
     r.players.forEach(function(p){ p.seat=sm[p.id]; });
+    var nm=['','','',''];
+    nm[0]=aFull[0].name; nm[2]=aFull[1].name;
+    nm[1]=bFull[0].name; nm[3]=bFull[1].name;
     r.game = mkGame(null,undefined,0,nm,r.hostId);
     await RT.setRoom(r.code, r);
   }
 
-  var playerRows = room.players.map(function(p){
+  var playerRows = humans.map(function(p){
     return React.createElement('div',{key:p.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,.05)',borderRadius:8,marginBottom:6}},
       React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}},p.name[0]),
       React.createElement('div',{style:{flex:1}},
@@ -802,8 +819,8 @@ function LobbyScreen(P){
   });
 
   var emptySlots = [];
-  for(var i=0; i<Math.max(0,4-room.players.length); i++){
-    emptySlots.push(React.createElement('div',{key:'e'+i,style:{padding:10,background:'rgba(255,255,255,.03)',borderRadius:8,textAlign:'center',fontSize:11,opacity:0.3,border:'1px dashed rgba(255,255,255,.1)',marginBottom:6}},'Aguardando...'));
+  for(var i=0; i<Math.max(0,4-humans.length); i++){
+    emptySlots.push(React.createElement('div',{key:'e'+i,style:{padding:10,background:'rgba(255,255,255,.03)',borderRadius:8,textAlign:'center',fontSize:11,opacity:0.3,border:'1px dashed rgba(255,255,255,.1)',marginBottom:6}},'Vaga livre (amigo ou IA ao iniciar)'));
   }
 
   return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14)',fontFamily:'system-ui,sans-serif',color:'white',padding:20,display:'flex',flexDirection:'column',alignItems:'center'}},
@@ -820,7 +837,7 @@ function LobbyScreen(P){
         React.createElement('div',{style:{fontSize:11,opacity:0.4,marginTop:6}},'Compartilhe com seus amigos')
       ),
       React.createElement('div',{style:{background:'rgba(255,255,255,.05)',borderRadius:14,padding:16,border:'1px solid rgba(255,255,255,.1)'}},
-        React.createElement('div',{style:{fontSize:12,opacity:0.5,marginBottom:10}},'Jogadores ('+room.players.length+'/4)'),
+        React.createElement('div',{style:{fontSize:12,opacity:0.5,marginBottom:10}},'Jogadores ('+humans.length+' humanos · ate 4)'),
         playerRows,
         emptySlots
       ),
@@ -829,7 +846,10 @@ function LobbyScreen(P){
         React.createElement('button',{onClick:function(){toggle('B');},style:{flex:1,padding:'8px',borderRadius:8,border:'2px solid '+(me&&me.team==='B'?'#f59e0b':'rgba(255,255,255,.2)'),background:me&&me.team==='B'?'rgba(245,158,11,.2)':'transparent',color:me&&me.team==='B'?'#fde68a':'rgba(255,255,255,.5)',cursor:'pointer',fontSize:13,fontWeight:me&&me.team==='B'?'bold':'normal'}},'Dupla B')
       ),
       isHost
-        ? React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},BTN,{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →')
+        ? React.createElement(React.Fragment,null,
+            React.createElement('div',{style:{fontSize:11,opacity:0.45,marginBottom:8,lineHeight:1.4}},'Escolha Dupla A ou B (max. 2 por lado). Pode iniciar sozinho ou com 2–3 pessoas — a IA completa a mesa.'),
+            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},BTN,{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →')
+          )
         : React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.5,animation:'pls 2s infinite'}},'Aguardando o host iniciar...')
     )
   );
@@ -846,8 +866,10 @@ function GameScreen(props){
   var NAMES=g.playerNames;
   var th = props.theme || THEMES.sala;
   var dealer=prv(g.starter), cutter=prv(dealer);
-  var dS=mySeat, dE=nxt(mySeat), dN=nxt(nxt(mySeat)), dW=nxt(nxt(nxt(mySeat)));
+   var dS=mySeat, dE=nxt(mySeat), dN=nxt(nxt(mySeat)), dW=nxt(nxt(nxt(mySeat)));
   var iAmCutter = cutter===mySeat;
+  var botSeats = props.botSeats || {};
+  var isRoomHost = !!props.isRoomHost;
 
   // Write online state (ONLY here, GameScreen is the single writer)
   useEffect(function(){
@@ -860,6 +882,7 @@ function GameScreen(props){
   useEffect(function(){
     if(g.phase!=='shuffle') return;
     if(isSolo) aiMemory = makeMemory();
+    if(isOnline && isRoomHost) aiMemory = makeMemory();
     // Reset chat on new round
     if(isOnline && roomCode){ RT.setChat(roomCode, []); }
     setSh(true);
@@ -867,17 +890,18 @@ function GameScreen(props){
     return function(){ clearTimeout(t); setSh(false); };
   },[g.phase]);
 
-  // Auto-cut (AI or online non-cutter)
+  // Auto-cut (solo IA, online: cortador humano ou host cortando por bot)
   useEffect(function(){
     if(g.phase!=='cut') return;
-    if(isOnline){ if(!iAmCutter) return; }
-    else{ if(cutter===0) return; }
+    var botCuts = !!(botSeats[cutter]);
+    var iRunCut = !isOnline ? cutter===0 : (iAmCutter || (isRoomHost && botCuts));
+    if(!iRunCut) return;
     var t = setTimeout(function(){
       var ci = 8 + Math.floor(Math.random()*24);
       performCut(ci);
     },1500);
     return function(){ clearTimeout(t); };
-  },[g.phase]);
+  },[g.phase,cutter,mySeat,isOnline,isRoomHost]);
 
   // Deal phase
   useEffect(function(){
@@ -1006,10 +1030,15 @@ function GameScreen(props){
     });
   }
 
-  // AI
+  // IA (solo) ou bots online — só o host simula bots e grava lastActor para sincronizar
   useEffect(function(){
-    if(!isSolo || g.phase!=='playing' || g.curP<1 || partnerCount>0) return;
+    if(g.phase!=='playing' || partnerCount>0) return;
     var p=g.curP;
+    if(p<0||p>3) return;
+    var seatIsBot = !!botSeats[p];
+    var hostPlaysBot = isOnline && seatIsBot && isRoomHost;
+    var soloAi = isSolo && p>=1;
+    if(!hostPlaysBot && !soloAi) return;
     var t = setTimeout(function(){
       sg(function(pv){
         if(pv.phase!=='playing' || pv.curP!==p) return pv;
@@ -1021,11 +1050,13 @@ function GameScreen(props){
         var hands=pv.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
         var trick=pv.trick.concat([{player:p,card:card}]);
         var done=trick.length===4;
-        return Object.assign({},pv,{hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:NAMES[p]+' jogou '+card.v+SYM[card.s]});
+        var upd = {hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:NAMES[p]+' jogou '+card.v+SYM[card.s]};
+        if(hostPlaysBot) Object.assign(upd,{lastActor:myPid});
+        return Object.assign({},pv,upd);
       });
     },750);
     return function(){ clearTimeout(t); };
-  },[g.curP,g.phase,partnerCount]);
+  },[g.curP,g.phase,partnerCount,isSolo,isOnline,isRoomHost,myPid]);
 
   // End trick
   useEffect(function(){
@@ -1137,7 +1168,7 @@ function GameScreen(props){
 
   // ── SHUFFLE / CUT / DEAL ──
   if(g.phase==='shuffle' || g.phase==='cut' || (g.phase==='deal' && !isOnline)){
-    var showCut = g.phase==='cut' && (isSolo ? cutter===0 : iAmCutter);
+    var showCut = g.phase==='cut' && (isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter])));
     var aiCutting = g.phase==='cut' && !showCut;
 
     return React.createElement('div',{style:{minHeight:'100vh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:12}},
@@ -1412,8 +1443,12 @@ export default function App(){
 
   if(screen==='online' && room && og){
     var me = room.players.find(function(p){ return p.id===myId; });
+    var botSeatsMap = {};
+    room.players.forEach(function(p){
+      if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
+    });
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:me?me.seat:0,myPid:myId,roomCode:roomCode,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:me?me.seat:0,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
     );
