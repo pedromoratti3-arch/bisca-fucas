@@ -918,7 +918,7 @@ function FlorestaMark(sz) {
 
 /* ═══ LOCATION SELECT ═══ */
 function LocationScreen(P){
-  var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.06,z:48},{s:'\u2665',x:90,y:8,a:'float2',o:0.07,z:40},{s:'\u2666',x:12,y:82,a:'float3',o:0.05,z:44},{s:'\u2663',x:86,y:72,a:'float1',o:0.06,z:42},{s:'\u2660',x:48,y:92,a:'float2',o:0.04,z:36},{s:'\u2665',x:6,y:42,a:'float3',o:0.05,z:38}];
+  var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.06,z:48},{s:'\u2665',x:88,y:8,a:'float2',o:0.07,z:40},{s:'\u2666',x:12,y:80,a:'float3',o:0.05,z:44},{s:'\u2660',x:85,y:75,a:'float1',o:0.06,z:42},{s:'\u2663',x:50,y:92,a:'float2',o:0.04,z:36},{s:'\u2663',x:45,y:4,a:'float3',o:0.05,z:38}];
 
   var locs = [
     {id:'terrafe',name:'Terrafé',color:'#c9956a',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
@@ -1230,12 +1230,12 @@ function HomeScreen(P){
   var ls=useState(false); var ld=ls[0], setLd=ls[1];
 
   var floats = [
-    {s:'\u2660',x:8,y:8,a:'float1',o:0.07,z:60},
-    {s:'\u2665',x:88,y:10,a:'float2',o:0.09,z:52},
-    {s:'\u2666',x:14,y:48,a:'float3',o:0.055,z:50},
-    {s:'\u2663',x:86,y:52,a:'float1',o:0.07,z:56},
-    {s:'\u2660',x:40,y:86,a:'float2',o:0.045,z:46},
-    {s:'\u2665',x:72,y:80,a:'float3',o:0.055,z:44}
+    {s:'\u2660',x:10,y:12,a:'float1',o:0.07,z:64},
+    {s:'\u2665',x:80,y:8,a:'float2',o:0.09,z:52},
+    {s:'\u2666',x:18,y:74,a:'float3',o:0.055,z:48},
+    {s:'\u2663',x:86,y:70,a:'float1',o:0.07,z:56},
+    {s:'\u2660',x:52,y:88,a:'float2',o:0.045,z:44},
+    {s:'\u2663',x:42,y:3,a:'float3',o:0.055,z:40}
   ];
 
   var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
