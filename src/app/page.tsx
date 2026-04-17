@@ -890,6 +890,31 @@ function deckPile(n,onClick,hi,mob){
 }
 
 /* ═══ CHAT ═══ */
+/** Balão minimalista (botão flutuante). */
+function ChatFabIcon() {
+  return React.createElement(
+    'svg',
+    {
+      width: 22,
+      height: 22,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      xmlns: 'http://www.w3.org/2000/svg',
+      stroke: 'currentColor',
+      strokeWidth: 1.65,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      'aria-hidden': true,
+    },
+    React.createElement('path', {
+      d: 'M6 5h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-4.2L9 19v-3H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z',
+    })
+  );
+}
+function chatMsgCountLabel(n) {
+  return (n > 50 ? '50+' : String(n)) + ' msgs';
+}
+
 function ChatPanel(P){
   var mob = useNarrowScreen();
   var vs=useState(false); var open=vs[0], setOpen=vs[1];
@@ -924,7 +949,6 @@ function ChatPanel(P){
     if(!msg.trim() || !code) return;
     var newMsg = {name:P.myName||'???', msg:msg.trim(), t:Date.now()};
     var updated = msgs.concat([newMsg]);
-    if(updated.length>50) updated = updated.slice(updated.length-50);
     var ok = await RT.setChat(code, updated);
     if(ok){
       setMsgs(updated);
@@ -941,10 +965,12 @@ function ChatPanel(P){
     }
   }
 
+  var unreadBadgeTxt = unread > 50 ? '50+' : String(unread);
+  var unreadBadgeWide = unread > 9 || unread > 50;
   // Chat button
   var btn = React.createElement('button',{onClick:toggleOpen,style:{position:'fixed',bottom:mob?'max(12px, env(safe-area-inset-bottom))':12,right:mob?'max(12px, env(safe-area-inset-right))':12,width:44,height:44,borderRadius:'50%',background:open?'#C41230':'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',zIndex:150,boxShadow:'0 4px 12px rgba(0,0,0,.4)'}},
-    open ? '✕' : '💬',
-    unread>0 && !open ? React.createElement('div',{style:{position:'absolute',top:-4,right:-4,background:'#C41230',color:'#fff',borderRadius:'50%',width:18,height:18,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}},unread) : null
+    open ? '\u2715' : ChatFabIcon(),
+    unread>0 && !open ? React.createElement('div',{style:{position:'absolute',top:-4,right:-4,background:'#C41230',color:'#fff',borderRadius:10,minWidth:18,height:18,padding:unreadBadgeWide?'0 5px':'0',fontSize:unread>50?9:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',boxSizing:'border-box'}},unreadBadgeTxt) : null
   );
 
   // Chat panel
@@ -952,7 +978,7 @@ function ChatPanel(P){
     // Header
     React.createElement('div',{style:{padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.1)',fontSize:13,fontWeight:700,color:'#d4a843',display:'flex',justifyContent:'space-between',alignItems:'center'}},
       'Chat da mesa',
-      React.createElement('span',{style:{fontSize:10,opacity:0.4,fontWeight:400}},msgs.length+' msgs')
+      React.createElement('span',{style:{fontSize:10,opacity:0.4,fontWeight:400}},chatMsgCountLabel(msgs.length))
     ),
     // Messages
     React.createElement('div',{style:{flex:1,overflowY:'auto',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6,maxHeight:240,minHeight:100}},
