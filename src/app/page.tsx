@@ -671,9 +671,7 @@ var THEMES = {
       timer: '#fcd34d', cutLabelMuted: 'rgba(253,230,138,.5)', cutLabelActive: '#fde68a',
       accentBadge: '#78350f',
     },
-    decor: function(){ return [
-      React.createElement('div',{key:'d3',style:{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:60,height:60,borderRadius:'50%',border:'1px solid rgba(139,69,19,.08)'}})
-    ]; }
+    decor: function(){ return []; }
   },
   hub: {
     id: 'hub', name: 'HUB Fucape', icon: '',
@@ -696,7 +694,7 @@ var THEMES = {
       timer: '#93c5fd', cutLabelMuted: 'rgba(147,197,253,.55)', cutLabelActive: '#e0f2fe',
       accentBadge: '#1d4ed8',
     },
-    decor: function(){ return []; }
+    decor: function(){ return tableDecorHub(); }
   },
   floresta: {
     id: 'floresta', name: 'Floresta', icon: '',
@@ -945,6 +943,32 @@ function FlorestaMark(sz) {
   );
 }
 
+/** HUB: marca colorida apagada no centro da mesa. */
+function tableDecorHub() {
+  return [
+    React.createElement(
+      'div',
+      {
+        key: 'hubm',
+        style: {
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 0,
+          opacity: 0.1,
+        },
+      },
+      React.createElement(
+        'div',
+        { style: { width: 200, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'scale(0.4)' } },
+        HubMark(96)
+      )
+    ),
+  ];
+}
 
 /* ═══ LOCATION SELECT ═══ */
 function LocationScreen(P){
