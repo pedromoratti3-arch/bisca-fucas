@@ -672,8 +672,6 @@ var THEMES = {
       accentBadge: '#78350f',
     },
     decor: function(){ return [
-      React.createElement('div',{key:'d1',style:{position:'absolute',top:8,left:8,width:6,height:6,borderRadius:'50%',background:'rgba(212,168,67,.14)'}}),
-      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:8,right:8,width:6,height:6,borderRadius:'50%',background:'rgba(212,168,67,.14)'}}),
       React.createElement('div',{key:'d3',style:{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:60,height:60,borderRadius:'50%',border:'1px solid rgba(139,69,19,.08)'}})
     ]; }
   },
@@ -698,11 +696,7 @@ var THEMES = {
       timer: '#93c5fd', cutLabelMuted: 'rgba(147,197,253,.55)', cutLabelActive: '#e0f2fe',
       accentBadge: '#1d4ed8',
     },
-    decor: function(){ return [
-      React.createElement('div',{key:'d1',style:{position:'absolute',top:6,left:6,width:16,height:2,background:'#2563eb',opacity:0.15,borderRadius:1}}),
-      React.createElement('div',{key:'d2',style:{position:'absolute',top:6,right:6,width:16,height:2,background:'#eab308',opacity:0.15,borderRadius:1}}),
-      React.createElement('div',{key:'d3',style:{position:'absolute',bottom:6,left:6,width:16,height:2,background:'#ef4444',opacity:0.15,borderRadius:1}})
-    ]; }
+    decor: function(){ return []; }
   },
   floresta: {
     id: 'floresta', name: 'Floresta', icon: '',
@@ -725,10 +719,7 @@ var THEMES = {
       timer: '#86efac', cutLabelMuted: 'rgba(134,239,172,.5)', cutLabelActive: '#bbf7d0',
       accentBadge: '#166534',
     },
-    decor: function(){ return [
-      React.createElement('div',{key:'d1',style:{position:'absolute',top:8,left:10,width:10,height:4,borderRadius:4,background:'rgba(134,239,172,.1)',transform:'rotate(-28deg)'}}),
-      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:8,right:10,width:10,height:4,borderRadius:4,background:'rgba(134,239,172,.1)',transform:'rotate(28deg)'}})
-    ]; }
+    decor: function(){ return []; }
   },
   sala: {
     id: 'sala', name: 'Sala de Aula', icon: '',
