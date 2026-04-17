@@ -755,6 +755,45 @@ var THEMES = {
   }
 };
 
+/** Vidro escuro + borda/superfície do tema da mesa. Sala de Aula mantém o painel vermelho clássico; demais cenários usam vidro do tema. */
+function themeDialogChrome(th){
+  th = th || THEMES.sala;
+  if (th.id === 'sala') {
+    return {
+      background: 'linear-gradient(165deg, rgba(100,20,24,.95) 0%, #2a0a0a 48%, #1f0808 100%)',
+      backdropFilter: 'saturate(1.06) blur(12px)',
+      WebkitBackdropFilter: 'saturate(1.06) blur(12px)',
+      border: '1px solid #C41230',
+      boxShadow: '0 20px 56px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06), 0 0 28px rgba(196,18,48,.18)',
+      borderRadius: 18,
+    };
+  }
+  var surface = th.playfieldSurface || 'linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(0,0,0,.32) 100%)';
+  var border = th.playfieldBorder || '1px solid rgba(255,255,255,.12)';
+  return {
+    background: surface + ', rgba(7,9,14,.88)',
+    backdropFilter: 'saturate(1.12) blur(18px)',
+    WebkitBackdropFilter: 'saturate(1.12) blur(18px)',
+    border: border,
+    boxShadow: '0 20px 56px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08)',
+    borderRadius: 18,
+  };
+}
+
+function themeGhostButtonStyle(th){
+  th = th || THEMES.sala;
+  return {
+    background: th.venueChipBg || 'rgba(255,255,255,.1)',
+    color: th.venueChipFg || '#fff',
+    border: '1px solid ' + (th.venueChipBorder || 'rgba(255,255,255,.22)'),
+    borderRadius: 8,
+    padding: '10px 24px',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+  };
+}
+
 var DEFAULT_CARD_BACK = { grad: 'linear-gradient(160deg,#7B1010,#3A0606)', border: '#C41230', hi: '#FFD700', label: 'rgba(255,255,255,.35)' };
 
 function cardBackSkin(th){
@@ -1297,7 +1336,7 @@ function HomeScreen(P){
     ld ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
       React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
     ) : null,
-    React.createElement('div',{style:{position:'fixed',bottom:8,right:10,fontSize:10,opacity:0.2,whiteSpace:'nowrap',maxWidth:'calc(100vw - 20px)',overflow:'hidden',textOverflow:'ellipsis'}},'by: Ruivo')
+    React.createElement('div',{style:{position:'fixed',bottom:8,right:'max(14px, calc(10px + env(safe-area-inset-right)))',fontSize:10,opacity:0.2,whiteSpace:'nowrap',maxWidth:'calc(100vw - 20px)',overflow:'hidden',textOverflow:'ellipsis'}},'by: Ruivo')
   );
 }
 
@@ -1971,7 +2010,7 @@ function GameScreen(props){
     ),
     ),
     modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100dvh'}},
-      React.createElement('div',{style:{background:'#3a0808',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:400,width:'90%'}},
+      React.createElement('div',{style:Object.assign({},themeDialogChrome(th),{padding:28,maxWidth:400,width:'90%'})},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
           rLogo(34,th),
           React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},'Resultado da rodada')
@@ -2094,12 +2133,12 @@ export default function App(){
   var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
 
   var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
-    React.createElement('div',{style:{background:'#2a0a0a',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:340,width:'90%',textAlign:'center'}},
+    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:340,width:'90%',textAlign:'center'})},
       React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
       React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20}},'O progresso será perdido.'),
-      React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
+      React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
         React.createElement('button',{onClick:goHome,style:primaryButtonStyle(theme)},'Sim, sair'),
-        React.createElement('button',{onClick:function(){setShowExit(false);},style:{background:'rgba(255,255,255,.1)',color:'#fff',border:'1px solid rgba(255,255,255,.2)',borderRadius:8,padding:'10px 24px',cursor:'pointer',fontSize:14}},'Continuar')
+        React.createElement('button',{onClick:function(){setShowExit(false);},style:themeGhostButtonStyle(theme)},'Continuar')
       )
     )
   ) : null;
