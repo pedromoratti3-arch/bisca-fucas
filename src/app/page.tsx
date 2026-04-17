@@ -157,12 +157,18 @@ var RT = {
   },
   removeSelfFromRoom: async function (code, playerId) {
     if (!db || !code || !playerId) return;
-    await RT.detachRoomPresence();
+    try {
+      await RT.detachRoomPresence();
+    } catch (e) {
+      void e;
+      activeRoomOnDisconnect = null;
+    }
     try {
       var r = await RT.getRoom(code);
       if (!r) return;
+      if (!Array.isArray(r.players)) return;
       var players = r.players.filter(function (p) {
-        return p.id !== playerId;
+        return p && p.id !== playerId;
       });
       var humans = players.filter(function (p) {
         return !p.isBot;
@@ -1472,7 +1478,9 @@ function useNarrowScreen(){
 function GameScreen(props){
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
-  var mySeat=props.mySeat||0, isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
+  var _ms = props.mySeat;
+  var mySeat = typeof _ms === 'number' && _ms >= 0 && _ms <= 3 ? _ms : 0;
+  var isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
   var partnerCount=props.partnerCount||0, setPT=props.setPT;
   var shuffling=props.shuffling||false, setSh=props.setSh;
   var cutAnim=props.cutAnim||false, setCa=props.setCa;
@@ -1600,20 +1608,22 @@ function GameScreen(props){
     return function(){ clearTimeout(t2); };
   },[g.phase,g.dealStep]);
 
-  // Partner reveal
+  // Partner reveal — só no solo (no online bloqueava jogada e “vazava” visão de parceiro para todos)
   useEffect(function(){
+    if(!isSolo) return;
     if(g.phase!=='playing' || g.trickN!==0) return;
     setPT(7);
     var id = setInterval(function(){ setPT(function(n){ if(n<=1){clearInterval(id);return 0;} return n-1; }); },1000);
     return function(){ clearInterval(id); setPT(0); };
-  },[g.phase,g.trickN]);
+  },[g.phase,g.trickN,isSolo]);
 
   useEffect(function(){
+    if(!isSolo) return;
     if(g.trickN!==7) return;
     setPT(7);
     var id = setInterval(function(){ setPT(function(n){ if(n<=1){clearInterval(id);return 0;} return n-1; }); },1000);
     return function(){ clearInterval(id); setPT(0); };
-  },[g.trickN]);
+  },[g.trickN,isSolo]);
 
   function performCut(ci){
     setCutSec(null);
@@ -1663,7 +1673,8 @@ function GameScreen(props){
   }
 
   function playCard(seat,card){
-    if(g.curP!==seat || g.phase!=='playing' || partnerCount>0) return;
+    if(g.curP!==seat || g.phase!=='playing') return;
+    if(isSolo && partnerCount>0) return;
     var hand=g.hands[seat];
     var s7=g.trick.some(function(t){ return t.card.v==='7' && t.card.s===g.trump; });
     var h7=hand.some(function(c){ return c && c.v==='7' && c.s===g.trump; });
@@ -1687,7 +1698,8 @@ function GameScreen(props){
 
   // IA (solo) ou bots online — só o host simula bots e grava lastActor para sincronizar
   useEffect(function(){
-    if(g.phase!=='playing' || partnerCount>0) return;
+    if(g.phase!=='playing') return;
+    if(isSolo && partnerCount>0) return;
     var p=g.curP;
     if(p<0||p>3) return;
     var seatIsBot = !!botSeats[p];
@@ -1822,7 +1834,7 @@ function GameScreen(props){
       if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false,mob,cbk));
       var s7out = g.trumpSevenOut || g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; }) || hand.some(function(h){ return h && h.v==='7' && h.s===g.trump; });
       var ab = c.v==='A' && c.s===g.trump && !s7out && hand.length>1;
-      var canClick = myTurn && !ab && partnerCount<=0;
+      var canClick = myTurn && !ab && (!isSolo || partnerCount<=0);
       return React.createElement(React.Fragment,{key:c.id},rCard(c,canClick?function(){playCard(mySeat,c);}:null,false,canClick,false,ab,mob,cbk));
     });
   }
@@ -1978,7 +1990,7 @@ function GameScreen(props){
         !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
       )
     ),
-    partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
+    isSolo&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
       React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Corte:'),
@@ -2015,8 +2027,8 @@ function GameScreen(props){
       ),
       React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
         React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
-        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&partnerCount<=0?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
-          NAMES[dS]+(myTurn&&partnerCount<=0?(mob?' — Toque na carta':' Clique para jogar!'):''),' ',
+        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&(!isSolo||partnerCount<=0)?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
+          NAMES[dS]+(myTurn&&(!isSolo||partnerCount<=0)?(mob?' — Toque na carta':' Clique para jogar!'):''),' ',
           React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?9:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
         )
       )
@@ -2130,6 +2142,7 @@ export default function App(){
 
   function goHome(){
     void (async function(){
+      setOPT(0);
       var code=roomCodeRef.current, id=myIdRef.current, scr=screenRef.current;
       try{
         if(code && id && (scr==='lobby' || scr==='online')){
@@ -2200,12 +2213,14 @@ export default function App(){
 
   if(screen==='online' && room && og){
     var me = room.players.find(function(p){ return p.id===myId; });
+    var rawSeat = me && typeof me.seat === 'number' ? me.seat : 0;
+    var seatClamped = rawSeat >= 0 && rawSeat <= 3 ? rawSeat : 0;
     var botSeatsMap = {};
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:me?me.seat:0,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
     );
