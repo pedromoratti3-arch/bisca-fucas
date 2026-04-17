@@ -5,58 +5,84 @@ import { db } from "@/lib/firebase";
 
 var RTB = "bisca/rooms";
 function roomDbRef(code) {
+  if (!db) return null;
   return ref(db, RTB + "/" + code);
 }
 function gameDbRef(code) {
+  if (!db) return null;
   return ref(db, RTB + "/" + code + "/game");
 }
 function chatDbRef(code) {
+  if (!db) return null;
   return ref(db, RTB + "/" + code + "/chat");
 }
 
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
+  isConfigured: function () {
+    return !!db;
+  },
   getRoom: async function (code) {
-    if (!code) return null;
+    if (!code || !db) return null;
     try {
-      var snap = await get(roomDbRef(code));
+      var rref = roomDbRef(code);
+      if (!rref) return null;
+      var snap = await get(rref);
       return snap.exists() ? snap.val() : null;
     } catch {
       return null;
     }
   },
   setRoom: async function (code, room) {
+    if (!db) return false;
     try {
-      await rtSet(roomDbRef(code), room);
+      var rref = roomDbRef(code);
+      if (!rref) return false;
+      await rtSet(rref, room);
       return true;
     } catch {
       return false;
     }
   },
   setGame: async function (code, game) {
+    if (!db) return false;
     try {
-      await rtSet(gameDbRef(code), game);
+      var gref = gameDbRef(code);
+      if (!gref) return false;
+      await rtSet(gref, game);
       return true;
     } catch {
       return false;
     }
   },
   setChat: async function (code, msgs) {
+    if (!db) return false;
     try {
-      await rtSet(chatDbRef(code), msgs);
+      var cref = chatDbRef(code);
+      if (!cref) return false;
+      await rtSet(cref, msgs);
       return true;
     } catch {
       return false;
     }
   },
   subscribeRoom: function (code, cb) {
+    if (!db) {
+      return function () {};
+    }
     var r = roomDbRef(code);
+    if (!r) return function () {};
     return onValue(r, function (snap) {
       cb(snap.exists() ? snap.val() : null);
     });
   },
   subscribeChat: function (code, cb) {
-    return onValue(chatDbRef(code), function (snap) {
+    if (!db) {
+      return function () {};
+    }
+    var c = chatDbRef(code);
+    if (!c) return function () {};
+    return onValue(c, function (snap) {
       var v = snap.val();
       cb(Array.isArray(v) ? v : []);
     });
@@ -679,17 +705,19 @@ function HomeScreen(P){
 
   async function create(){
     if(!nm.trim()){ setEr('Digite seu nome'); return; }
+    if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
     setLd(true); setEr('');
     var c=mkCode(), pid=uid();
     var room = {code:c,hostId:pid,players:[{id:pid,name:nm.trim(),seat:-1,team:null}],game:null};
     var ok = await RT.setRoom(c, room);
     setLd(false);
-    if(ok) P.onCreate(pid,nm.trim(),c); else setEr('Erro ao criar');
+    if(ok) P.onCreate(pid,nm.trim(),c,room); else setEr('Erro ao criar');
   }
 
   async function join(){
     if(!nm.trim()){ setEr('Digite seu nome'); return; }
     if(cd.length!==4){ setEr('Código: 4 letras'); return; }
+    if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
     setLd(true); setEr('');
     var r = await RT.getRoom(cd.toUpperCase());
     if(!r){ setLd(false); setEr('Sala não encontrada'); return; }
@@ -699,7 +727,7 @@ function HomeScreen(P){
     r.players.push({id:pid,name:nm.trim(),seat:-1,team:null});
     var ok = await RT.setRoom(cd.toUpperCase(), r);
     setLd(false);
-    if(ok) P.onJoin(pid,nm.trim(),cd.toUpperCase()); else setEr('Erro');
+    if(ok) P.onJoin(pid,nm.trim(),cd.toUpperCase(),r); else setEr('Erro');
   }
 
   var divider = function(t){
@@ -1340,6 +1368,14 @@ export default function App(){
     return function(){ unsub(); };
   },[screen,roomCode]);
 
+  useEffect(function(){
+    if(screen!=="online"||!room||!room.game) return;
+    setOG(function(prev){
+      if(prev!=null) return prev;
+      return room.game;
+    });
+  },[screen,room,room&&room.game]);
+
   function goHome(){ setScreen('home'); setRoom(null); setRoomCode(''); sg(null); setOG(null); setShowExit(false); }
 
   var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:12,left:12,background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
@@ -1358,8 +1394,8 @@ export default function App(){
   if(screen==='home'){
     return React.createElement(HomeScreen,{
       onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
-      onCreate:function(id,name,code){ setMyId(id); setMyName(name); setRoomCode(code); setScreen('lobby'); },
-      onJoin:function(id,name,code){ setMyId(id); setMyName(name); setRoomCode(code); setScreen('lobby'); }
+      onCreate:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap) setRoom(roomSnap); setScreen('lobby'); },
+      onJoin:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap) setRoom(roomSnap); setScreen('lobby'); }
     });
   }
 
@@ -1391,8 +1427,7 @@ export default function App(){
   }
 
   if(screen==='online' && room && room.game && !og){
-    setOG(room.game);
-    return null;
+    return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'system-ui,sans-serif',fontSize:14}},'Carregando mesa...');
   }
 
   return React.createElement(HomeScreen,{onSolo:function(){},onCreate:function(){},onJoin:function(){}});

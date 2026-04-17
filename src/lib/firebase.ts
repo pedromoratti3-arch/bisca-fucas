@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getDatabase } from "firebase/database";
+import { getDatabase, type Database } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,4 +12,9 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const db = getDatabase(app);
+
+const databaseUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
+export const db: Database | null =
+  typeof databaseUrl === "string" && databaseUrl.length > 0
+    ? getDatabase(app)
+    : null;
