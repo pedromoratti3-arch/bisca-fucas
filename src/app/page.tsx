@@ -1,9 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { ref, get, set as rtSet, onValue, remove } from "firebase/database";
+import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 
 var RTB = "bisca/rooms";
+/** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
+var RTP = "bisca/presence";
 function roomDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code);
@@ -16,6 +18,19 @@ function chatDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code + "/chat");
 }
+function presencePlayerRef(code, playerId) {
+  if (!db || !code || !playerId) return null;
+  return ref(db, RTP + "/" + code + "/" + playerId);
+}
+function presenceRoomRef(code) {
+  if (!db || !code) return null;
+  return ref(db, RTP + "/" + code);
+}
+
+/** onDisconnect da chave de presença atual (cancelar antes de sair ou trocar de sala). */
+var activePresenceOnDisconnect = /** @type {import("firebase/database").OnDisconnect | null} */ (null);
+var activePresencePlayerRef = /** @type {import("firebase/database").DatabaseReference | null} */ (null);
+
 /** Evita crash (.length em undefined) quando o Realtime DB devolve nós incompletos. */
 function normalizeGame(g) {
   if (!g || typeof g !== "object") return g;
@@ -167,22 +182,57 @@ var RT = {
       var rref = roomDbRef(code);
       if (!rref) return false;
       await remove(rref);
+      var pref = presenceRoomRef(code);
+      if (pref) await remove(pref);
       return true;
     } catch {
       return false;
     }
   },
-  /** Antes: onDisconnect().remove() no nó do jogador — ao cair a rede o Firebase apagava o jogador da sala e impedia voltar com o mesmo ID. */
-  attachRoomPresence: async function () {
-    return;
+  /** Liga presença: escreve bisca/presence/{code}/{playerId}; onDisconnect remove só essa chave (roster em rooms/ mantém-se). */
+  attachRoomPresence: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    await RT.detachRoomPresence();
+    var pref = presencePlayerRef(code, playerId);
+    if (!pref) return;
+    try {
+      await rtSet(pref, true);
+      var od = onDisconnect(pref);
+      await od.remove();
+      activePresenceOnDisconnect = od;
+      activePresencePlayerRef = pref;
+    } catch (e) {
+      void e;
+      activePresenceOnDisconnect = null;
+      activePresencePlayerRef = null;
+    }
   },
   detachRoomPresence: async function () {
-    return;
+    try {
+      if (activePresenceOnDisconnect) {
+        await activePresenceOnDisconnect.cancel();
+      }
+    } catch (e) {
+      void e;
+    }
+    activePresenceOnDisconnect = null;
+    try {
+      if (activePresencePlayerRef) await remove(activePresencePlayerRef);
+    } catch (e) {
+      void e;
+    }
+    activePresencePlayerRef = null;
   },
   removeSelfFromRoom: async function (code, playerId) {
     if (!db || !code || !playerId) return;
     try {
       await RT.detachRoomPresence();
+    } catch (e) {
+      void e;
+    }
+    try {
+      var pOnly = presencePlayerRef(code, playerId);
+      if (pOnly) await remove(pOnly);
     } catch (e) {
       void e;
     }
@@ -254,7 +304,7 @@ var RT = {
         });
         if (humans.length === 0) {
           try {
-            await remove(roomRef);
+            await RT.deleteRoom(code);
           } catch (e) {
             void e;
           }
@@ -1389,7 +1439,7 @@ function HomeScreen(P){
 
 /* ═══ LOBBY ═══ */
 function LobbyScreen(P){
-  var room=P.room, myId=P.myId, isHost=room.hostId===myId;
+  var room=P.room, myId=P.myId, presenceByPlayer=P.presenceByPlayer||{}, isHost=room.hostId===myId;
   var lobbyTh = THEMES[room.themeId]||THEMES.sala;
   var me = room.players.find(function(p){ return p.id===myId; });
   var humans = room.players.filter(function(p){ return !p.isBot; });
@@ -1432,11 +1482,18 @@ function LobbyScreen(P){
   }
 
   var playerRows = humans.map(function(p){
+    var online = !!presenceByPlayer[p.id];
     return React.createElement('div',{key:p.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,.05)',borderRadius:8,marginBottom:6}},
-      React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}},p.name[0]),
+      React.createElement('div',{style:{position:'relative',width:30,height:30,flexShrink:0}},
+        React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}},p.name[0]),
+        React.createElement('div',{title:online?'Na rede':'Sem ligação (pode voltar)',style:{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:online?'#4ade80':'#64748b',border:'2px solid #14141c',boxSizing:'border-box'}})
+      ),
       React.createElement('div',{style:{flex:1}},
         React.createElement('div',{style:{fontSize:13,fontWeight:600}},p.name+(p.id===myId?' (você)':'')),
-        React.createElement('div',{style:{fontSize:10,opacity:0.4}},(p.id===room.hostId?'Host \u00b7 ':'')+'Dupla '+(p.team||'?'))
+        React.createElement('div',{style:{fontSize:10,opacity:0.4}},
+          (p.id===room.hostId?'Host \u00b7 ':'')+'Dupla '+(p.team||'?'),
+          online ? null : React.createElement('span',{style:{marginLeft:6,color:'#fb923c',opacity:0.95}},' · fora da rede')
+        )
       )
     );
   });
@@ -2113,6 +2170,7 @@ export default function App(){
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
   var lcs=useState('sala'); var locId=lcs[0], setLocId=lcs[1];
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
+  var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var themeKey = locId;
@@ -2191,6 +2249,19 @@ export default function App(){
     });
     return function(){ unsub(); };
   },[screen,roomCode]);
+
+  useEffect(function(){
+    if(!RT.isConfigured() || !roomCode) return;
+    if(screen!=="lobby" && screen!=="online") return;
+    var pref = presenceRoomRef(roomCode);
+    if(!pref) return;
+    var unsub = onValue(pref, function(snap){
+      var v = snap.val();
+      if(v && typeof v === "object" && !Array.isArray(v)) setPresenceByPlayer(v);
+      else setPresenceByPlayer({});
+    });
+    return function(){ unsub(); };
+  },[roomCode, screen]);
 
   useEffect(function(){
     if(!RT.isConfigured() || !roomCode || !myId) return;
@@ -2389,7 +2460,7 @@ export default function App(){
   }
 
   if(screen==='lobby' && room){
-    return React.createElement(LobbyScreen,{room:room,myId:myId,onLeave:goHome});
+    return React.createElement(LobbyScreen,{room:room,myId:myId,presenceByPlayer:presenceByPlayer,onLeave:goHome});
   }
 
   if(screen==='online' && room && og){
