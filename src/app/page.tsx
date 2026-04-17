@@ -229,9 +229,10 @@ function opponentsVoidIn(mem, mt, suit){
   return isVoid(mem, opp1, suit) || isVoid(mem, opp2, suit);
 }
 
-function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN){
+function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
+  if(mySeat==null || mySeat<0) mySeat = 0;
 
   var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
   var h7 = hand.some(function(c){ return c && c.v==='7' && c.s===trump; });
@@ -375,42 +376,43 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN){
 
   // ── PARTNER WINNING ──
   if(partnerWinning){
-    // PROTECT PARTNER'S ENCARTE: if partner led with low card (0 pts),
-    // they might be setting up an encarte — don't steal with trump
-    var partnerCard = trick.find(function(t){ return t.player===curWin.player; });
-    var partnerLedLow = trick.length>=1 && trick[0].player===curWin.player && cPts(trick[0].card)===0;
+    // Só cartas que mantêm o parceiro a ganhar a vaza — nunca cortar com trunfo por cima dele
+    var safePool = pool.filter(function(c){
+      var w = getWin(trick.concat([{player:mySeat,card:c}]), trump);
+      return pTm(w.player)===mt;
+    });
+    var usePool = safePool.length ? safePool : pool;
+    var useNonTrump = usePool.filter(function(c){ return c.s!==trump; });
+    var useTrump = usePool.filter(function(c){ return c.s===trump; });
 
-    // If partner played strong card (A, 7, K), ENCHER!
+    var partnerCard = trick.find(function(t){ return t.player===curWin.player; });
     var partnerStrong = partnerCard && (partnerCard.card.v==='A' || partnerCard.card.v==='7' || partnerCard.card.v==='K');
 
-    // LAST TO PLAY + partner winning = ALWAYS feed maximum, no risk!
     if(isLast){
-      var bestFeed = nonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
+      var bestFeed = useNonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
       if(bestFeed.length) return bestFeed[0];
-      var midFeed = nonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
+      var midFeed = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
       if(midFeed.length) return midFeed[0];
-      // Even feed trump points if no non-trump with value
-      var trumpFeed = trumpCards.filter(function(c){ return cPts(c)>=2 && c.v!=='7'; }).sort(byPtsDesc);
+      var trumpFeed = useTrump.filter(function(c){ return cPts(c)>=2 && c.v!=='7'; }).sort(byPtsDesc);
       if(trumpFeed.length && trickPts>=6) return trumpFeed[0];
-      return lowest(pool);
+      return lowest(usePool);
     }
 
     if(partnerStrong || trickPts>=12){
-      var bf = nonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
+      var bf = useNonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
       if(bf.length) return bf[0];
-      var mf = nonTrump.filter(function(c){ return cPts(c)>=3; }).sort(byPtsDesc);
+      var mf = useNonTrump.filter(function(c){ return cPts(c)>=3; }).sort(byPtsDesc);
       if(mf.length) return mf[0];
-      var qf = nonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
+      var qf = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
       if(qf.length) return qf[0];
     }
 
     if(trickPts>=6){
-      var gf = nonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
+      var gf = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
       if(gf.length) return gf[0];
     }
 
-    // Partner led low (possible encarte) or low-value trick — throw garbage
-    return lowest(pool);
+    return lowest(usePool);
   }
 
   // ── OPPONENT WINNING ──
@@ -1161,7 +1163,7 @@ function GameScreen(props){
         if(pv.phase!=='playing' || pv.curP!==p) return pv;
         var isLT = pv.deck.length===0 && pv.hands.every(function(h){ return h.length<=1; });
         var avL = isLT && pv.trick.length===3;
-        var card = aiPick(pv.hands[p],pv.trick,pv.trump,pTm(p),pv.trumpSevenOut,avL,aiMemory,pv.tPts,pv.trickN);
+        var card = aiPick(pv.hands[p],pv.trick,pv.trump,pTm(p),pv.trumpSevenOut,avL,aiMemory,pv.tPts,pv.trickN,p);
         if(!card) return pv;
         recordPlay(aiMemory, p, card, pv.trick, pv.trump);
         var hands=pv.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
