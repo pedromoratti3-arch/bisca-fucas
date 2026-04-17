@@ -1,5 +1,67 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { ref, get, set as rtSet, onValue } from "firebase/database";
+import { db } from "@/lib/firebase";
+
+var RTB = "bisca/rooms";
+function roomDbRef(code) {
+  return ref(db, RTB + "/" + code);
+}
+function gameDbRef(code) {
+  return ref(db, RTB + "/" + code + "/game");
+}
+function chatDbRef(code) {
+  return ref(db, RTB + "/" + code + "/chat");
+}
+
+/** Firebase Realtime Database — salas, jogo e chat (multijogador). */
+var RT = {
+  getRoom: async function (code) {
+    if (!code) return null;
+    try {
+      var snap = await get(roomDbRef(code));
+      return snap.exists() ? snap.val() : null;
+    } catch {
+      return null;
+    }
+  },
+  setRoom: async function (code, room) {
+    try {
+      await rtSet(roomDbRef(code), room);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  setGame: async function (code, game) {
+    try {
+      await rtSet(gameDbRef(code), game);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  setChat: async function (code, msgs) {
+    try {
+      await rtSet(chatDbRef(code), msgs);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  subscribeRoom: function (code, cb) {
+    var r = roomDbRef(code);
+    return onValue(r, function (snap) {
+      cb(snap.exists() ? snap.val() : null);
+    });
+  },
+  subscribeChat: function (code, cb) {
+    return onValue(chatDbRef(code), function (snap) {
+      var v = snap.val();
+      cb(Array.isArray(v) ? v : []);
+    });
+  },
+};
 
 /* ═══ CONSTANTS ═══ */
 var SUITS = ['ouros','copas','espadas','paus'];
@@ -361,12 +423,6 @@ var ACSS = [
   '@keyframes spin{to{transform:rotate(360deg)}}'
 ].join('');
 
-/* ═══ STORAGE ═══ */
-var ST = {
-  get: async function(k){ try{ var r=await window.storage.get('bisca:'+k,true); return r?JSON.parse(r.value):null; }catch(e){ return null; } },
-  set: async function(k,v){ try{ await window.storage.set('bisca:'+k,JSON.stringify(v),true); return true; }catch(e){ return false; } }
-};
-
 /* ═══ RENDER HELPERS ═══ */
 var BTN = {background:'#C41230',color:'#fff',border:'none',borderRadius:8,padding:'10px 24px',cursor:'pointer',fontSize:15,fontWeight:'bold'};
 
@@ -526,28 +582,21 @@ function ChatPanel(P){
   var ns=useState(0); var unread=ns[0], setUnread=ns[1];
   var lastCount=useRef(0);
   var bottomRef=useRef(null);
-  var roomKey = P.roomCode ? 'bisca:room:'+P.roomCode+':chat' : '';
+  var openRef=useRef(false);
+  var code = P.roomCode || "";
+  openRef.current = open;
 
-  // Poll for messages
   useEffect(function(){
-    if(!roomKey) return;
-    var poll = async function(){
-      try{
-        var r = await window.storage.get(roomKey, true);
-        if(r){
-          var parsed = JSON.parse(r.value);
-          setMsgs(parsed);
-          if(!open && parsed.length > lastCount.current){
-            setUnread(parsed.length - lastCount.current);
-          }
-          if(open) lastCount.current = parsed.length;
-        }
-      }catch(e){}
-    };
-    poll();
-    var id = setInterval(poll, 1500);
-    return function(){ clearInterval(id); };
-  },[roomKey, open]);
+    if(!code) return;
+    var unsub = RT.subscribeChat(code, function(parsed){
+      setMsgs(parsed);
+      if(!openRef.current && parsed.length > lastCount.current){
+        setUnread(parsed.length - lastCount.current);
+      }
+      if(openRef.current) lastCount.current = parsed.length;
+    });
+    return function(){ unsub(); };
+  },[code]);
 
   // Scroll to bottom when new messages
   useEffect(function(){
@@ -555,16 +604,15 @@ function ChatPanel(P){
   },[msgs.length, open]);
 
   async function send(){
-    if(!msg.trim() || !roomKey) return;
+    if(!msg.trim() || !code) return;
     var newMsg = {name:P.myName||'???', msg:msg.trim(), t:Date.now()};
     var updated = msgs.concat([newMsg]);
-    // Keep last 50 messages
     if(updated.length>50) updated = updated.slice(updated.length-50);
-    try{
-      await window.storage.set(roomKey, JSON.stringify(updated), true);
+    var ok = await RT.setChat(code, updated);
+    if(ok){
       setMsgs(updated);
       lastCount.current = updated.length;
-    }catch(e){}
+    }
     setMsg('');
   }
 
@@ -634,7 +682,7 @@ function HomeScreen(P){
     setLd(true); setEr('');
     var c=mkCode(), pid=uid();
     var room = {code:c,hostId:pid,players:[{id:pid,name:nm.trim(),seat:-1,team:null}],game:null};
-    var ok = await ST.set('room:'+c, room);
+    var ok = await RT.setRoom(c, room);
     setLd(false);
     if(ok) P.onCreate(pid,nm.trim(),c); else setEr('Erro ao criar');
   }
@@ -643,13 +691,13 @@ function HomeScreen(P){
     if(!nm.trim()){ setEr('Digite seu nome'); return; }
     if(cd.length!==4){ setEr('Código: 4 letras'); return; }
     setLd(true); setEr('');
-    var r = await ST.get('room:'+cd.toUpperCase());
+    var r = await RT.getRoom(cd.toUpperCase());
     if(!r){ setLd(false); setEr('Sala não encontrada'); return; }
     if(r.game){ setLd(false); setEr('Partida já começou'); return; }
     if(r.players.length>=4){ setLd(false); setEr('Sala cheia'); return; }
     var pid = uid();
     r.players.push({id:pid,name:nm.trim(),seat:-1,team:null});
-    var ok = await ST.set('room:'+cd.toUpperCase(), r);
+    var ok = await RT.setRoom(cd.toUpperCase(), r);
     setLd(false);
     if(ok) P.onJoin(pid,nm.trim(),cd.toUpperCase()); else setEr('Erro');
   }
@@ -697,22 +745,22 @@ function LobbyScreen(P){
   var canStart = room.players.length===4 && tA.length===2 && tB.length===2;
 
   async function toggle(team){
-    var r = await ST.get('room:'+room.code); if(!r) return;
+    var r = await RT.getRoom(room.code); if(!r) return;
     var pl = r.players.find(function(p){ return p.id===myId; }); if(!pl) return;
     if(pl.team===team) pl.team=null;
     else if(r.players.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
-    await ST.set('room:'+r.code, r);
+    await RT.setRoom(r.code, r);
   }
 
   async function start(){
     if(!canStart||!isHost) return;
-    var r = await ST.get('room:'+room.code); if(!r) return;
+    var r = await RT.getRoom(room.code); if(!r) return;
     var a=r.players.filter(function(p){return p.team==='A';}), b=r.players.filter(function(p){return p.team==='B';});
     var nm=['','','','']; nm[0]=a[0].name; nm[2]=a[1].name; nm[1]=b[0].name; nm[3]=b[1].name;
     var sm={}; sm[a[0].id]=0; sm[a[1].id]=2; sm[b[0].id]=1; sm[b[1].id]=3;
     r.players.forEach(function(p){ p.seat=sm[p.id]; });
     r.game = mkGame(null,undefined,0,nm,r.hostId);
-    await ST.set('room:'+r.code, r);
+    await RT.setRoom(r.code, r);
   }
 
   var playerRows = room.players.map(function(p){
@@ -777,7 +825,7 @@ function GameScreen(props){
   useEffect(function(){
     if(!isOnline || !roomCode) return;
     if(!g.lastActor || g.lastActor!==myPid) return;
-    ST.set('room:'+roomCode+':game', g);
+    RT.setGame(roomCode, g);
   },[g]);
 
   // Shuffle phase
@@ -785,7 +833,7 @@ function GameScreen(props){
     if(g.phase!=='shuffle') return;
     if(isSolo) aiMemory = makeMemory();
     // Reset chat on new round
-    if(isOnline && roomCode){ try{ window.storage.set('bisca:room:'+roomCode+':chat',JSON.stringify([]),true); }catch(e){} }
+    if(isOnline && roomCode){ RT.setChat(roomCode, []); }
     setSh(true);
     var t = setTimeout(function(){ setSh(false); sg(function(p){ return Object.assign({},p,{phase:'cut'}); }); },2400);
     return function(){ clearTimeout(t); setSh(false); };
@@ -1271,24 +1319,25 @@ export default function App(){
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
   var lcs=useState('sala'); var locId=lcs[0], setLocId=lcs[1];
   var theme = THEMES[locId] || THEMES.sala;
+  var screenRef=useRef(screen);
+  var myIdRef=useRef(myId);
+  screenRef.current=screen;
+  myIdRef.current=myId;
 
-  // Polling
   useEffect(function(){
-    if(screen!=='lobby' && screen!=='online') return;
+    if(screen!=="lobby" && screen!=="online") return;
     if(!roomCode) return;
-    var poll = async function(){
-      var r = await ST.get('room:'+roomCode);
+    var unsub = RT.subscribeRoom(roomCode, function(r){
       if(!r) return;
       setRoom(r);
-      if(r.game && screen==='lobby') setScreen('online');
-      if(r.game && screen==='online'){
-        var gm = await ST.get('room:'+roomCode+':game');
-        if(gm && gm.lastActor!==myId) setOG(gm);
+      var scr=screenRef.current;
+      if(r.game && scr==="lobby") setScreen("online");
+      if(r.game && scr==="online"){
+        var gm=r.game;
+        if(gm && gm.lastActor!==myIdRef.current) setOG(gm);
       }
-    };
-    poll();
-    var id = setInterval(poll, 1200);
-    return function(){ clearInterval(id); };
+    });
+    return function(){ unsub(); };
   },[screen,roomCode]);
 
   function goHome(){ setScreen('home'); setRoom(null); setRoomCode(''); sg(null); setOG(null); setShowExit(false); }
