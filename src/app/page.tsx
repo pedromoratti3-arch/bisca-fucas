@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
+import { ref, get, set as rtSet, onValue, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 
 var RTB = "bisca/rooms";
@@ -16,14 +16,6 @@ function chatDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code + "/chat");
 }
-function playerDbRef(code, playerId) {
-  if (!db || !code || !playerId) return null;
-  return ref(db, RTB + "/" + code + "/players/" + playerId);
-}
-
-/** Instância ativa de onDisconnect da sala (cancelar antes de sair manualmente). */
-var activeRoomOnDisconnect = /** @type {import("firebase/database").OnDisconnect | null} */ (null);
-
 /** Evita crash (.length em undefined) quando o Realtime DB devolve nós incompletos. */
 function normalizeGame(g) {
   if (!g || typeof g !== "object") return g;
@@ -90,6 +82,49 @@ function normalizeRoom(r) {
   return Object.assign({}, r, { players: players, game: game, themeId: tid });
 }
 
+var BF_SESSION_KEY = "bf_online_session_v1";
+function readBfSession() {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    var j = localStorage.getItem(BF_SESSION_KEY);
+    if (!j) return null;
+    var o = JSON.parse(j);
+    if (!o || typeof o !== "object") return null;
+    var code = typeof o.code === "string" ? o.code.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4) : "";
+    if (code.length !== 4 || !o.playerId) return null;
+    return { code: code, playerId: String(o.playerId), playerName: typeof o.playerName === "string" ? o.playerName : "" };
+  } catch {
+    return null;
+  }
+}
+function writeBfSession(s) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(
+      BF_SESSION_KEY,
+      JSON.stringify({ v: 1, code: s.code, playerId: s.playerId, playerName: s.playerName || "" })
+    );
+  } catch {
+    void 0;
+  }
+}
+function clearBfSession() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.removeItem(BF_SESSION_KEY);
+  } catch {
+    void 0;
+  }
+}
+function playerInRoom(r, playerId) {
+  if (!r || !playerId || !Array.isArray(r.players)) return null;
+  for (var i = 0; i < r.players.length; i++) {
+    var p = r.players[i];
+    if (p && p.id === playerId) return p;
+  }
+  return null;
+}
+
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
   isConfigured: function () {
@@ -137,23 +172,12 @@ var RT = {
       return false;
     }
   },
-  attachRoomPresence: async function (code, playerId) {
-    if (!db || !code || !playerId) return;
-    await RT.detachRoomPresence();
-    var pref = playerDbRef(code, playerId);
-    if (!pref) return;
-    var od = onDisconnect(pref);
-    await od.remove();
-    activeRoomOnDisconnect = od;
+  /** Antes: onDisconnect().remove() no nó do jogador — ao cair a rede o Firebase apagava o jogador da sala e impedia voltar com o mesmo ID. */
+  attachRoomPresence: async function () {
+    return;
   },
   detachRoomPresence: async function () {
-    if (!activeRoomOnDisconnect) return;
-    try {
-      await activeRoomOnDisconnect.cancel();
-    } catch (e) {
-      void e;
-    }
-    activeRoomOnDisconnect = null;
+    return;
   },
   removeSelfFromRoom: async function (code, playerId) {
     if (!db || !code || !playerId) return;
@@ -161,7 +185,6 @@ var RT = {
       await RT.detachRoomPresence();
     } catch (e) {
       void e;
-      activeRoomOnDisconnect = null;
     }
     try {
       var r = await RT.getRoom(code);
@@ -2090,6 +2113,8 @@ export default function App(){
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
   var lcs=useState('sala'); var locId=lcs[0], setLocId=lcs[1];
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
+  var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
+  var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var themeKey = locId;
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
@@ -2102,15 +2127,57 @@ export default function App(){
   roomCodeRef.current=roomCode;
 
   useEffect(function(){
+    if(screen!=="home"){
+      return;
+    }
+    if(!RT.isConfigured()){
+      setResumeOffer(null);
+      return;
+    }
+    var s = readBfSession();
+    if(!s){
+      setResumeOffer(null);
+      return;
+    }
+    var cancelled=false;
+    void RT.getRoom(s.code).then(function(r){
+      if(cancelled) return;
+      if(!r || !playerInRoom(r, s.playerId)){
+        clearBfSession();
+        setResumeOffer(null);
+        return;
+      }
+      var me = playerInRoom(r, s.playerId);
+      setResumeOffer({ code: s.code, name: (me && me.name) || s.playerName || "Jogador", inGame: !!r.game });
+    });
+    return function(){
+      cancelled=true;
+    };
+  },[screen]);
+
+  useEffect(function(){
     if(screen!=="lobby" && screen!=="online") return;
     if(!roomCode) return;
     var unsub = RT.subscribeRoom(roomCode, function(r){
       if(!r){
+        clearBfSession();
+        setResumeOffer(null);
         setRoom(null);
         setRoomCode('');
         setOG(null);
         var scr0=screenRef.current;
         if(scr0==='lobby'||scr0==='online') setScreen('home');
+        return;
+      }
+      var mid = myIdRef.current;
+      if(mid && !playerInRoom(r, mid)){
+        clearBfSession();
+        setResumeOffer(null);
+        setRoom(null);
+        setRoomCode('');
+        setOG(null);
+        var scrKick=screenRef.current;
+        if(scrKick==='lobby'||scrKick==='online') setScreen('home');
         return;
       }
       setRoom(r);
@@ -2146,6 +2213,39 @@ export default function App(){
     });
   },[screen,room,room&&room.game]);
 
+  function dismissResumeSession(){
+    clearBfSession();
+    setResumeOffer(null);
+  }
+
+  async function resumeIntoRoom(){
+    if(resumeBusy) return;
+    var s = readBfSession();
+    if(!s){
+      setResumeOffer(null);
+      return;
+    }
+    setResumeBusy(true);
+    var r = await RT.getRoom(s.code);
+    if(!r || !playerInRoom(r, s.playerId)){
+      clearBfSession();
+      setResumeOffer(null);
+      setResumeBusy(false);
+      return;
+    }
+    var me = playerInRoom(r, s.playerId);
+    setMyId(me.id);
+    setMyName(me.name || s.playerName || "");
+    setRoomCode(s.code);
+    setRoom(r);
+    if(r.themeId) setLocId(r.themeId);
+    writeBfSession({ code: s.code, playerId: me.id, playerName: me.name || s.playerName || "" });
+    setOG(null);
+    setScreen(r.game ? "online" : "lobby");
+    setResumeOffer(null);
+    setResumeBusy(false);
+  }
+
   function goHome(){
     void (async function(){
       setOPT(0);
@@ -2155,6 +2255,8 @@ export default function App(){
           await RT.removeSelfFromRoom(code, id);
         }
       }catch(e){ void e; }
+      clearBfSession();
+      setResumeOffer(null);
       setScreen('home');
       setRoom(null);
       setRoomCode('');
@@ -2169,7 +2271,11 @@ export default function App(){
   var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
     React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:340,width:'90%',textAlign:'center'})},
       React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
-      React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20}},'O progresso será perdido.'),
+      React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20}},
+        screen==='online'||screen==='lobby'
+          ? 'Você será removido da sala no servidor. Com partida em curso, o botão Entrar com o código não volta a colocá-lo na mesa — só o cartão "Continuar na mesa" no início, se a sessão ainda for válida.'
+          : 'O progresso será perdido.'
+      ),
       React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
         React.createElement('button',{onClick:goHome,style:primaryButtonStyle(theme)},'Sim, sair'),
         React.createElement('button',{onClick:function(){setShowExit(false);},style:themeGhostButtonStyle(theme)},'Continuar')
@@ -2177,12 +2283,78 @@ export default function App(){
     )
   ) : null;
 
+  var resumeTh = THEMES.sala;
+  var resumeBanner =
+    screen === "home" && resumeOffer
+      ? React.createElement(
+          "div",
+          {
+            style: {
+              position: "fixed",
+              top: "max(10px, env(safe-area-inset-top))",
+              left: "max(12px, env(safe-area-inset-left))",
+              right: "max(12px, env(safe-area-inset-right))",
+              maxWidth: 360,
+              margin: "0 auto",
+              padding: "14px 16px",
+              borderRadius: 14,
+              background: "rgba(196,18,48,.12)",
+              border: "1px solid rgba(196,18,48,.35)",
+              boxSizing: "border-box",
+              zIndex: 120,
+            },
+          },
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#f0d078", marginBottom: 6 } }, "Continuar na mesa"),
+          React.createElement("div", { style: { fontSize: 16, fontWeight: 800, letterSpacing: 3, color: "#fff", marginBottom: 4 } }, resumeOffer.code),
+          React.createElement("div", { style: { fontSize: 12, opacity: 0.75, marginBottom: 8 } }, resumeOffer.name),
+          React.createElement(
+            "div",
+            { style: { fontSize: 11, opacity: 0.55, lineHeight: 1.45, marginBottom: 12 } },
+            resumeOffer.inGame
+              ? "A partida já começou — reconecte para voltar ao mesmo lugar (crash, internet ou fecho acidental do separador)."
+              : "Você ainda está na sala no servidor — volte ao lobby se fechou o site sem sair por \"Voltar\"."
+          ),
+          React.createElement(
+            "div",
+            { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+            React.createElement(
+              "button",
+              {
+                type: "button",
+                disabled: resumeBusy,
+                onClick: function () {
+                  void resumeIntoRoom();
+                },
+                style: Object.assign({}, primaryButtonStyle(resumeTh), { flex: 1, minWidth: 140, opacity: resumeBusy ? 0.6 : 1 }),
+              },
+              resumeBusy ? "A abrir…" : "Voltar à mesa"
+            ),
+            React.createElement(
+              "button",
+              {
+                type: "button",
+                disabled: resumeBusy,
+                onClick: dismissResumeSession,
+                style: Object.assign({}, themeGhostButtonStyle(resumeTh), { minWidth: 100 }),
+              },
+              "Esquecer"
+            )
+          )
+        )
+      : null;
+
   if(screen==='home'){
-    return React.createElement(HomeScreen,{
-      onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
-      onGoPickCreate:function(name){ setMyName(name); setScreen('pickLocCreate'); },
-      onJoin:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby'); }
-    });
+    return React.createElement(React.Fragment,null,
+      resumeBanner,
+      React.createElement(HomeScreen,{
+        onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
+        onGoPickCreate:function(name){ setMyName(name); setScreen('pickLocCreate'); },
+        onJoin:function(id,name,code,roomSnap){
+          writeBfSession({ code: code, playerId: id, playerName: name });
+          setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
+        }
+      })
+    );
   }
 
   if(screen==='pickLocCreate'){
@@ -2197,7 +2369,10 @@ export default function App(){
           var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc};
           var ok = await RT.setRoom(c, roomNew);
           setCrBusy(false);
-          if(ok){ setMyId(pid); setRoomCode(c); setLocId(loc); setRoom(roomNew); setScreen('lobby'); }
+          if(ok){
+            writeBfSession({ code: c, playerId: pid, playerName: myName });
+            setMyId(pid); setRoomCode(c); setLocId(loc); setRoom(roomNew); setScreen('lobby');
+          }
         }
       }),
       crBusy ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
@@ -2243,6 +2418,9 @@ export default function App(){
     return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'system-ui,sans-serif',fontSize:14}},'Carregando mesa...');
   }
 
-  return React.createElement(HomeScreen,{onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}});
+  return React.createElement(React.Fragment,null,
+    resumeBanner,
+    React.createElement(HomeScreen,{onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}})
+  );
 }
 
