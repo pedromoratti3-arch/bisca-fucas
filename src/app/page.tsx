@@ -629,11 +629,11 @@ function rCard(c,onClick,back,glow,sm,blocked,mob){
   var W,H,fs,symFs,pad;
   if(mob){
     if(back||!c){
-      W=sm?22:26; H=sm?32:36;
-      return React.createElement('div',{style:{width:W,height:H,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid #C41230',borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
+      W=sm?26:30; H=sm?38:44;
+      return React.createElement('div',{style:{width:W,height:H,boxSizing:'border-box',background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid #C41230',borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
     }
-    if(sm){ W=24;H=32;fs=8;symFs=10;pad='0 1px'; }
-    else { W=36;H=48;fs=10;symFs=14;pad='2px 3px'; }
+    if(sm){ W=30;H=40;fs=9;symFs=12;pad='3px 3px'; }
+    else { W=44;H=58;fs=12;symFs=17;pad:'5px 6px'; }
   } else {
     W=sm?30:46; H=sm?42:63;
     if(back||!c){
@@ -647,26 +647,28 @@ function rCard(c,onClick,back,glow,sm,blocked,mob){
     onClick: onClick,
     onMouseEnter: function(e){ if(onClick) e.currentTarget.style.transform='translateY('+lift+'px)'; },
     onMouseLeave: function(e){ e.currentTarget.style.transform='none'; },
-    style:{width:W,height:H,background:'white',border:'2px solid '+(glow?'#FFD700':col),borderRadius:5,
+    style:{width:W,height:H,boxSizing:'border-box',background:'white',border:'2px solid '+(glow?'#FFD700':col),borderRadius:5,
       cursor:blocked?'not-allowed':onClick?'pointer':'default',
       display:'flex',flexDirection:'column',justifyContent:'space-between',
+      alignItems:'stretch',
       padding:pad,fontSize:fs,fontWeight:'bold',color:col,flexShrink:0,
+      overflow:'visible',
       opacity:blocked?0.35:1,boxShadow:glow?'0 0 10px #FFD70088':'0 1px 4px #0004',
       transition:'transform .12s',userSelect:'none',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}
   },
-    React.createElement('span',null,c.v),
-    React.createElement('span',{style:{textAlign:'center',fontSize:symFs,lineHeight:1}},SYM[c.s]),
-    React.createElement('span',{style:{transform:'rotate(180deg)',display:'block'}},c.v)
+    React.createElement('span',{style:{lineHeight:1.15,display:'block'}},c.v),
+    React.createElement('span',{style:{textAlign:'center',fontSize:symFs,lineHeight:1,flex:1,display:'flex',alignItems:'center',justifyContent:'center'}},SYM[c.s]),
+    React.createElement('span',{style:{transform:'rotate(180deg)',display:'block',lineHeight:1.15}},c.v)
   );
 }
 
 function rSlot(a,mob){
-  var w=mob?24:30, h=mob?32:42;
+  var w=30, h=mob?40:42;
   return React.createElement('div',{style:{width:w,height:h,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent',flexShrink:0}});
 }
 
 function deckPile(n,onClick,hi,mob){
-  var cw=mob?26:46, ch=mob?38:63, off=mob?1:2, boxW=mob?32:52, boxH=mob?46:70, fs=mob?9:11;
+  var cw=mob?30:46, ch=mob?44:63, off=mob?1:2, boxW=mob?36:52, boxH=mob?52:70, fs=mob?10:11;
   var layers = [2,1,0].map(function(i){
     return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:i*-off,width:cw,height:ch,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid '+(hi?'#FFD700':'#C41230'),borderRadius:5,boxShadow:'0 2px 6px #0005'}});
   });
@@ -1332,14 +1334,14 @@ function GameScreen(props){
           React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:15}},SYM[g.trump]+' '+g.trump),
           isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 6px',fontSize:11}},'BATIDO') : null
         ),
-        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(52px,26vw) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?4:6,alignItems:'center',justifyItems:'center',flex:1,minWidth:0,width:'100%'}},
+        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(56px,32vw) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?4:6,alignItems:'center',justifyItems:'center',flex:1,minWidth:0,width:'100%'}},
           React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
-            React.createElement('div',{style:{display:'flex',gap:3,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false,false,mob)):null; })),
+            React.createElement('div',{style:{display:'flex',gap:3,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false,false,mob)):null; })),
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dN])
           ),
           React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dW]),
-            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dW].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
+            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dW].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
           ),
           React.createElement('div',{style:{gridArea:'c',display:'flex',flexDirection:'column',alignItems:'center',gap:6,minWidth:0}},
             g.tc ? React.createElement('div',{style:{transform:'rotate(-14deg)',marginBottom:-8}},rCard(g.tc,null,false,false,true,false,mob)) : null,
@@ -1347,10 +1349,10 @@ function GameScreen(props){
           ),
           React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dE]),
-            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dE].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
+            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dE].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
           ),
           React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
-            React.createElement('div',{style:{display:'flex',gap:4,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dS].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,false,false,false,false,mob)):null; })),
+            React.createElement('div',{style:{display:'flex',gap:4,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dS].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,false,false,false,false,mob)):null; })),
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dS])
           )
         ),
@@ -1364,11 +1366,11 @@ function GameScreen(props){
   }
 
   // ── PLAYING SCREEN ──
-  var gridColsPlay = mob ? 'minmax(0,1fr) minmax(52px,26vw) minmax(0,1fr)' : '1fr 192px 1fr';
-  var tblW = mob ? 'min(26vw, 102px)' : 192;
-  var tblH = mob ? 'min(24vw, 96px)' : 178;
-  var edge = mob ? 4 : 7;
-  return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(12px, env(safe-area-inset-bottom))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
+  var gridColsPlay = mob ? 'minmax(0,1fr) minmax(56px,32vw) minmax(0,1fr)' : '1fr 192px 1fr';
+  var tblW = mob ? 'min(32vw, 128px)' : 192;
+  var tblH = mob ? 'min(30vw, 118px)' : 178;
+  var edge = mob ? 6 : 7;
+  return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
     React.createElement('div',{style:{display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
       React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
