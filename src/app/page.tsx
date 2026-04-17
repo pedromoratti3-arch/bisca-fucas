@@ -57,6 +57,7 @@ function normalizeGame(g) {
     deck: Array.isArray(g.deck) ? g.deck : [],
     fd: Array.isArray(g.fd) ? g.fd : [],
     events: Array.isArray(g.events) ? g.events : [],
+    setWins: Array.isArray(g.setWins) ? g.setWins : [0, 0],
     playerNames: names,
   });
 }
@@ -593,13 +594,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 }
 
 /* ═══ GAME STATE ═══ */
-function mkGame(pm,ps,tb,names,actor){
+function mkGame(pm,ps,tb,names,actor,sw){
   var m = pm || [0,0];
   var st = ps!==undefined ? nxt(ps) : 2;
   return {
     phase:'shuffle', starter:st, fd:shf(mkDk()), tc:null, trump:null, rawTc:null,
     hands:[[],[],[],[]], trick:[], curP:st, tPts:[0,0], mPts:m.slice(),
     trickN:0, canSwap:false, batido:false, trumpSevenOut:false, tieBonus:tb||0,
+    setWins:Array.isArray(sw)?sw.slice():[0,0],
     events:[], summary:null, lastW:null, deck:[], dealStep:0, msg:'',
     playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
     lastActor: actor || ''
@@ -1197,7 +1199,7 @@ function LobbyScreen(P){
     var nm=['','','',''];
     nm[0]=aFull[0].name; nm[2]=aFull[1].name;
     nm[1]=bFull[0].name; nm[3]=bFull[1].name;
-    r.game = mkGame(null,undefined,0,nm,r.hostId);
+    r.game = mkGame(null,undefined,0,nm,r.hostId,undefined);
     await RT.setRoom(r.code, r);
   }
 
@@ -1285,6 +1287,8 @@ function GameScreen(props){
   var isRoomHost = !!props.isRoomHost;
   var cutSecSt = useState(null);
   var cutSec = cutSecSt[0], setCutSec = cutSecSt[1];
+  var cutLiftSt = useState(null);
+  var cutLift = cutLiftSt[0], setCutLift = cutLiftSt[1];
 
   // Write online state (ONLY here, GameScreen is the single writer)
   useEffect(function(){
@@ -1424,11 +1428,12 @@ function GameScreen(props){
       }
       return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg});
     });
-    setCa(false); setHovHalf(null);
+    setCa(false); setCutLift(null); setHovHalf(null);
   }
 
   function doCut(side){
     if(g.phase!=='cut') return;
+    setCutLift(side);
     setCa(true);
     var ci = side==='top' ? (16+Math.floor(Math.random()*5)) : (8+Math.floor(Math.random()*5));
     setTimeout(function(){ performCut(ci); },600);
@@ -1541,7 +1546,7 @@ function GameScreen(props){
     var t = setTimeout(function(){
       sg(function(pv){
         if(pv.phase!=='end_round') return pv;
-        var mPts=pv.mPts.slice(), sum=[];
+        var mPts=pv.mPts.slice(), setWins=(pv.setWins||[0,0]).slice(), sum=[];
         var win=pv.tPts[0]>pv.tPts[1]?0:pv.tPts[1]>pv.tPts[0]?1:-1, newTB=0;
         if(win>=0){
           var l=1-win, basePts=(pv.batido&&pv.trump==='copas')?2:1, totalPts=basePts+pv.tieBonus;
@@ -1554,7 +1559,14 @@ function GameScreen(props){
         } else { newTB=pv.tieBonus+1; sum.push('Empate 60x60! Proxima vale '+(1+newTB)+' pts!'); }
         pv.events.forEach(function(e){ mPts[e.tm]++; sum.push(e.lbl+' +1 dupla '+(e.tm===0?'A':'B')); });
         var go = mPts[0]>=4 || mPts[1]>=4;
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,phase:go?'end_game':'show_summary',summary:sum});
+        if(go){
+          var matchWinner = mPts[0]>=4 ? 0 : 1;
+          setWins[matchWinner] += 1;
+          sum.push('Dupla '+(matchWinner===0?'A':'B')+' fechou a partida de 4 pontos!');
+          mPts = [0,0];
+          newTB = 0;
+        }
+        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum});
       });
     },500);
     return function(){ clearTimeout(t); };
@@ -1633,11 +1645,11 @@ function GameScreen(props){
         React.createElement('div',{style:{fontSize:14,opacity:0.85,fontWeight:'500'}},'Escolha como cortar:'),
         cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:13,fontWeight:700,color:'#fbbf24',textAlign:'center',padding:'0 12px'}},'Tempo: '+cutSec+'s — se acabar, corta automático.') : null,
         React.createElement('div',{style:{display:'flex',gap:mob?12:24,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
-          React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
+          React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim&&cutLift==='top'?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
             deckPile(20,null,hovHalf==='top',mob),
             React.createElement('div',{style:{fontSize:11,color:hovHalf==='top'?'#FFD700':'#fca5a5'}},'Metade de cima')
           ),
-          React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer'}},
+          React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim&&cutLift==='bottom'?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
             deckPile(20,null,hovHalf==='bottom',mob),
             React.createElement('div',{style:{fontSize:11,color:hovHalf==='bottom'?'#FFD700':'#fca5a5'}},'Metade de baixo')
           )
@@ -1722,6 +1734,10 @@ function GameScreen(props){
         )
       )
     ),
+    React.createElement('div',{style:{display:'flex',justifyContent:'center',fontSize:11,opacity:0.7,margin:'6px 0 8px',gap:12}},
+      React.createElement('span',null,'🏆 Dupla A: '+((g.setWins&&g.setWins[0])||0)),
+      React.createElement('span',null,'🏆 Dupla B: '+((g.setWins&&g.setWins[1])||0))
+    ),
     React.createElement('div',{style:{height:mob?4:8}}),
     React.createElement('div',{style:{background:'rgba(0,0,0,.4)',borderRadius:8,padding:mob?'6px 8px':'5px 12px',marginBottom:8,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center'}},
       React.createElement('span',null,g.msg),
@@ -1779,23 +1795,18 @@ function GameScreen(props){
       React.createElement('div',{style:{background:'#3a0808',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:400,width:'90%'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
           rLogo(34),
-          React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},g.phase==='end_game'?'Fim de partida!':'Resultado da rodada')
+          React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},'Resultado da rodada')
         ),
         React.createElement('div',{style:{marginBottom:14}},
           g.summary ? g.summary.map(function(s,i){ return React.createElement('div',{key:i,style:{padding:'5px 0',fontSize:13,borderBottom:'1px solid rgba(255,255,255,.1)'}},s); }) : null
         ),
         React.createElement('div',{style:{textAlign:'center',fontSize:22,fontWeight:'bold',margin:'16px 0'}},'🟢 '+g.mPts[0]+' x '+g.mPts[1]+' 🔴'),
-        g.phase==='end_game'
-          ? React.createElement('div',{style:{textAlign:'center'}},
-              React.createElement('div',{style:{fontSize:18,marginBottom:14}},g.mPts[0]>=4?'Dupla A venceu! 🎉':'Dupla B venceu! 🎉'),
-              React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center'}},
-                React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,g.starter,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor));},style:BTN},'Revanche'),
-                React.createElement('button',{onClick:function(){if(props.onMenu)props.onMenu();},style:Object.assign({},BTN,{background:'#444'})},'Menu')
-              )
-            )
-          : React.createElement('div',{style:{textAlign:'center'}},
-              React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,g.starter,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor));},style:BTN},'Proxima rodada')
-            )
+        React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.9,marginBottom:12}},
+          'Partidas: 🟢 '+((g.setWins&&g.setWins[0])||0)+' x '+((g.setWins&&g.setWins[1])||0)+' 🔴'
+        ),
+        React.createElement('div',{style:{textAlign:'center'}},
+          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,g.starter,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:BTN},'Proxima rodada')
+        )
       )
     ) : null,
     React.createElement('div',{style:{position:'fixed',bottom:mob?'max(8px, env(safe-area-inset-bottom))':8,right:mob?'max(10px, env(safe-area-inset-right))':10,fontSize:10,opacity:0.3}},'by: Ruivo01')
@@ -1940,7 +1951,7 @@ export default function App(){
   if(screen==='pickLoc'){
     return React.createElement(LocationScreen,{
       onBack:function(){ setScreen('home'); },
-      onSelect:function(loc){ setLocId(loc); sg(mkGame(null,undefined,0,[myName,'Adv. Esq.','Parceiro','Adv. Dir.'])); setScreen('solo'); }
+      onSelect:function(loc){ setLocId(loc); sg(mkGame(null,undefined,0,[myName,'Adv. Esq.','Parceiro','Adv. Dir.'],undefined,undefined)); setScreen('solo'); }
     });
   }
 
