@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { ref, get, set as rtSet, onValue } from "firebase/database";
+import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 
 var RTB = "bisca/rooms";
@@ -16,6 +16,13 @@ function chatDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code + "/chat");
 }
+function playerDbRef(code, playerId) {
+  if (!db || !code || !playerId) return null;
+  return ref(db, RTB + "/" + code + "/players/" + playerId);
+}
+
+/** Instância ativa de onDisconnect da sala (cancelar antes de sair manualmente). */
+var activeRoomOnDisconnect = /** @type {import("firebase/database").OnDisconnect | null} */ (null);
 
 /** Evita crash (.length em undefined) quando o Realtime DB devolve nós incompletos. */
 function normalizeGame(g) {
@@ -61,7 +68,10 @@ function normalizeRoom(r) {
     if (players && typeof players === "object") {
       players = Object.keys(players)
         .sort(function (a, b) {
-          return Number(a) - Number(b);
+          var na = Number(a),
+            nb = Number(b);
+          if (!isNaN(na) && !isNaN(nb) && String(na) === a && String(nb) === b) return na - nb;
+          return a.localeCompare(b);
         })
         .map(function (k) {
           return players[k];
@@ -98,10 +108,73 @@ var RT = {
     try {
       var rref = roomDbRef(code);
       if (!rref) return false;
-      await rtSet(rref, room);
+      var payload = Object.assign({}, room);
+      if (Array.isArray(payload.players)) {
+        var pm = {};
+        for (var pi = 0; pi < payload.players.length; pi++) {
+          var pl = payload.players[pi];
+          if (pl && pl.id) pm[pl.id] = pl;
+        }
+        payload.players = pm;
+      }
+      await rtSet(rref, payload);
       return true;
     } catch {
       return false;
+    }
+  },
+  deleteRoom: async function (code) {
+    if (!db || !code) return false;
+    try {
+      var rref = roomDbRef(code);
+      if (!rref) return false;
+      await remove(rref);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  attachRoomPresence: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    await RT.detachRoomPresence();
+    var pref = playerDbRef(code, playerId);
+    if (!pref) return;
+    var od = onDisconnect(pref);
+    await od.remove();
+    activeRoomOnDisconnect = od;
+  },
+  detachRoomPresence: async function () {
+    if (!activeRoomOnDisconnect) return;
+    try {
+      await activeRoomOnDisconnect.cancel();
+    } catch (e) {
+      void e;
+    }
+    activeRoomOnDisconnect = null;
+  },
+  removeSelfFromRoom: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    await RT.detachRoomPresence();
+    try {
+      var r = await RT.getRoom(code);
+      if (!r) return;
+      var players = r.players.filter(function (p) {
+        return p.id !== playerId;
+      });
+      var humans = players.filter(function (p) {
+        return !p.isBot;
+      });
+      if (humans.length === 0) {
+        await RT.deleteRoom(code);
+        return;
+      }
+      var hostId = r.hostId;
+      if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
+        hostId = humans[0].id;
+      }
+      await RT.setRoom(code, Object.assign({}, r, { players: players, hostId: hostId }));
+    } catch (e) {
+      void e;
     }
   },
   setGame: async function (code, game) {
@@ -130,10 +203,45 @@ var RT = {
     if (!db) {
       return function () {};
     }
-    var r = roomDbRef(code);
-    if (!r) return function () {};
-    return onValue(r, function (snap) {
-      cb(snap.exists() ? normalizeRoom(snap.val()) : null);
+    var rref = roomDbRef(code);
+    if (!rref) return function () {};
+    var roomRef = rref;
+    return onValue(roomRef, function (snap) {
+      void (async function () {
+        if (!snap.exists()) {
+          cb(null);
+          return;
+        }
+        var r = normalizeRoom(snap.val());
+        if (!r || !Array.isArray(r.players)) {
+          cb(null);
+          return;
+        }
+        var humans = r.players.filter(function (p) {
+          return !p.isBot;
+        });
+        if (humans.length === 0) {
+          try {
+            await remove(roomRef);
+          } catch (e) {
+            void e;
+          }
+          cb(null);
+          return;
+        }
+        var hostOk = r.players.some(function (p) {
+          return p.id === r.hostId;
+        });
+        if (!hostOk) {
+          try {
+            await RT.setRoom(code, Object.assign({}, r, { hostId: humans[0].id }));
+          } catch (e) {
+            void e;
+          }
+          return;
+        }
+        cb(r);
+      })();
     });
   },
   subscribeChat: function (code, cb) {
@@ -1508,14 +1616,23 @@ export default function App(){
   var theme = THEMES[themeKey];
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
+  var roomCodeRef=useRef(roomCode);
   screenRef.current=screen;
   myIdRef.current=myId;
+  roomCodeRef.current=roomCode;
 
   useEffect(function(){
     if(screen!=="lobby" && screen!=="online") return;
     if(!roomCode) return;
     var unsub = RT.subscribeRoom(roomCode, function(r){
-      if(!r) return;
+      if(!r){
+        setRoom(null);
+        setRoomCode('');
+        setOG(null);
+        var scr0=screenRef.current;
+        if(scr0==='lobby'||scr0==='online') setScreen('home');
+        return;
+      }
       setRoom(r);
       var scr=screenRef.current;
       if(r.themeId && (scr==='lobby' || scr==='online')) setLocId(r.themeId);
@@ -1529,6 +1646,19 @@ export default function App(){
   },[screen,roomCode]);
 
   useEffect(function(){
+    if(!RT.isConfigured() || !roomCode || !myId) return;
+    if(screen!=="lobby" && screen!=="online") return;
+    var cancelled=false;
+    void RT.attachRoomPresence(roomCode, myId).then(function(){
+      if(cancelled) void RT.detachRoomPresence();
+    });
+    return function(){
+      cancelled=true;
+      void RT.detachRoomPresence();
+    };
+  },[roomCode, myId, screen]);
+
+  useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
     setOG(function(prev){
       if(prev!=null) return prev;
@@ -1536,7 +1666,22 @@ export default function App(){
     });
   },[screen,room,room&&room.game]);
 
-  function goHome(){ setScreen('home'); setRoom(null); setRoomCode(''); sg(null); setOG(null); setShowExit(false); }
+  function goHome(){
+    void (async function(){
+      var code=roomCodeRef.current, id=myIdRef.current, scr=screenRef.current;
+      try{
+        if(code && id && (scr==='lobby' || scr==='online')){
+          await RT.removeSelfFromRoom(code, id);
+        }
+      }catch(e){ void e; }
+      setScreen('home');
+      setRoom(null);
+      setRoomCode('');
+      sg(null);
+      setOG(null);
+      setShowExit(false);
+    })();
+  }
 
   var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
 
