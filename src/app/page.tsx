@@ -874,6 +874,83 @@ function ChatPanel(P){
 }
 
 /* ═══ HOME SCREEN ═══ */
+/** Ícone robô (stroke) — escala com font-size do botão. */
+function homeIconRobot() {
+  return React.createElement(
+    'svg',
+    {
+      width: '1.1em',
+      height: '1.1em',
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      xmlns: 'http://www.w3.org/2000/svg',
+      'aria-hidden': true,
+      style: { display: 'block', flexShrink: 0 },
+    },
+    React.createElement('path', {
+      d: 'M12 8V4H8',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }),
+    React.createElement('rect', {
+      x: 4,
+      y: 8,
+      width: 16,
+      height: 12,
+      rx: 2,
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+    }),
+    React.createElement('path', {
+      d: 'M2 14h2M20 14h2M15 13v2M9 13v2',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    })
+  );
+}
+/** Ícone grupo / amigos (stroke). */
+function homeIconPeople() {
+  return React.createElement(
+    'svg',
+    {
+      width: '1.1em',
+      height: '1.1em',
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      xmlns: 'http://www.w3.org/2000/svg',
+      'aria-hidden': true,
+      style: { display: 'block', flexShrink: 0 },
+    },
+    React.createElement('path', {
+      d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }),
+    React.createElement('circle', {
+      cx: 9,
+      cy: 7,
+      r: 4,
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+    }),
+    React.createElement('path', {
+      d: 'M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    })
+  );
+}
+
 function HomeScreen(P){
   var ns=useState(''); var nm=ns[0], setNm=ns[1];
   var cs=useState(''); var cd=cs[0], setCd=cs[1];
@@ -927,13 +1004,19 @@ function HomeScreen(P){
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
       React.createElement('input',{value:nm,onChange:function(e){setNm(e.target.value);},placeholder:'Seu nome',style:Object.assign({},inp,{fontSize:17,padding:'14px 18px'})}),
       er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
-      React.createElement('button',{onClick:function(){ if(!nm.trim()){setEr('Digite seu nome');return;} setEr(''); P.onSolo(nm.trim()); },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)'}},'🤖 Solo vs IA'),
+      React.createElement('button',{onClick:function(){ if(!nm.trim()){setEr('Digite seu nome');return;} setEr(''); P.onSolo(nm.trim()); },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
+        homeIconRobot(),
+        'Solo vs IA'
+      ),
       divider('ou jogue com amigos'),
       React.createElement('button',{onClick:function(){
  if(!nm.trim()){ setEr('Digite seu nome'); return; }
         if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
         setEr(''); P.onGoPickCreate(nm.trim());
-      },disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'🌐 Criar Sala'),
+      },disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
+        homeIconPeople(),
+        'Criar Sala'
+      ),
       React.createElement('div',{style:{display:'flex',gap:8}},
         React.createElement('input',{value:cd,onChange:function(e){setCd(e.target.value.toUpperCase().slice(0,4));},placeholder:'Código',style:Object.assign({},inp,{textAlign:'center',letterSpacing:4,fontWeight:700})}),
         React.createElement('button',{onClick:join,disabled:ld,style:{background:'#1a3a6a',color:'#fff',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:14,fontWeight:'bold',whiteSpace:'nowrap'}},'Entrar')
