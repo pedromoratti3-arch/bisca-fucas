@@ -625,18 +625,18 @@ var BTN = {background:'#C41230',color:'#fff',border:'none',borderRadius:8,paddin
 /* ═══ THEMES ═══ */
 var THEMES = {
   terrafe: {
-    name: 'Terrafé', icon: '☕',
+    name: 'Terrafé', icon: '',
     bg: '#1a1208', tableColor: 'radial-gradient(ellipse at 50% 50%,#1a1a1a,#0d0d0d)',
     tableBorder: '2px solid #3a2a1a', tableShadow: 'inset 0 0 30px rgba(139,69,19,.15), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:50%', accent: '#8B4513',
     decor: function(){ return [
-      React.createElement('div',{key:'d1',style:{position:'absolute',top:8,left:8,fontSize:10,opacity:0.15}},'☕'),
-      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:8,right:8,fontSize:10,opacity:0.15}},'☕'),
+      React.createElement('div',{key:'d1',style:{position:'absolute',top:8,left:8,width:6,height:6,borderRadius:'50%',background:'rgba(212,168,67,.14)'}}),
+      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:8,right:8,width:6,height:6,borderRadius:'50%',background:'rgba(212,168,67,.14)'}}),
       React.createElement('div',{key:'d3',style:{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:60,height:60,borderRadius:'50%',border:'1px solid rgba(139,69,19,.08)'}})
     ]; }
   },
   hub: {
-    name: 'HUB Fucape', icon: '💡',
+    name: 'HUB Fucape', icon: '',
     bg: '#0a0a18', tableColor: 'radial-gradient(ellipse at 50% 50%,#15153a,#0a0a20)',
     tableBorder: '2px solid #2a2a5a', tableShadow: 'inset 0 0 30px rgba(37,99,235,.1), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:14px', accent: '#2563eb',
@@ -647,17 +647,17 @@ var THEMES = {
     ]; }
   },
   floresta: {
-    name: 'Floresta', icon: '🌿',
+    name: 'Floresta', icon: '',
     bg: '#0a1a0e', tableColor: 'radial-gradient(ellipse at 50% 50%,#1a2a1a,#0d1a0d)',
     tableBorder: '2px solid #2a3a2a', tableShadow: 'inset 0 0 30px rgba(45,90,39,.1), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:8px', accent: '#2d5a27',
     decor: function(){ return [
-      React.createElement('div',{key:'d1',style:{position:'absolute',top:6,left:8,fontSize:9,opacity:0.1}},'🍃'),
-      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:6,right:8,fontSize:9,opacity:0.1}},'🍃')
+      React.createElement('div',{key:'d1',style:{position:'absolute',top:8,left:10,width:10,height:4,borderRadius:4,background:'rgba(134,239,172,.1)',transform:'rotate(-28deg)'}}),
+      React.createElement('div',{key:'d2',style:{position:'absolute',bottom:8,right:10,width:10,height:4,borderRadius:4,background:'rgba(134,239,172,.1)',transform:'rotate(28deg)'}})
     ]; }
   },
   sala: {
-    name: 'Sala de Aula', icon: '🎓',
+    name: 'Sala de Aula', icon: '',
     bg: '#6B1010', tableColor: 'radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35),rgba(0,0,0,.25))',
     tableBorder: '1px solid rgba(255,100,100,.2)', tableShadow: 'inset 0 2px 15px rgba(0,0,0,.3)',
     tableShape: 'borderRadius:14px', accent: '#C41230',
@@ -665,53 +665,156 @@ var THEMES = {
   }
 };
 
-/* ═══ LOCATION LOGOS ═══ */
-function TerrafeLogo(sz){
-  return React.createElement('div',{style:{fontSize:Math.round(sz*0.85),lineHeight:1}},'☕');
+/* === LOCATION MARKS (SVG) === */
+/** Xícara (Terrafé) — traço limpo, herda cor do cartão. */
+function TerrafeMark(sz) {
+  return React.createElement(
+    'svg',
+    {
+      viewBox: '0 0 56 56',
+      width: sz,
+      height: sz,
+      'aria-hidden': true,
+      style: { display: 'block' },
+    },
+    React.createElement('ellipse', {
+      cx: 28,
+      cy: 46,
+      rx: 17,
+      ry: 3.2,
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      opacity: 0.9,
+    }),
+    React.createElement('path', {
+      d: 'M 16 24 L 16 34 Q 16 41 28 41 Q 40 41 40 34 L 40 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2.15,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }),
+    React.createElement('ellipse', {
+      cx: 28,
+      cy: 24,
+      rx: 12,
+      ry: 3.8,
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+    }),
+    React.createElement('ellipse', {
+      cx: 28,
+      cy: 24,
+      rx: 9,
+      ry: 2.2,
+      fill: 'currentColor',
+      opacity: 0.22,
+    }),
+    React.createElement('path', {
+      d: 'M 40 27 C 47 27 50 31 50 36 C 50 41 46 44 40 44',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2.15,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }),
+    React.createElement('path', {
+      d: 'M 22 16 Q 24 12 22 8 M 28 15 Q 30 11 28 7 M 34 16 Q 36 12 34 8',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 1.6,
+      strokeLinecap: 'round',
+      opacity: 0.55,
+    })
+  );
 }
-function HubLogo(sz){
-  return React.createElement('svg',{viewBox:'0 0 120 60',width:sz,height:Math.round(sz*0.5)},
-    React.createElement('text',{x:0,y:48,fontFamily:'Arial,sans-serif',fontSize:52,fontWeight:900},
-      React.createElement('tspan',{fill:'#2563eb'},'h'),
-      React.createElement('tspan',{fill:'#ef4444',dy:8},'u'),
-      React.createElement('tspan',{fill:'#eab308',dy:-8},'b')
+/** HUB — mesmo estilo de antes (hub em texto colorido). */
+function HubMark(sz) {
+  return React.createElement(
+    'svg',
+    {
+      viewBox: '0 0 120 60',
+      width: sz,
+      height: Math.round(sz * 0.5),
+      'aria-hidden': true,
+      style: { display: 'block' },
+    },
+    React.createElement(
+      'text',
+      { x: 0, y: 48, fontFamily: 'system-ui, Arial, sans-serif', fontSize: 52, fontWeight: 900 },
+      React.createElement('tspan', { fill: '#2563eb' }, 'h'),
+      React.createElement('tspan', { fill: '#ef4444', dy: 8 }, 'u'),
+      React.createElement('tspan', { fill: '#eab308', dy: -8 }, 'b')
     )
   );
 }
+/** Floresta: silhueta de árvore geométrica. */
+function FlorestaMark(sz) {
+  return React.createElement(
+    "svg",
+    {
+      viewBox: "0 0 56 56",
+      width: sz,
+      height: sz,
+      "aria-hidden": true,
+      style: { display: "block" },
+    },
+    React.createElement("path", {
+      d: "M 28 4 L 44 34 H 37 L 48 46 H 8 L 19 34 H 12 Z",
+      fill: "currentColor",
+      opacity: 0.92,
+    }),
+    React.createElement("rect", {
+      x: 23.5,
+      y: 38,
+      width: 9,
+      height: 14,
+      rx: 1.5,
+      fill: "currentColor",
+      opacity: 0.55,
+    })
+  );
+}
+
 
 /* ═══ LOCATION SELECT ═══ */
 function LocationScreen(P){
   var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.05,z:48},{s:'\u2665',x:88,y:8,a:'float2',o:0.06,z:40},{s:'\u2666',x:12,y:80,a:'float3',o:0.04,z:44},{s:'\u2663',x:85,y:75,a:'float1',o:0.05,z:42},{s:'\u2665',x:50,y:92,a:'float2',o:0.03,z:36},{s:'\u2660',x:45,y:4,a:'float3',o:0.04,z:38}];
 
   var locs = [
-    {id:'terrafe',name:'Terrafé',color:'#8B4513',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
-      logo:function(){return TerrafeLogo(52);}},
-    {id:'hub',name:'HUB Fucape',color:'#2563eb',bg:'linear-gradient(145deg,#0e1230,#080818)',glow:'rgba(37,99,235,.5)',
-      logo:function(){return HubLogo(80);}},
-    {id:'floresta',name:'Floresta',color:'#2d5a27',bg:'linear-gradient(145deg,#142a18,#0a1a0e)',glow:'rgba(45,90,39,.5)',
-      logo:function(){return React.createElement('div',{style:{fontSize:44,lineHeight:1}},'🌿');}},
-    {id:'sala',name:'Sala de Aula',color:'#C41230',bg:'linear-gradient(145deg,#3a0808,#1a0404)',glow:'rgba(196,18,48,.5)',
-      logo:function(){return rLogoW(48);}}
+    {id:'terrafe',name:'Terrafé',color:'#c9956a',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
+      logo:function(){return React.createElement('div',{style:{color:'#e8c9a0'}},TerrafeMark(54));}},
+    {id:'hub',name:'HUB Fucape',color:'#60a5fa',bg:'linear-gradient(145deg,#0e1230,#080818)',glow:'rgba(37,99,235,.5)',
+      logo:function(){return HubMark(84);}},
+    {id:'floresta',name:'Floresta',color:'#6ee7b7',bg:'linear-gradient(145deg,#142a18,#0a1a0e)',glow:'rgba(45,90,39,.5)',
+      logo:function(){return React.createElement('div',{style:{color:'#86efac'}},FlorestaMark(52));}},
+    {id:'sala',name:'Sala de Aula',color:'#fb7185',bg:'linear-gradient(145deg,#3a0808,#1a0404)',glow:'rgba(196,18,48,.5)',
+      logo:function(){return rLogoW(50);}}
   ];
 
-  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}},
+  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'52px 20px 28px',position:'relative',overflow:'hidden'}},
     React.createElement('style',null,ACSS),
     floats.map(function(f,i){return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C41230',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s);}),
     React.createElement('div',{style:{position:'absolute',top:20,left:20,display:'flex',alignItems:'center',gap:8}},
       React.createElement('button',{onClick:P.onBack,style:{background:'none',border:'none',color:'rgba(255,255,255,.4)',cursor:'pointer',fontSize:20}},'←'),
       rLogoW(22)
     ),
-    React.createElement('div',{style:{fontSize:24,fontWeight:800,marginBottom:6,background:'linear-gradient(135deg,#d4a843,#f0d078)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:1}},'Escolha a mesa'),
-    React.createElement('div',{style:{fontSize:11,opacity:0.3,marginBottom:28}},P.pickForCreate?'Escolha a mesa da sala (todos verão o mesmo cenário).':'Onde você quer jogar?'),
-    React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,width:'100%',maxWidth:340}},
+    React.createElement('div',{style:{textAlign:'center',maxWidth:400,marginBottom:8,paddingTop:8}},
+      React.createElement('div',{style:{fontSize:'clamp(26px,8vw,34px)',fontWeight:900,letterSpacing:2,lineHeight:1.1,marginBottom:10,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite'}},'Escolha a mesa'),
+      React.createElement('div',{style:{fontSize:13,opacity:0.5,letterSpacing:0.3,lineHeight:1.4}},P.pickForCreate?'Escolha a mesa da sala — todos verão o mesmo cenário.':'Onde você quer jogar?')
+    ),
+    React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,width:'100%',maxWidth:360}},
       locs.map(function(loc){
         return React.createElement('div',{key:loc.id,
           onClick:function(){P.onSelect(loc.id);},
           onMouseEnter:function(e){e.currentTarget.style.boxShadow='0 0 30px '+loc.glow;e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.borderColor=loc.color;},
           onMouseLeave:function(e){e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.5)';e.currentTarget.style.transform='none';e.currentTarget.style.borderColor=loc.color+'33';},
-          style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:16,padding:'28px 16px 22px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,transition:'all .3s cubic-bezier(.4,0,.2,1)',boxShadow:'0 8px 24px rgba(0,0,0,.5)',minHeight:130}
+          style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:18,padding:'24px 14px 20px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,transition:'all .3s cubic-bezier(.4,0,.2,1)',boxShadow:'0 10px 28px rgba(0,0,0,.55)',minHeight:142}
         },
-          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:52}},loc.logo()),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:56,width:'100%'}},loc.logo()),
           React.createElement('div',{style:{fontSize:14,fontWeight:700,color:loc.color,letterSpacing:0.5,textAlign:'center'}},loc.name)
         );
       })
@@ -1099,7 +1202,7 @@ function LobbyScreen(P){
         React.createElement('div',{style:{fontSize:11,opacity:0.4,letterSpacing:2}},'CÓDIGO DA SALA'),
         React.createElement('div',{style:{fontSize:48,fontWeight:900,letterSpacing:12,color:'#d4a843'}},room.code),
         React.createElement('div',{style:{fontSize:11,opacity:0.4,marginTop:6}},'Compartilhe com seus amigos'),
-        React.createElement('div',{style:{fontSize:12,opacity:0.55,marginTop:10}},(THEMES[room.themeId]||THEMES.sala).icon+' Mesa: '+(THEMES[room.themeId]||THEMES.sala).name)
+        React.createElement('div',{style:{fontSize:12,opacity:0.55,marginTop:10}},'Mesa · '+(THEMES[room.themeId]||THEMES.sala).name)
       ),
       React.createElement('div',{style:{background:'rgba(255,255,255,.05)',borderRadius:14,padding:16,border:'1px solid rgba(255,255,255,.1)'}},
         React.createElement('div',{style:{fontSize:12,opacity:0.5,marginBottom:10}},'Jogadores ('+humans.length+' humanos · ate 4)'),
