@@ -17,6 +17,64 @@ function chatDbRef(code) {
   return ref(db, RTB + "/" + code + "/chat");
 }
 
+/** Evita crash (.length em undefined) quando o Realtime DB devolve nós incompletos. */
+function normalizeGame(g) {
+  if (!g || typeof g !== "object") return g;
+  function handRow(hands, i) {
+    if (hands == null) return [];
+    if (Array.isArray(hands)) {
+      var x = hands[i];
+      return Array.isArray(x) ? x : [];
+    }
+    if (typeof hands === "object") {
+      var k = hands[i] !== undefined ? hands[i] : hands[String(i)];
+      return Array.isArray(k) ? k : [];
+    }
+    return [];
+  }
+  var hands = [0, 1, 2, 3].map(function (i) {
+    return handRow(g.hands, i);
+  });
+  var pn = g.playerNames;
+  var names = ["?", "?", "?", "?"];
+  if (Array.isArray(pn) && pn.length >= 4) {
+    names = [pn[0], pn[1], pn[2], pn[3]];
+  } else if (pn && typeof pn === "object") {
+    for (var ni = 0; ni < 4; ni++) {
+      names[ni] = pn[ni] || pn[String(ni)] || "?";
+    }
+  }
+  return Object.assign({}, g, {
+    hands: hands,
+    trick: Array.isArray(g.trick) ? g.trick : [],
+    deck: Array.isArray(g.deck) ? g.deck : [],
+    fd: Array.isArray(g.fd) ? g.fd : [],
+    events: Array.isArray(g.events) ? g.events : [],
+    playerNames: names,
+  });
+}
+
+function normalizeRoom(r) {
+  if (!r || typeof r !== "object") return null;
+  var players = r.players;
+  if (!Array.isArray(players)) {
+    if (players && typeof players === "object") {
+      players = Object.keys(players)
+        .sort(function (a, b) {
+          return Number(a) - Number(b);
+        })
+        .map(function (k) {
+          return players[k];
+        })
+        .filter(function (p) {
+          return p && typeof p === "object";
+        });
+    } else players = [];
+  }
+  var game = r.game != null ? normalizeGame(r.game) : null;
+  return Object.assign({}, r, { players: players, game: game });
+}
+
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
   isConfigured: function () {
@@ -28,7 +86,7 @@ var RT = {
       var rref = roomDbRef(code);
       if (!rref) return null;
       var snap = await get(rref);
-      return snap.exists() ? snap.val() : null;
+      return snap.exists() ? normalizeRoom(snap.val()) : null;
     } catch {
       return null;
     }
@@ -73,7 +131,7 @@ var RT = {
     var r = roomDbRef(code);
     if (!r) return function () {};
     return onValue(r, function (snap) {
-      cb(snap.exists() ? snap.val() : null);
+      cb(snap.exists() ? normalizeRoom(snap.val()) : null);
     });
   },
   subscribeChat: function (code, cb) {
@@ -1403,7 +1461,7 @@ export default function App(){
     if(screen!=="online"||!room||!room.game) return;
     setOG(function(prev){
       if(prev!=null) return prev;
-      return room.game;
+      return normalizeGame(room.game);
     });
   },[screen,room,room&&room.game]);
 
