@@ -918,7 +918,7 @@ function FlorestaMark(sz) {
 
 /* ═══ LOCATION SELECT ═══ */
 function LocationScreen(P){
-  var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.06,z:48},{s:'\u2665',x:88,y:8,a:'float2',o:0.07,z:40},{s:'\u2666',x:12,y:80,a:'float3',o:0.05,z:44},{s:'\u2663',x:85,y:75,a:'float1',o:0.06,z:42},{s:'\u2665',x:50,y:92,a:'float2',o:0.04,z:36},{s:'\u2660',x:45,y:4,a:'float3',o:0.05,z:38}];
+  var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.06,z:48},{s:'\u2665',x:90,y:8,a:'float2',o:0.07,z:40},{s:'\u2666',x:12,y:82,a:'float3',o:0.05,z:44},{s:'\u2663',x:86,y:72,a:'float1',o:0.06,z:42},{s:'\u2660',x:48,y:92,a:'float2',o:0.04,z:36},{s:'\u2665',x:6,y:42,a:'float3',o:0.05,z:38}];
 
   var locs = [
     {id:'terrafe',name:'Terrafé',color:'#c9956a',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
@@ -1230,12 +1230,12 @@ function HomeScreen(P){
   var ls=useState(false); var ld=ls[0], setLd=ls[1];
 
   var floats = [
-    {s:'\u2660',x:10,y:12,a:'float1',o:0.07,z:64},
-    {s:'\u2665',x:80,y:8,a:'float2',o:0.09,z:52},
-    {s:'\u2666',x:18,y:74,a:'float3',o:0.055,z:48},
-    {s:'\u2663',x:86,y:70,a:'float1',o:0.07,z:56},
-    {s:'\u2660',x:52,y:88,a:'float2',o:0.045,z:44},
-    {s:'\u2665',x:42,y:3,a:'float3',o:0.055,z:40}
+    {s:'\u2660',x:8,y:8,a:'float1',o:0.07,z:60},
+    {s:'\u2665',x:88,y:10,a:'float2',o:0.09,z:52},
+    {s:'\u2666',x:14,y:48,a:'float3',o:0.055,z:50},
+    {s:'\u2663',x:86,y:52,a:'float1',o:0.07,z:56},
+    {s:'\u2660',x:40,y:86,a:'float2',o:0.045,z:46},
+    {s:'\u2665',x:72,y:80,a:'float3',o:0.055,z:44}
   ];
 
   var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
@@ -1297,7 +1297,7 @@ function HomeScreen(P){
     ld ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
       React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
     ) : null,
-    React.createElement('div',{style:{position:'fixed',bottom:8,right:10,fontSize:10,opacity:0.2}},'by: Ruivo01')
+    React.createElement('div',{style:{position:'fixed',bottom:8,right:10,fontSize:10,opacity:0.2,whiteSpace:'nowrap',maxWidth:'calc(100vw - 20px)',overflow:'hidden',textOverflow:'ellipsis'}},'by: Ruivo')
   );
 }
 
@@ -1457,11 +1457,11 @@ function GameScreen(props){
     return function(){ clearTimeout(t); setSh(false); };
   },[g.phase]);
 
-  // Auto-cut: solo quando quem corta é a IA; online só o host corta por IA (evita vários clientes cortando)
+  // Auto-cut: solo quando quem corta é a IA; online só o host corta por IA quando o cortador é bot (cada humano só corta na própria vez)
   useEffect(function(){
     if(g.phase!=='cut') return;
-    var showCutUi = isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter]));
-    if(showCutUi) return;
+    var iChooseCut = isSolo ? cutter===0 : (isOnline && iAmCutter);
+    if(iChooseCut) return;
     var runAuto = !isOnline ? cutter!==0 : (isRoomHost && !!botSeats[cutter]);
     if(!runAuto) return;
     var t = setTimeout(function(){
@@ -1469,13 +1469,13 @@ function GameScreen(props){
       performCut(ci);
     },1500);
     return function(){ clearTimeout(t); };
-  },[g.phase,cutter,mySeat,isOnline,isRoomHost]);
+  },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter]);
 
-  // Até 10s para quem escolhe o corte; depois corta automático
+  // Até 10s para quem escolhe o corte; depois corta automático (só quem é o cortador na mesa)
   useEffect(function(){
     if(g.phase!=='cut'){ setCutSec(null); return; }
-    var showCutUi = isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter]));
-    if(!showCutUi){ setCutSec(null); return; }
+    var iChooseCut = isSolo ? cutter===0 : (isOnline && iAmCutter);
+    if(!iChooseCut){ setCutSec(null); return; }
     var left = 10;
     setCutSec(left);
     var iv = setInterval(function(){
@@ -1490,7 +1490,7 @@ function GameScreen(props){
       }
     },1000);
     return function(){ clearInterval(iv); };
-  },[g.phase,cutter,mySeat,isOnline,isRoomHost]);
+  },[g.phase,cutter,mySeat,isOnline,iAmCutter]);
 
   // Deal phase
   useEffect(function(){
@@ -1565,6 +1565,13 @@ function GameScreen(props){
     setCutSec(null);
     sg(function(pv){
       if(pv.phase!=='cut' || !Array.isArray(pv.fd) || pv.fd.length<20) return pv;
+      if(isOnline){
+        var stCut = parseSeat(pv.starter);
+        if(isNaN(stCut)) stCut = 2;
+        var cutterSeat = prv(prv(stCut));
+        var allowedCut = cutterSeat===mySeat || (isRoomHost && !!botSeats[cutterSeat]);
+        if(!allowedCut) return pv;
+      }
       var fd=pv.fd.slice(), newFd=fd.slice(ci).concat(fd.slice(0,ci));
       var rawTc=newFd[12], tc, trump;
       if(!rawTc || !rawTc.v) return pv;
@@ -1581,6 +1588,7 @@ function GameScreen(props){
 
   function doCut(side){
     if(g.phase!=='cut') return;
+    if(isOnline && !iAmCutter) return;
     setCutLift(side);
     setCa(true);
     var ci = side==='top' ? (16+Math.floor(Math.random()*5)) : (8+Math.floor(Math.random()*5));
@@ -1589,6 +1597,7 @@ function GameScreen(props){
 
   function doBat(){
     if(g.phase!=='cut') return;
+    if(isOnline && !iAmCutter) return;
     setCutSec(null);
     // Go to deal phase with batido flag — animation deals 3 at a time
     sg(function(pv){
@@ -1774,7 +1783,7 @@ function GameScreen(props){
 
   // ── SHUFFLE / CUT / DEAL ──
   if(g.phase==='shuffle' || g.phase==='cut' || (g.phase==='deal' && !isOnline)){
-    var showCut = g.phase==='cut' && (isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter])));
+    var showCut = g.phase==='cut' && (isSolo ? cutter===0 : iAmCutter);
     var aiCutting = g.phase==='cut' && !showCut;
     var sw0=(g.setWins&&g.setWins[0])||0, sw1=(g.setWins&&g.setWins[1])||0;
     var tui = th.ui || {};
