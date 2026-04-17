@@ -797,38 +797,6 @@ function gameBackdropLayer(th){
   return React.createElement('div',{'aria-hidden':true,style:{position:'absolute',inset:0,pointerEvents:'none',background:th.vignette,zIndex:0}});
 }
 
-/** Decoração temática discreta nos cantos (identidade visual por sala). */
-function themeCornerMotifs(th, mob){
-  if(!th || !th.id) return null;
-  var a = th.accent || '#fff';
-  var s = mob ? 0.85 : 1;
-  if(th.id==='sala'){
-    return React.createElement(React.Fragment,null,
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:10,left:12,width:Math.round(44*s),height:3,background:'linear-gradient(90deg,'+a+'55,transparent)',borderRadius:2,opacity:0.5,zIndex:1,pointerEvents:'none'}}),
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:14,right:12,width:Math.round(56*s),height:3,background:'linear-gradient(270deg,'+a+'44,transparent)',borderRadius:2,opacity:0.45,zIndex:1,pointerEvents:'none'}})
-    );
-  }
-  if(th.id==='hub'){
-    return React.createElement(React.Fragment,null,
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:12,right:14,width:Math.round(72*s),height:Math.round(72*s),borderRadius:'50%',border:'1px solid rgba(96,165,250,.12)',boxShadow:'inset 0 0 24px rgba(37,99,235,.08)',zIndex:1,pointerEvents:'none'}}),
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:16,left:10,width:Math.round(100*s),height:1,background:'linear-gradient(90deg, transparent, rgba(96,165,250,.2), transparent)',zIndex:1,pointerEvents:'none'}})
-    );
-  }
-  if(th.id==='floresta'){
-    return React.createElement(React.Fragment,null,
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:8,left:8,width:0,height:0,borderLeft:'12px solid transparent',borderRight:'12px solid transparent',borderBottom:'20px solid rgba(110,231,183,.12)',opacity:0.7,zIndex:1,pointerEvents:'none'}}),
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:12,right:10,width:0,height:0,borderLeft:'10px solid transparent',borderRight:'10px solid transparent',borderBottom:'18px solid rgba(45,90,39,.25)',opacity:0.6,zIndex:1,pointerEvents:'none',transform:'rotate(180deg)'}})
-    );
-  }
-  if(th.id==='terrafe'){
-    return React.createElement(React.Fragment,null,
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:14,left:14,width:Math.round(40*s),height:Math.round(40*s),borderRadius:'50%',border:'1px solid rgba(201,149,106,.2)',boxShadow:'inset 0 0 20px rgba(139,69,19,.15)',zIndex:1,pointerEvents:'none'}}),
-      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:18,right:16,width:Math.round(52*s),height:Math.round(52*s),borderRadius:'50%',border:'1px solid rgba(139,69,19,.15)',opacity:0.85,zIndex:1,pointerEvents:'none'}})
-    );
-  }
-  return null;
-}
-
 /* === LOCATION MARKS (SVG) === */
 /** Xícara (Terrafé) — traço limpo, herda cor do cartão. */
 function TerrafeMark(sz) {
@@ -895,24 +863,28 @@ function TerrafeMark(sz) {
     })
   );
 }
-/** HUB — mesmo estilo de antes (hub em texto colorido). */
+/** HUB — texto colorido centrado no cartão (evita âncora à esquerda do SVG). */
 function HubMark(sz) {
+  var fs = Math.max(26, Math.round(sz * 0.52));
   return React.createElement(
-    'svg',
+    'div',
     {
-      viewBox: '0 0 120 60',
-      width: sz,
-      height: Math.round(sz * 0.5),
       'aria-hidden': true,
-      style: { display: 'block' },
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        fontFamily: 'system-ui, Arial, sans-serif',
+        fontSize: fs,
+        fontWeight: 900,
+        lineHeight: 1,
+        letterSpacing: '-0.03em',
+      },
     },
-    React.createElement(
-      'text',
-      { x: 0, y: 48, fontFamily: 'system-ui, Arial, sans-serif', fontSize: 52, fontWeight: 900 },
-      React.createElement('tspan', { fill: '#2563eb' }, 'h'),
-      React.createElement('tspan', { fill: '#ef4444', dy: 8 }, 'u'),
-      React.createElement('tspan', { fill: '#eab308', dy: -8 }, 'b')
-    )
+    React.createElement('span', { style: { color: '#2563eb' } }, 'h'),
+    React.createElement('span', { style: { color: '#ef4444', position: 'relative', top: '0.1em' } }, 'u'),
+    React.createElement('span', { style: { color: '#eab308', position: 'relative', top: '-0.06em' } }, 'b')
   );
 }
 /** Floresta: silhueta de árvore geométrica. */
@@ -982,8 +954,7 @@ function LocationScreen(P){
           React.createElement('div',{style:{textAlign:'center'}},venueNameChip(THEMES[loc.id]||THEMES.sala,13))
         );
       })
-    ),
-    React.createElement('div',{style:{position:'fixed',bottom:8,right:10,fontSize:10,opacity:0.2}},'by: Ruivo01')
+    )
   );
 }
 
@@ -1820,7 +1791,6 @@ function GameScreen(props){
 
     return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden',position:'relative'}},
       gameBackdropLayer(th),
-      themeCornerMotifs(th,mob),
       React.createElement('style',null,ACSS),
       React.createElement('div',{style:Object.assign({},shGlass,{marginBottom:2})},
         rLogo(36,th),
@@ -1912,7 +1882,6 @@ function GameScreen(props){
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
-    themeCornerMotifs(th,mob),
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
     React.createElement('div',{style:{position:'relative',zIndex:2}},
     React.createElement('div',{style:hdrGlassPl},
@@ -2016,8 +1985,7 @@ function GameScreen(props){
           React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Proxima rodada')
         )
       )
-    ) : null,
-    React.createElement('div',{style:{position:'fixed',bottom:mob?'max(8px, env(safe-area-inset-bottom))':8,right:mob?'max(10px, env(safe-area-inset-right))':10,fontSize:10,opacity:0.3}},'by: Ruivo01')
+    ) : null
   );
 }
 
