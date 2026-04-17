@@ -242,10 +242,13 @@ var RT = {
           return p.id === r.hostId;
         });
         if (!hostOk) {
+          var fixedHost = Object.assign({}, r, { hostId: humans[0].id });
           try {
-            await RT.setRoom(code, Object.assign({}, r, { hostId: humans[0].id }));
+            await RT.setRoom(code, fixedHost);
+            cb(fixedHost);
           } catch (e) {
             void e;
+            cb(r);
           }
           return;
         }
@@ -1507,17 +1510,19 @@ function GameScreen(props){
     RT.setGame(roomCode, g);
   },[g]);
 
-  // Shuffle phase
+  // Shuffle phase — online: só o host avança para corte (evita 4 timers e sg paralelos; só lastActor===host grava no RT)
   useEffect(function(){
     if(g.phase!=='shuffle') return;
     if(isSolo) aiMemory = makeMemory();
     if(isOnline && isRoomHost) aiMemory = makeMemory();
-    // Reset chat on new round
-    if(isOnline && roomCode){ RT.setChat(roomCode, []); }
+    if(isOnline && roomCode && isRoomHost) RT.setChat(roomCode, []);
     setSh(true);
+    if(isOnline && !isRoomHost){
+      return function(){ setSh(false); };
+    }
     var t = setTimeout(function(){ setSh(false); sg(function(p){ return Object.assign({},p,{phase:'cut'}); }); },2400);
     return function(){ clearTimeout(t); setSh(false); };
-  },[g.phase]);
+  },[g.phase,isOnline,isRoomHost,roomCode,isSolo]);
 
   // Auto-cut: solo quando quem corta é a IA; online só o host corta por IA quando o cortador é bot (cada humano só corta na própria vez)
   useEffect(function(){
@@ -1554,9 +1559,10 @@ function GameScreen(props){
     return function(){ clearInterval(iv); };
   },[g.phase,cutter,mySeat,isOnline,iAmCutter]);
 
-  // Deal phase
+  // Deal phase — online: só quem tem lastActor (cortador após corte) corre a animação e sg; os outros só recebem via Firebase
   useEffect(function(){
     if(g.phase!=='deal') return;
+    if(isOnline && g.lastActor !== myPid) return;
 
     // Batido: deal 3 cards at a time per player (4 steps)
     if(g.batido){
@@ -1606,7 +1612,7 @@ function GameScreen(props){
       });
     },340);
     return function(){ clearTimeout(t2); };
-  },[g.phase,g.dealStep]);
+  },[g.phase,g.dealStep,g.lastActor,isOnline,myPid]);
 
   // Partner reveal — só no solo (no online bloqueava jogada e “vazava” visão de parceiro para todos)
   useEffect(function(){
