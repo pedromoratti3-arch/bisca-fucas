@@ -72,7 +72,9 @@ function normalizeRoom(r) {
     } else players = [];
   }
   var game = r.game != null ? normalizeGame(r.game) : null;
-  return Object.assign({}, r, { players: players, game: game });
+  var tid = r.themeId;
+  if (tid !== "terrafe" && tid !== "hub" && tid !== "floresta" && tid !== "sala") tid = "sala";
+  return Object.assign({}, r, { players: players, game: game, themeId: tid });
 }
 
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
@@ -590,7 +592,7 @@ function LocationScreen(P){
       rLogoW(22)
     ),
     React.createElement('div',{style:{fontSize:24,fontWeight:800,marginBottom:6,background:'linear-gradient(135deg,#d4a843,#f0d078)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:1}},'Escolha a mesa'),
-    React.createElement('div',{style:{fontSize:11,opacity:0.3,marginBottom:28}},'Onde você quer jogar?'),
+    React.createElement('div',{style:{fontSize:11,opacity:0.3,marginBottom:28}},P.pickForCreate?'Escolha a mesa da sala (todos verão o mesmo cenário).':'Onde você quer jogar?'),
     React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,width:'100%',maxWidth:340}},
       locs.map(function(loc){
         return React.createElement('div',{key:loc.id,
@@ -623,44 +625,60 @@ function rLogoW(h){
   );
 }
 
-function rCard(c,onClick,back,glow,sm,blocked){
-  var W=sm?30:46, H=sm?42:63;
-  if(back||!c){
-    return React.createElement('div',{style:{width:W,height:H,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid #C41230',borderRadius:5,flexShrink:0}});
+function rCard(c,onClick,back,glow,sm,blocked,mob){
+  var W,H,fs,symFs,pad;
+  if(mob){
+    if(back||!c){
+      W=sm?22:26; H=sm?32:36;
+      return React.createElement('div',{style:{width:W,height:H,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid #C41230',borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
+    }
+    if(sm){ W=24;H=32;fs=8;symFs=10;pad='0 1px'; }
+    else { W=36;H=48;fs=10;symFs=14;pad='2px 3px'; }
+  } else {
+    W=sm?30:46; H=sm?42:63;
+    if(back||!c){
+      return React.createElement('div',{style:{width:W,height:H,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid #C41230',borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
+    }
+    fs=sm?9:11; symFs=sm?12:18; pad=sm?'1px 2px':'2px 4px';
   }
   var col = RCOL[c.s];
+  var lift = mob ? -4 : -8;
   return React.createElement('div',{
     onClick: onClick,
-    onMouseEnter: function(e){ if(onClick) e.currentTarget.style.transform='translateY(-8px)'; },
+    onMouseEnter: function(e){ if(onClick) e.currentTarget.style.transform='translateY('+lift+'px)'; },
     onMouseLeave: function(e){ e.currentTarget.style.transform='none'; },
     style:{width:W,height:H,background:'white',border:'2px solid '+(glow?'#FFD700':col),borderRadius:5,
       cursor:blocked?'not-allowed':onClick?'pointer':'default',
       display:'flex',flexDirection:'column',justifyContent:'space-between',
-      padding:sm?'1px 2px':'2px 4px',fontSize:sm?9:11,fontWeight:'bold',color:col,flexShrink:0,
+      padding:pad,fontSize:fs,fontWeight:'bold',color:col,flexShrink:0,
       opacity:blocked?0.35:1,boxShadow:glow?'0 0 10px #FFD70088':'0 1px 4px #0004',
-      transition:'transform .12s',userSelect:'none'}
+      transition:'transform .12s',userSelect:'none',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}
   },
     React.createElement('span',null,c.v),
-    React.createElement('span',{style:{textAlign:'center',fontSize:sm?12:18,lineHeight:1}},SYM[c.s]),
+    React.createElement('span',{style:{textAlign:'center',fontSize:symFs,lineHeight:1}},SYM[c.s]),
     React.createElement('span',{style:{transform:'rotate(180deg)',display:'block'}},c.v)
   );
 }
 
-function rSlot(a){
-  return React.createElement('div',{style:{width:30,height:42,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent'}});
+function rSlot(a,mob){
+  var w=mob?24:30, h=mob?32:42;
+  return React.createElement('div',{style:{width:w,height:h,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent',flexShrink:0}});
 }
 
-function deckPile(n,onClick,hi){
+function deckPile(n,onClick,hi,mob){
+  var cw=mob?26:46, ch=mob?38:63, off=mob?1:2, boxW=mob?32:52, boxH=mob?46:70, fs=mob?9:11;
   var layers = [2,1,0].map(function(i){
-    return React.createElement('div',{key:i,style:{position:'absolute',left:i*2,top:i*-2,width:46,height:63,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid '+(hi?'#FFD700':'#C41230'),borderRadius:5,boxShadow:'0 2px 6px #0005'}});
+    return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:i*-off,width:cw,height:ch,background:'linear-gradient(160deg,#7B1010,#3A0606)',border:'2px solid '+(hi?'#FFD700':'#C41230'),borderRadius:5,boxShadow:'0 2px 6px #0005'}});
   });
-  var lbl = React.createElement('div',{style:{position:'absolute',left:0,top:-2,width:46,height:63,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.35)',fontSize:11,fontWeight:'bold',zIndex:5}},n);
-  return React.createElement('div',{onClick:onClick,style:{position:'relative',width:52,height:70,cursor:onClick?'pointer':'default',flexShrink:0}},layers[0],layers[1],layers[2],lbl);
+  var lbl = React.createElement('div',{style:{position:'absolute',left:0,top:-2,width:cw,height:ch,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.35)',fontSize:fs,fontWeight:'bold',zIndex:5}},n);
+  return React.createElement('div',{onClick:onClick,style:{position:'relative',width:boxW,height:boxH,cursor:onClick?'pointer':'default',flexShrink:0,touchAction:'manipulation'}},layers[0],layers[1],layers[2],lbl);
 }
 
 /* ═══ CHAT ═══ */
 function ChatPanel(P){
+  var mob = useNarrowScreen();
   var vs=useState(false); var open=vs[0], setOpen=vs[1];
+  var inpFs = mob ? 16 : 12;
   var ms=useState(''); var msg=ms[0], setMsg=ms[1];
   var cs=useState([]); var msgs=cs[0], setMsgs=cs[1];
   var ns=useState(0); var unread=ns[0], setUnread=ns[1];
@@ -709,13 +727,13 @@ function ChatPanel(P){
   }
 
   // Chat button
-  var btn = React.createElement('button',{onClick:toggleOpen,style:{position:'fixed',bottom:12,right:12,width:44,height:44,borderRadius:'50%',background:open?'#C41230':'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',zIndex:150,boxShadow:'0 4px 12px rgba(0,0,0,.4)'}},
+  var btn = React.createElement('button',{onClick:toggleOpen,style:{position:'fixed',bottom:mob?'max(12px, env(safe-area-inset-bottom))':12,right:mob?'max(12px, env(safe-area-inset-right))':12,width:44,height:44,borderRadius:'50%',background:open?'#C41230':'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',zIndex:150,boxShadow:'0 4px 12px rgba(0,0,0,.4)'}},
     open ? '✕' : '💬',
     unread>0 && !open ? React.createElement('div',{style:{position:'absolute',top:-4,right:-4,background:'#C41230',color:'#fff',borderRadius:'50%',width:18,height:18,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}},unread) : null
   );
 
   // Chat panel
-  var panel = open ? React.createElement('div',{style:{position:'fixed',bottom:64,right:12,width:280,maxHeight:360,background:'#1a0a0a',border:'1px solid rgba(196,18,48,.3)',borderRadius:14,display:'flex',flexDirection:'column',zIndex:150,boxShadow:'0 8px 30px rgba(0,0,0,.6)',overflow:'hidden'}},
+  var panel = open ? React.createElement('div',{style:{position:'fixed',bottom:mob?'max(64px, calc(52px + env(safe-area-inset-bottom)))':64,right:mob?'max(12px, env(safe-area-inset-right))':12,width:mob?'min(280, calc(100vw - 24px))':280,maxHeight:mob?320:360,background:'#1a0a0a',border:'1px solid rgba(196,18,48,.3)',borderRadius:14,display:'flex',flexDirection:'column',zIndex:150,boxShadow:'0 8px 30px rgba(0,0,0,.6)',overflow:'hidden',touchAction:'manipulation',WebkitOverflowScrolling:'touch'}},
     // Header
     React.createElement('div',{style:{padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.1)',fontSize:13,fontWeight:700,color:'#d4a843',display:'flex',justifyContent:'space-between',alignItems:'center'}},
       'Chat da mesa',
@@ -735,7 +753,7 @@ function ChatPanel(P){
     ),
     // Input
     React.createElement('div',{style:{padding:'8px 10px',borderTop:'1px solid rgba(255,255,255,.1)',display:'flex',gap:6}},
-      React.createElement('input',{value:msg,onChange:function(e){setMsg(e.target.value);},onKeyDown:function(e){if(e.key==='Enter')send();},placeholder:'Digite...',style:{flex:1,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:8,padding:'7px 10px',color:'#fff',fontSize:12,outline:'none'}}),
+      React.createElement('input',{value:msg,onChange:function(e){setMsg(e.target.value);},onKeyDown:function(e){if(e.key==='Enter')send();},placeholder:'Digite...',autoCorrect:'off',autoCapitalize:'sentences',style:{flex:1,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:8,padding:mob?'10px 12px':'7px 10px',color:'#fff',fontSize:inpFs,lineHeight:1.25,outline:'none',minHeight:mob?44:undefined}}),
       React.createElement('button',{onClick:send,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:700}},'→')
     )
   ) : null;
@@ -760,17 +778,6 @@ function HomeScreen(P){
   ];
 
   var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
-
-  async function create(){
-    if(!nm.trim()){ setEr('Digite seu nome'); return; }
-    if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
-    setLd(true); setEr('');
-    var c=mkCode(), pid=uid();
-    var room = {code:c,hostId:pid,players:[{id:pid,name:nm.trim(),seat:-1,team:null}],game:null};
-    var ok = await RT.setRoom(c, room);
-    setLd(false);
-    if(ok) P.onCreate(pid,nm.trim(),c,room); else setEr('Erro ao criar');
-  }
 
   async function join(){
     if(!nm.trim()){ setEr('Digite seu nome'); return; }
@@ -810,7 +817,11 @@ function HomeScreen(P){
       er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
       React.createElement('button',{onClick:function(){ if(!nm.trim()){setEr('Digite seu nome');return;} setEr(''); P.onSolo(nm.trim()); },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)'}},'🤖 Solo vs IA'),
       divider('ou jogue com amigos'),
-      React.createElement('button',{onClick:create,disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'🌐 Criar Sala'),
+      React.createElement('button',{onClick:function(){
+ if(!nm.trim()){ setEr('Digite seu nome'); return; }
+        if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
+        setEr(''); P.onGoPickCreate(nm.trim());
+      },disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'🌐 Criar Sala'),
       React.createElement('div',{style:{display:'flex',gap:8}},
         React.createElement('input',{value:cd,onChange:function(e){setCd(e.target.value.toUpperCase().slice(0,4));},placeholder:'Código',style:Object.assign({},inp,{textAlign:'center',letterSpacing:4,fontWeight:700})}),
         React.createElement('button',{onClick:join,disabled:ld,style:{background:'#1a3a6a',color:'#fff',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:14,fontWeight:'bold',whiteSpace:'nowrap'}},'Entrar')
@@ -892,7 +903,8 @@ function LobbyScreen(P){
       React.createElement('div',{style:{background:'rgba(196,18,48,.08)',borderRadius:14,padding:20,textAlign:'center',border:'1px solid rgba(196,18,48,.25)'}},
         React.createElement('div',{style:{fontSize:11,opacity:0.4,letterSpacing:2}},'CÓDIGO DA SALA'),
         React.createElement('div',{style:{fontSize:48,fontWeight:900,letterSpacing:12,color:'#d4a843'}},room.code),
-        React.createElement('div',{style:{fontSize:11,opacity:0.4,marginTop:6}},'Compartilhe com seus amigos')
+        React.createElement('div',{style:{fontSize:11,opacity:0.4,marginTop:6}},'Compartilhe com seus amigos'),
+        React.createElement('div',{style:{fontSize:12,opacity:0.55,marginTop:10}},(THEMES[room.themeId]||THEMES.sala).icon+' Mesa: '+(THEMES[room.themeId]||THEMES.sala).name)
       ),
       React.createElement('div',{style:{background:'rgba(255,255,255,.05)',borderRadius:14,padding:16,border:'1px solid rgba(255,255,255,.1)'}},
         React.createElement('div',{style:{fontSize:12,opacity:0.5,marginBottom:10}},'Jogadores ('+humans.length+' humanos · ate 4)'),
@@ -914,8 +926,27 @@ function LobbyScreen(P){
 }
 
 /* ═══ GAME SCREEN ═══ */
+function useNarrowScreen(){
+  var st = useState(function(){
+    return typeof window!=='undefined' && window.matchMedia('(max-width: 640px)').matches;
+  });
+  var narrow = st[0], setNarrow = st[1];
+  useEffect(function(){
+    function u(){ setNarrow(window.innerWidth <= 640); }
+    u();
+    window.addEventListener('resize', u);
+    window.addEventListener('orientationchange', u);
+    return function(){
+      window.removeEventListener('resize', u);
+      window.removeEventListener('orientationchange', u);
+    };
+  },[]);
+  return narrow;
+}
+
 function GameScreen(props){
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
+  var mob = useNarrowScreen();
   var mySeat=props.mySeat||0, isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
   var partnerCount=props.partnerCount||0, setPT=props.setPT;
   var shuffling=props.shuffling||false, setSh=props.setSh;
@@ -928,6 +959,8 @@ function GameScreen(props){
   var iAmCutter = cutter===mySeat;
   var botSeats = props.botSeats || {};
   var isRoomHost = !!props.isRoomHost;
+  var cutSecSt = useState(null);
+  var cutSec = cutSecSt[0], setCutSec = cutSecSt[1];
 
   // Write online state (ONLY here, GameScreen is the single writer)
   useEffect(function(){
@@ -948,17 +981,39 @@ function GameScreen(props){
     return function(){ clearTimeout(t); setSh(false); };
   },[g.phase]);
 
-  // Auto-cut (solo IA, online: cortador humano ou host cortando por bot)
+  // Auto-cut: solo quando quem corta é a IA; online só o host corta por IA (evita vários clientes cortando)
   useEffect(function(){
     if(g.phase!=='cut') return;
-    var botCuts = !!(botSeats[cutter]);
-    var iRunCut = !isOnline ? cutter===0 : (iAmCutter || (isRoomHost && botCuts));
-    if(!iRunCut) return;
+    var showCutUi = isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter]));
+    if(showCutUi) return;
+    var runAuto = !isOnline ? cutter!==0 : (isRoomHost && !!botSeats[cutter]);
+    if(!runAuto) return;
     var t = setTimeout(function(){
       var ci = 8 + Math.floor(Math.random()*24);
       performCut(ci);
     },1500);
     return function(){ clearTimeout(t); };
+  },[g.phase,cutter,mySeat,isOnline,isRoomHost]);
+
+  // Até 10s para quem escolhe o corte; depois corta automático
+  useEffect(function(){
+    if(g.phase!=='cut'){ setCutSec(null); return; }
+    var showCutUi = isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter]));
+    if(!showCutUi){ setCutSec(null); return; }
+    var left = 10;
+    setCutSec(left);
+    var iv = setInterval(function(){
+      left -= 1;
+      if(left<=0){
+        clearInterval(iv);
+        setCutSec(0);
+        var ci = 8 + Math.floor(Math.random()*24);
+        performCut(ci);
+      } else {
+        setCutSec(left);
+      }
+    },1000);
+    return function(){ clearInterval(iv); };
   },[g.phase,cutter,mySeat,isOnline,isRoomHost]);
 
   // Deal phase
@@ -1031,19 +1086,20 @@ function GameScreen(props){
   },[g.trickN]);
 
   function performCut(ci){
-    var fd=g.fd.slice(), newFd=fd.slice(ci).concat(fd.slice(0,ci));
-    var rawTc=newFd[12], tc, trump;
-    if(rawTc.v==='7'||rawTc.v==='A'){ trump=PAIRS[rawTc.s]; tc=null; }
-    else{ trump=rawTc.s; tc=rawTc; }
-
-    if(isOnline){
-      // Online: go to deal phase with animation, same as solo
+    setCutSec(null);
+    sg(function(pv){
+      if(pv.phase!=='cut' || !Array.isArray(pv.fd) || pv.fd.length<20) return pv;
+      var fd=pv.fd.slice(), newFd=fd.slice(ci).concat(fd.slice(0,ci));
+      var rawTc=newFd[12], tc, trump;
+      if(!rawTc || !rawTc.v) return pv;
+      if(rawTc.v==='7'||rawTc.v==='A'){ trump=PAIRS[rawTc.s]; tc=null; }
+      else{ trump=rawTc.s; tc=rawTc; }
       var msg = tc ? ('Trunfo: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - trunfo: '+SYM[trump]+' '+trump+'!');
-      sg(function(pv){ return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:myPid}); });
-    } else {
-      var msg = tc ? ('Trunfo: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - trunfo: '+SYM[trump]+' '+trump+'!');
-      sg(function(pv){ return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,dealStep:0,msg:msg}); });
-    }
+      if(isOnline){
+        return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:myPid});
+      }
+      return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg});
+    });
     setCa(false); setHovHalf(null);
   }
 
@@ -1056,6 +1112,7 @@ function GameScreen(props){
 
   function doBat(){
     if(g.phase!=='cut') return;
+    setCutSec(null);
     // Go to deal phase with batido flag — animation deals 3 at a time
     sg(function(pv){
       return Object.assign({},pv,{phase:'deal',tc:null,trump:'copas',batido:true,dealStep:0,
@@ -1201,7 +1258,7 @@ function GameScreen(props){
 
   function rPlaced(p){
     var pl=g.trick.find(function(t){ return t.player===p; });
-    return pl && pl.card ? rCard(pl.card,null,false,false,true) : rSlot(g.curP===p && g.phase==='playing');
+    return pl && pl.card ? rCard(pl.card,null,false,false,true,false,mob) : rSlot(g.curP===p && g.phase==='playing',mob);
   }
 
   function rHand(seat,isMe,isPartner){
@@ -1209,12 +1266,12 @@ function GameScreen(props){
     var showCards = isMe || (isPartner && (partnerCount>0 || modal));
     return hand.map(function(c){
       if(!c) return null;
-      if(!showCards) return React.createElement(React.Fragment,{key:c.id},rCard(null,null,true,false,false));
-      if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false));
+      if(!showCards) return React.createElement(React.Fragment,{key:c.id},rCard(null,null,true,false,false,false,mob));
+      if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false,mob));
       var s7out = g.trumpSevenOut || g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; }) || hand.some(function(h){ return h && h.v==='7' && h.s===g.trump; });
       var ab = c.v==='A' && c.s===g.trump && !s7out && hand.length>1;
       var canClick = myTurn && !ab && partnerCount<=0;
-      return React.createElement(React.Fragment,{key:c.id},rCard(c,canClick?function(){playCard(mySeat,c);}:null,false,canClick,false,ab));
+      return React.createElement(React.Fragment,{key:c.id},rCard(c,canClick?function(){playCard(mySeat,c);}:null,false,canClick,false,ab,mob));
     });
   }
 
@@ -1229,7 +1286,7 @@ function GameScreen(props){
     var showCut = g.phase==='cut' && (isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter])));
     var aiCutting = g.phase==='cut' && !showCut;
 
-    return React.createElement('div',{style:{minHeight:'100vh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:12}},
+    return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden'}},
       React.createElement('style',null,ACSS),
       React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
         rLogo(36),
@@ -1250,13 +1307,14 @@ function GameScreen(props){
       ) : null,
       showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}},
         React.createElement('div',{style:{fontSize:14,opacity:0.85,fontWeight:'500'}},'Escolha como cortar:'),
-        React.createElement('div',{style:{display:'flex',gap:24,alignItems:'flex-end'}},
+        cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:13,fontWeight:700,color:'#fbbf24',textAlign:'center',padding:'0 12px'}},'Tempo: '+cutSec+'s — se acabar, corta automático.') : null,
+        React.createElement('div',{style:{display:'flex',gap:mob?12:24,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
           React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
-            deckPile(20,null,hovHalf==='top'),
+            deckPile(20,null,hovHalf==='top',mob),
             React.createElement('div',{style:{fontSize:11,color:hovHalf==='top'?'#FFD700':'#fca5a5'}},'Metade de cima')
           ),
           React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer'}},
-            deckPile(20,null,hovHalf==='bottom'),
+            deckPile(20,null,hovHalf==='bottom',mob),
             React.createElement('div',{style:{fontSize:11,color:hovHalf==='bottom'?'#FFD700':'#fca5a5'}},'Metade de baixo')
           )
         ),
@@ -1274,25 +1332,25 @@ function GameScreen(props){
           React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:15}},SYM[g.trump]+' '+g.trump),
           isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 6px',fontSize:11}},'BATIDO') : null
         ),
-        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:'1fr 120px 1fr',gap:6,alignItems:'center',justifyItems:'center',flex:1}},
-          React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
-            React.createElement('div',{style:{display:'flex',gap:3,minHeight:65}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false)):null; })),
+        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(52px,26vw) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?4:6,alignItems:'center',justifyItems:'center',flex:1,minWidth:0,width:'100%'}},
+          React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
+            React.createElement('div',{style:{display:'flex',gap:3,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false,false,mob)):null; })),
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dN])
           ),
-          React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
+          React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dW]),
-            React.createElement('div',{style:{display:'flex',gap:2,minHeight:65}},g.hands[dW].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false)):null; }))
+            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dW].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
           ),
-          React.createElement('div',{style:{gridArea:'c',display:'flex',flexDirection:'column',alignItems:'center',gap:6}},
-            g.tc ? React.createElement('div',{style:{transform:'rotate(-14deg)',marginBottom:-8}},rCard(g.tc,null,false,false,true)) : null,
-            deckPile(Math.max(0, g.batido ? 28-g.dealStep*3 : 28-g.dealStep),null,false)
+          React.createElement('div',{style:{gridArea:'c',display:'flex',flexDirection:'column',alignItems:'center',gap:6,minWidth:0}},
+            g.tc ? React.createElement('div',{style:{transform:'rotate(-14deg)',marginBottom:-8}},rCard(g.tc,null,false,false,true,false,mob)) : null,
+            deckPile(Math.max(0, g.batido ? 28-g.dealStep*3 : 28-g.dealStep),null,false,mob)
           ),
-          React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
+          React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dE]),
-            React.createElement('div',{style:{display:'flex',gap:2,minHeight:65}},g.hands[dE].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false)):null; }))
+            React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dE].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob)):null; }))
           ),
-          React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
-            React.createElement('div',{style:{display:'flex',gap:4,minHeight:65}},g.hands[dS].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,false,false,false)):null; })),
+          React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
+            React.createElement('div',{style:{display:'flex',gap:4,minHeight:mob?52:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dS].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,false,false,false,false,mob)):null; })),
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dS])
           )
         ),
@@ -1306,40 +1364,44 @@ function GameScreen(props){
   }
 
   // ── PLAYING SCREEN ──
-  return React.createElement('div',{style:{minHeight:'100vh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:12,boxSizing:'border-box',position:'relative'}},
+  var gridColsPlay = mob ? 'minmax(0,1fr) minmax(52px,26vw) minmax(0,1fr)' : '1fr 192px 1fr';
+  var tblW = mob ? 'min(26vw, 102px)' : 192;
+  var tblH = mob ? 'min(24vw, 96px)' : 178;
+  var edge = mob ? 4 : 7;
+  return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(12px, env(safe-area-inset-bottom))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
-    React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
-      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10}},
-        rLogo(40),
-        React.createElement('div',{style:{borderLeft:'1px solid rgba(255,255,255,.15)',paddingLeft:10}},
-          React.createElement('div',{style:{fontSize:18,fontWeight:'bold',letterSpacing:0.4}},'Bisca Fucas'),
-          React.createElement('div',{style:{fontSize:10,opacity:0.5,marginTop:-1,display:'flex',gap:6,alignItems:'center'}},
+    React.createElement('div',{style:{display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
+        rLogo(mob?28:40),
+        React.createElement('div',{style:{borderLeft:mob?'none':'1px solid rgba(255,255,255,.15)',paddingLeft:mob?0:10}},
+          React.createElement('div',{style:{fontSize:mob?15:18,fontWeight:'bold',letterSpacing:0.4}},'Bisca Fucas'),
+          React.createElement('div',{style:{fontSize:10,opacity:0.5,marginTop:-1,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
             React.createElement('span',null,isSolo?'Solo vs IA':'Online'),
             isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 5px'}},'copas batido') : null,
             g.tieBonus>0 ? React.createElement('span',{style:{background:'#7B3010',borderRadius:4,padding:'1px 5px',fontSize:10}},'vale '+(1+g.tieBonus)+' pts') : null
           )
         )
       ),
-      React.createElement('div',{style:{display:'flex',gap:6,fontSize:13,alignItems:'center'}},
+      React.createElement('div',{style:{display:'flex',gap:mob?10:6,fontSize:13,alignItems:'center',justifyContent:mob?'space-between':'flex-end'}},
         React.createElement('span',{style:{display:'flex',alignItems:'center',gap:4}},
           React.createElement('span',{style:{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}),
-          React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Dupla A'),
-          React.createElement('b',{style:{fontSize:16}},g.mPts[0]),
+          React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.6}},mob?'A':'Dupla A'),
+          React.createElement('b',{style:{fontSize:mob?14:16}},g.mPts[0]),
           React.createElement('span',{style:{opacity:0.4}},'/4')
         ),
         React.createElement('span',{style:{opacity:0.3,fontSize:18}},'|'),
         React.createElement('span',{style:{display:'flex',alignItems:'center',gap:4}},
           React.createElement('span',{style:{width:10,height:10,borderRadius:'50%',background:'#f87171',display:'inline-block'}}),
-          React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Dupla B'),
-          React.createElement('b',{style:{fontSize:16}},g.mPts[1]),
+          React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.6}},mob?'B':'Dupla B'),
+          React.createElement('b',{style:{fontSize:mob?14:16}},g.mPts[1]),
           React.createElement('span',{style:{opacity:0.4}},'/4')
         )
       )
     ),
-    React.createElement('div',{style:{height:8}}),
-    React.createElement('div',{style:{background:'rgba(0,0,0,.4)',borderRadius:8,padding:'5px 12px',marginBottom:8,fontSize:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap'}},
+    React.createElement('div',{style:{height:mob?4:8}}),
+    React.createElement('div',{style:{background:'rgba(0,0,0,.4)',borderRadius:8,padding:mob?'6px 8px':'5px 12px',marginBottom:8,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center'}},
       React.createElement('span',null,g.msg),
-      React.createElement('span',{style:{opacity:0.7,fontSize:11}},
+      React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
         ' | Mao '+(g.trickN+1)+'/10 | Deck:'+g.deck.length,
@@ -1350,46 +1412,46 @@ function GameScreen(props){
     isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
       React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Corte:'),
-      g.tc ? rCard(g.tc,null,false,false,true)
+      g.tc ? rCard(g.tc,null,false,false,true,false,mob)
         : isCB ? React.createElement('span',{style:{color:'#fca5a5',fontSize:14,fontWeight:'bold'}},'\u2665 copas batido')
-        : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6}},
-            rCard(g.rawTc,null,false,false,true),
+        : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
+            rCard(g.rawTc,null,false,false,true,false,mob),
             React.createElement('span',{style:{color:'#fca5a5',fontSize:11}},'\u2192 trunfo: '+SYM[g.trump]+' '+g.trump),
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
         : null,
       g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Corte alto: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
     ),
-    React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:'1fr 192px 1fr',gap:8,alignItems:'center',justifyItems:'center'}},
-      React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
-        React.createElement('div',{style:{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'center'}},rHand(dN,false,true)),
-        React.createElement('div',{style:{fontSize:11,opacity:0.7}},NAMES[dN]+(g.curP===dN?' 🎯':''),' ',React.createElement('span',{style:{color:'#86efac'}},'dupla '+(pTm(dN)===0?'A':'B')))
+    React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
+      React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
+        React.createElement('div',{style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 4px'}},NAMES[dN]+(g.curP===dN?' 🎯':''),' ',React.createElement('span',{style:{color:'#86efac'}},mob?(pTm(dN)===0?'A':'B'):'dupla '+(pTm(dN)===0?'A':'B')))
       ),
-      React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
-        React.createElement('div',{style:{fontSize:11,opacity:0.7}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},'dupla '+(pTm(dW)===0?'A':'B'))),
-        React.createElement('div',{style:{display:'flex',gap:2}},rHand(dW,false,false))
+      React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
+        React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
-      React.createElement('div',{style:{gridArea:'c',position:'relative',width:192,height:178,background:th.tableColor,borderRadius:th.name==='Terrafé'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center'}},
+      React.createElement('div',{style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.name==='Terrafé'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
         th.decor ? th.decor() : null,
-        React.createElement('div',{style:{position:'absolute',top:7,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
-        React.createElement('div',{style:{position:'absolute',left:7,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
-        React.createElement('div',{style:{position:'absolute',right:7,top:'50%',transform:'translateY(-50%)'}},rPlaced(dE)),
-        React.createElement('div',{style:{position:'absolute',bottom:7,left:'50%',transform:'translateX(-50%)'}},rPlaced(dS)),
-        g.lastW!==null && g.trick.length===0 ? React.createElement('div',{style:{fontSize:10,opacity:0.35}},'ganhou: '+NAMES[g.lastW]) : null
+        React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
+        React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
+        React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dE)),
+        React.createElement('div',{style:{position:'absolute',bottom:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dS)),
+        g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
-      React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:3}},
-        React.createElement('div',{style:{fontSize:11,opacity:0.7}},NAMES[dE]+(g.curP===dE?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},'dupla '+(pTm(dE)===0?'A':'B'))),
-        React.createElement('div',{style:{display:'flex',gap:2}},rHand(dE,false,false))
+      React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dE]+(g.curP===dE?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dE)===0?'A':'B'):'dupla '+(pTm(dE)===0?'A':'B'))),
+        React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
       ),
-      React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:6}},
-        React.createElement('div',{style:{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}},rHand(dS,true,false)),
-        React.createElement('div',{style:{fontSize:12,fontWeight:'bold',color:myTurn&&partnerCount<=0?'#FFD700':'rgba(255,255,255,.6)'}},
-          NAMES[dS]+(myTurn&&partnerCount<=0?' Clique para jogar!':''),' ',
-          React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:10}},'dupla '+(pTm(dS)===0?'A':'B'))
+      React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
+        React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
+        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&partnerCount<=0?'#FFD700':'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
+          NAMES[dS]+(myTurn&&partnerCount<=0?(mob?' — Toque na carta':' Clique para jogar!'):''),' ',
+          React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?9:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
         )
       )
     ),
-    modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100vh'}},
+    modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100dvh'}},
       React.createElement('div',{style:{background:'#3a0808',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:400,width:'90%'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
           rLogo(34),
@@ -1412,7 +1474,7 @@ function GameScreen(props){
             )
       )
     ) : null,
-    React.createElement('div',{style:{position:'fixed',bottom:8,right:10,fontSize:10,opacity:0.3}},'by: Ruivo01')
+    React.createElement('div',{style:{position:'fixed',bottom:mob?'max(8px, env(safe-area-inset-bottom))':8,right:mob?'max(10px, env(safe-area-inset-right))':10,fontSize:10,opacity:0.3}},'by: Ruivo01')
   );
 }
 
@@ -1435,7 +1497,11 @@ export default function App(){
   var optc=useState(0); var oPart=optc[0], setOPT=optc[1];
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
   var lcs=useState('sala'); var locId=lcs[0], setLocId=lcs[1];
-  var theme = THEMES[locId] || THEMES.sala;
+  var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
+  var themeKey = locId;
+  if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
+  if(!THEMES[themeKey]) themeKey = 'sala';
+  var theme = THEMES[themeKey];
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
   screenRef.current=screen;
@@ -1448,6 +1514,7 @@ export default function App(){
       if(!r) return;
       setRoom(r);
       var scr=screenRef.current;
+      if(r.themeId && (scr==='lobby' || scr==='online')) setLocId(r.themeId);
       if(r.game && scr==="lobby") setScreen("online");
       if(r.game && scr==="online"){
         var gm=r.game;
@@ -1467,7 +1534,7 @@ export default function App(){
 
   function goHome(){ setScreen('home'); setRoom(null); setRoomCode(''); sg(null); setOG(null); setShowExit(false); }
 
-  var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:12,left:12,background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
+  var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
 
   var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
     React.createElement('div',{style:{background:'#2a0a0a',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:340,width:'90%',textAlign:'center'}},
@@ -1483,9 +1550,30 @@ export default function App(){
   if(screen==='home'){
     return React.createElement(HomeScreen,{
       onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
-      onCreate:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap) setRoom(roomSnap); setScreen('lobby'); },
-      onJoin:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap) setRoom(roomSnap); setScreen('lobby'); }
+      onGoPickCreate:function(name){ setMyName(name); setScreen('pickLocCreate'); },
+      onJoin:function(id,name,code,roomSnap){ setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby'); }
     });
+  }
+
+  if(screen==='pickLocCreate'){
+    return React.createElement(React.Fragment,null,
+      React.createElement(LocationScreen,{
+        pickForCreate:true,
+        onBack:function(){ if(!crBusy) setScreen('home'); },
+        onSelect:async function(loc){
+          if(crBusy || !RT.isConfigured()) return;
+          setCrBusy(true);
+          var c=mkCode(), pid=uid();
+          var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc};
+          var ok = await RT.setRoom(c, roomNew);
+          setCrBusy(false);
+          if(ok){ setMyId(pid); setRoomCode(c); setLocId(loc); setRoom(roomNew); setScreen('lobby'); }
+        }
+      }),
+      crBusy ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
+        React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
+      ) : null
+    );
   }
 
   if(screen==='pickLoc'){
@@ -1523,6 +1611,6 @@ export default function App(){
     return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'system-ui,sans-serif',fontSize:14}},'Carregando mesa...');
   }
 
-  return React.createElement(HomeScreen,{onSolo:function(){},onCreate:function(){},onJoin:function(){}});
+  return React.createElement(HomeScreen,{onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}});
 }
 
