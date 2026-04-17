@@ -51,6 +51,7 @@ function normalizeGame(g) {
       names[ni] = pn[ni] || pn[String(ni)] || "?";
     }
   }
+  var stRaw = parseSeat(g.starter);
   return Object.assign({}, g, {
     hands: hands,
     trick: Array.isArray(g.trick) ? g.trick : [],
@@ -59,6 +60,7 @@ function normalizeGame(g) {
     events: Array.isArray(g.events) ? g.events : [],
     setWins: Array.isArray(g.setWins) ? g.setWins : [0, 0],
     playerNames: names,
+    starter: isNaN(stRaw) ? 2 : stRaw,
   });
 }
 
@@ -270,6 +272,13 @@ var TORD = [0,3,2,1];
 
 function nxt(p){ return TORD[(TORD.indexOf(p)+1)%4]; }
 function prv(p){ return TORD[(TORD.indexOf(p)+3)%4]; }
+/** Assento 0–3 válido em TORD; aceita string vinda do Firebase; NaN se inválido. */
+function parseSeat(p){
+  if(p==null||p==='') return NaN;
+  var n = typeof p === 'number' ? p : parseInt(String(p),10);
+  if(isNaN(n)) return NaN;
+  return TORD.indexOf(n) >= 0 ? n : NaN;
+}
 function cPts(c){ return PTS[c.v]||0; }
 function cRnk(c){ return RNK[c.v]; }
 function pTm(p){ return p%2; }
@@ -594,9 +603,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 }
 
 /* ═══ GAME STATE ═══ */
+/** Nova rodada: repasse o starter da rodada que acabou; o próximo quem começa é nxt(disso). Quem embaralha = prv(starter), corta = prv(prv(starter)). */
 function mkGame(pm,ps,tb,names,actor,sw){
   var m = pm || [0,0];
-  var st = ps!==undefined ? nxt(ps) : 2;
+  var prev = parseSeat(ps);
+  var st = !isNaN(prev) ? nxt(prev) : 2;
   return {
     phase:'shuffle', starter:st, fd:shf(mkDk()), tc:null, trump:null, rawTc:null,
     hands:[[],[],[],[]], trick:[], curP:st, tPts:[0,0], mPts:m.slice(),
@@ -1444,8 +1455,10 @@ function GameScreen(props){
   var NAMES=g.playerNames;
   var th = props.theme || THEMES.sala;
   var cbk = cardBackSkin(th);
-  var dealer=prv(g.starter), cutter=prv(dealer);
-   var dS=mySeat, dE=nxt(mySeat), dN=nxt(nxt(mySeat)), dW=nxt(nxt(nxt(mySeat)));
+  var gStart = parseSeat(g.starter);
+  if(isNaN(gStart)) gStart = 2;
+  var dealer=prv(gStart), cutter=prv(dealer);
+  var dS=mySeat, dE=nxt(mySeat), dN=nxt(nxt(mySeat)), dW=nxt(nxt(nxt(mySeat)));
   var iAmCutter = cutter===mySeat;
   var botSeats = props.botSeats || {};
   var isRoomHost = !!props.isRoomHost;
@@ -1730,7 +1743,9 @@ function GameScreen(props){
           mPts = [0,0];
           newTB = 0;
         }
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum});
+        var stKeep = parseSeat(pv.starter);
+        if(isNaN(stKeep)) stKeep = 2;
+        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep});
       });
     },500);
     return function(){ clearTimeout(t); };
@@ -1814,7 +1829,7 @@ function GameScreen(props){
         shScore
       ),
       React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
-        NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[g.starter]+' comeca',
+        NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' comeca',
         g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11}},'Vale +'+(1+g.tieBonus)+' pts') : null
       ),
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
@@ -1876,7 +1891,7 @@ function GameScreen(props){
         ),
         React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.6,animation:'pls 1s infinite'}},
           g.batido
-            ? (g.dealStep<4 ? NAMES[TORD[(TORD.indexOf(g.starter)+g.dealStep)%4]]+' recebe 3 cartas... ('+(g.dealStep+1)+'/4)' : 'Preparando...')
+            ? (g.dealStep<4 ? NAMES[TORD[(TORD.indexOf(gStart)+g.dealStep)%4]]+' recebe 3 cartas... ('+(g.dealStep+1)+'/4)' : 'Preparando...')
             : (g.dealStep<12 ? 'Distribuindo '+(g.dealStep+1)+'/12...' : 'Preparando...')
         )
       ) : null
@@ -1995,7 +2010,7 @@ function GameScreen(props){
           'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
         ),
         React.createElement('div',{style:{textAlign:'center'}},
-          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,g.starter,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Proxima rodada')
+          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Proxima rodada')
         )
       )
     ) : null,
