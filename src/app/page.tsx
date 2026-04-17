@@ -404,9 +404,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // ══ LEADING ══
   if(!trick.length){
 
-    // RULE 1: Play 7 of trump EARLY to liberate Ás
+    // RULE 1: 7 de trunfo cedo (1ª vaza = trickN===0 e somos quem abre — alinha com bónus 7 de abertura por distribuição)
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(my7t && hand.length>=5) return my7t;
+    if(my7t && hand.length>=5 && trickN===0) return my7t;
 
     // RULE 2: Force opponents to use trump — lead suit they're void in
     // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
@@ -1696,7 +1696,10 @@ function GameScreen(props){
           if(trick[i].card.s===trump && trick[i].card.v==='7' && trick[i+1].card.s===trump && trick[i+1].card.v==='A')
             events.push({tm:pTm(trick[i+1].player),lbl:'Rele! '+pv.playerNames[trick[i+1].player]+' jogou As apos o 7'});
         }
-        if(trick[0].card.s===trump && trick[0].card.v==='7'){
+        /* 7 de abertura: em cada nova distribuição, só na 1ª vaza, aberto pelo starter; anula se a dupla adversária jogar Ás de trunfo nesta vaza. Não vale na 1ª carta da última mão (trickN>0). */
+        var stDeal = parseSeat(pv.starter);
+        if(isNaN(stDeal)) stDeal = 2;
+        if(pv.trickN===0 && trick[0].player===stDeal && trick[0].card.s===trump && trick[0].card.v==='7'){
           var ot=1-pTm(trick[0].player);
           if(!trick.some(function(x){ return x.card.s===trump && x.card.v==='A' && pTm(x.player)===ot; }))
             events.push({tm:pTm(trick[0].player),lbl:'7 de abertura ('+pv.playerNames[trick[0].player]+')'});
