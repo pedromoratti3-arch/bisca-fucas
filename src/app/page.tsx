@@ -627,8 +627,15 @@ var BTN = {background:'#C41230',color:'#fff',border:'none',borderRadius:8,paddin
 /* ═══ THEMES ═══ */
 var THEMES = {
   terrafe: {
-    name: 'Terrafé', icon: '',
-    bg: '#1a1208', tableColor: 'radial-gradient(ellipse at 50% 50%,#1a1a1a,#0d0d0d)',
+    id: 'terrafe', name: 'Terrafé', icon: '',
+    bg: '#1a1208',
+    pageGradient: 'linear-gradient(165deg, #23180f 0%, #2a1c10 42%, #1a1208 100%)',
+    vignette: 'radial-gradient(ellipse 95% 78% at 50% 45%, transparent 30%, rgba(0,0,0,.52) 100%)',
+    playfieldSurface: 'linear-gradient(145deg, rgba(55,42,28,.42) 0%, rgba(12,9,6,.58) 100%)',
+    playfieldBorder: '1px solid rgba(201,149,106,.2)',
+    playfieldRadius: 18,
+    playfieldShadow: '0 14px 44px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.06)',
+    tableColor: 'radial-gradient(ellipse at 50% 50%,#1a1a1a,#0d0d0d)',
     tableBorder: '2px solid #3a2a1a', tableShadow: 'inset 0 0 30px rgba(139,69,19,.15), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:50%', accent: '#8B4513',
     decor: function(){ return [
@@ -638,8 +645,15 @@ var THEMES = {
     ]; }
   },
   hub: {
-    name: 'HUB Fucape', icon: '',
-    bg: '#0a0a18', tableColor: 'radial-gradient(ellipse at 50% 50%,#15153a,#0a0a20)',
+    id: 'hub', name: 'HUB Fucape', icon: '',
+    bg: '#0a0a18',
+    pageGradient: 'linear-gradient(165deg, #0a0a1c 0%, #12122e 48%, #0a0a18 100%)',
+    vignette: 'radial-gradient(ellipse 100% 55% at 50% 0%, rgba(37,99,235,.14) 0%, transparent 55%), radial-gradient(ellipse 92% 72% at 50% 48%, transparent 34%, rgba(0,0,0,.58) 100%)',
+    playfieldSurface: 'linear-gradient(180deg, rgba(28,28,58,.4) 0%, rgba(8,8,22,.55) 100%)',
+    playfieldBorder: '1px solid rgba(96,165,250,.18)',
+    playfieldRadius: 16,
+    playfieldShadow: '0 14px 44px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.07)',
+    tableColor: 'radial-gradient(ellipse at 50% 50%,#15153a,#0a0a20)',
     tableBorder: '2px solid #2a2a5a', tableShadow: 'inset 0 0 30px rgba(37,99,235,.1), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:14px', accent: '#2563eb',
     decor: function(){ return [
@@ -649,8 +663,15 @@ var THEMES = {
     ]; }
   },
   floresta: {
-    name: 'Floresta', icon: '',
-    bg: '#0a1a0e', tableColor: 'radial-gradient(ellipse at 50% 50%,#1a2a1a,#0d1a0d)',
+    id: 'floresta', name: 'Floresta', icon: '',
+    bg: '#0a1a0e',
+    pageGradient: 'linear-gradient(165deg, #08140c 0%, #132018 48%, #0a1a0e 100%)',
+    vignette: 'radial-gradient(ellipse 88% 50% at 50% 100%, rgba(45,90,39,.2) 0%, transparent 48%), radial-gradient(ellipse 95% 76% at 50% 42%, transparent 32%, rgba(0,0,0,.52) 100%)',
+    playfieldSurface: 'linear-gradient(180deg, rgba(22,48,32,.38) 0%, rgba(6,20,12,.55) 100%)',
+    playfieldBorder: '1px solid rgba(110,231,183,.14)',
+    playfieldRadius: 14,
+    playfieldShadow: '0 14px 44px rgba(0,0,0,.46), inset 0 1px 0 rgba(134,239,172,.06)',
+    tableColor: 'radial-gradient(ellipse at 50% 50%,#1a2a1a,#0d1a0d)',
     tableBorder: '2px solid #2a3a2a', tableShadow: 'inset 0 0 30px rgba(45,90,39,.1), 0 0 20px rgba(0,0,0,.5)',
     tableShape: 'borderRadius:8px', accent: '#2d5a27',
     decor: function(){ return [
@@ -659,13 +680,58 @@ var THEMES = {
     ]; }
   },
   sala: {
-    name: 'Sala de Aula', icon: '',
-    bg: '#6B1010', tableColor: 'radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35),rgba(0,0,0,.25))',
+    id: 'sala', name: 'Sala de Aula', icon: '',
+    bg: '#6B1010',
+    pageGradient: 'linear-gradient(165deg, #3f0c0c 0%, #5a1010 38%, #6B1010 58%, #481010 100%)',
+    vignette: 'radial-gradient(ellipse 90% 72% at 50% 40%, transparent 28%, rgba(0,0,0,.45) 100%)',
+    playfieldSurface: 'linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(0,0,0,.3) 100%)',
+    playfieldBorder: '1px solid rgba(255,200,200,.14)',
+    playfieldRadius: 16,
+    playfieldShadow: '0 14px 44px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07)',
+    tableColor: 'radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.35),rgba(0,0,0,.25))',
     tableBorder: '1px solid rgba(255,100,100,.2)', tableShadow: 'inset 0 2px 15px rgba(0,0,0,.3)',
     tableShape: 'borderRadius:14px', accent: '#C41230',
     decor: function(){ return []; }
   }
 };
+
+/** Fundo em camadas + vignete (mesa online / solo). */
+function gameBackdropLayer(th){
+  if(!th || !th.vignette) return null;
+  return React.createElement('div',{'aria-hidden':true,style:{position:'absolute',inset:0,pointerEvents:'none',background:th.vignette,zIndex:0}});
+}
+
+/** Decoração temática discreta nos cantos (identidade visual por sala). */
+function themeCornerMotifs(th, mob){
+  if(!th || !th.id) return null;
+  var a = th.accent || '#fff';
+  var s = mob ? 0.85 : 1;
+  if(th.id==='sala'){
+    return React.createElement(React.Fragment,null,
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:10,left:12,width:Math.round(44*s),height:3,background:'linear-gradient(90deg,'+a+'55,transparent)',borderRadius:2,opacity:0.5,zIndex:1,pointerEvents:'none'}}),
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:14,right:12,width:Math.round(56*s),height:3,background:'linear-gradient(270deg,'+a+'44,transparent)',borderRadius:2,opacity:0.45,zIndex:1,pointerEvents:'none'}})
+    );
+  }
+  if(th.id==='hub'){
+    return React.createElement(React.Fragment,null,
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:12,right:14,width:Math.round(72*s),height:Math.round(72*s),borderRadius:'50%',border:'1px solid rgba(96,165,250,.12)',boxShadow:'inset 0 0 24px rgba(37,99,235,.08)',zIndex:1,pointerEvents:'none'}}),
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:16,left:10,width:Math.round(100*s),height:1,background:'linear-gradient(90deg, transparent, rgba(96,165,250,.2), transparent)',zIndex:1,pointerEvents:'none'}})
+    );
+  }
+  if(th.id==='floresta'){
+    return React.createElement(React.Fragment,null,
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:8,left:8,width:0,height:0,borderLeft:'12px solid transparent',borderRight:'12px solid transparent',borderBottom:'20px solid rgba(110,231,183,.12)',opacity:0.7,zIndex:1,pointerEvents:'none'}}),
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:12,right:10,width:0,height:0,borderLeft:'10px solid transparent',borderRight:'10px solid transparent',borderBottom:'18px solid rgba(45,90,39,.25)',opacity:0.6,zIndex:1,pointerEvents:'none',transform:'rotate(180deg)'}})
+    );
+  }
+  if(th.id==='terrafe'){
+    return React.createElement(React.Fragment,null,
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',top:14,left:14,width:Math.round(40*s),height:Math.round(40*s),borderRadius:'50%',border:'1px solid rgba(201,149,106,.2)',boxShadow:'inset 0 0 20px rgba(139,69,19,.15)',zIndex:1,pointerEvents:'none'}}),
+      React.createElement('div',{'aria-hidden':true,style:{position:'absolute',bottom:18,right:16,width:Math.round(52*s),height:Math.round(52*s),borderRadius:'50%',border:'1px solid rgba(139,69,19,.15)',opacity:0.85,zIndex:1,pointerEvents:'none'}})
+    );
+  }
+  return null;
+}
 
 /* === LOCATION MARKS (SVG) === */
 /** Xícara (Terrafé) — traço limpo, herda cor do cartão. */
@@ -1621,17 +1687,29 @@ function GameScreen(props){
   if(g.phase==='shuffle' || g.phase==='cut' || (g.phase==='deal' && !isOnline)){
     var showCut = g.phase==='cut' && (isSolo ? cutter===0 : (iAmCutter || (isRoomHost && !!botSeats[cutter])));
     var aiCutting = g.phase==='cut' && !showCut;
+    var sw0=(g.setWins&&g.setWins[0])||0, sw1=(g.setWins&&g.setWins[1])||0;
+    var shGlass={display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+    var shScore=React.createElement('div',{style:{marginLeft:'auto',display:'flex',alignItems:'center',gap:10,fontSize:12,opacity:0.9,fontVariantNumeric:'tabular-nums'}},
+      React.createElement('span',{style:{display:'inline-flex',alignItems:'baseline',gap:5}},
+        React.createElement('span',{style:{width:6,height:6,borderRadius:'50%',background:'#22c55e',flexShrink:0,alignSelf:'center'}}),
+        React.createElement('span',null,React.createElement('b',null,g.mPts[0]),sw0>0?React.createElement('span',{style:{opacity:0.55,fontWeight:500}},' ('+sw0+')'):null,React.createElement('span',{style:{opacity:0.4}},'/4'))),
+      React.createElement('span',{style:{opacity:0.35}},'\u00b7'),
+      React.createElement('span',{style:{display:'inline-flex',alignItems:'baseline',gap:5}},
+        React.createElement('span',{style:{width:6,height:6,borderRadius:'50%',background:'#f87171',flexShrink:0,alignSelf:'center'}}),
+        React.createElement('span',null,React.createElement('b',null,g.mPts[1]),sw1>0?React.createElement('span',{style:{opacity:0.55,fontWeight:500}},' ('+sw1+')'):null,React.createElement('span',{style:{opacity:0.4}},'/4'))));
 
-    return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden'}},
+    return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden',position:'relative'}},
+      gameBackdropLayer(th),
+      themeCornerMotifs(th,mob),
       React.createElement('style',null,ACSS),
-      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
+      React.createElement('div',{style:Object.assign({},shGlass,{marginBottom:2})},
         rLogo(36),
         React.createElement('div',{style:{borderLeft:'1px solid rgba(255,255,255,.15)',paddingLeft:10}},
           React.createElement('div',{style:{fontSize:16,fontWeight:'bold'}},'Bisca Fucas'),
           React.createElement('div',{style:{fontSize:10,opacity:0.5}},isSolo?'Solo vs IA':'Online'),
-          React.createElement('div',{style:{fontSize:9,opacity:0.3}},th.name)
+          React.createElement('div',{style:{fontSize:9,opacity:0.35,color:th.accent||'#fff'}},th.name)
         ),
-        React.createElement('div',{style:{marginLeft:'auto',fontSize:12,opacity:0.7}},'🟢'+g.mPts[0]+' x 🔴'+g.mPts[1])
+        shScore
       ),
       React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[g.starter]+' comeca',
@@ -1704,9 +1782,16 @@ function GameScreen(props){
   var tblW = mob ? 'min(32vw, 128px)' : 192;
   var tblH = mob ? 'min(30vw, 118px)' : 178;
   var edge = mob ? 6 : 7;
-  return React.createElement('div',{style:{minHeight:'100dvh',background:th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
+  var swA=(g.setWins&&g.setWins[0])||0, swB=(g.setWins&&g.setWins[1])||0;
+  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+  var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
+  var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
+  return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
+    gameBackdropLayer(th),
+    themeCornerMotifs(th,mob),
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
-    React.createElement('div',{style:{display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,paddingBottom:10,borderBottom:'1px solid rgba(255,255,255,.15)'}},
+    React.createElement('div',{style:{position:'relative',zIndex:2}},
+    React.createElement('div',{style:hdrGlassPl},
       React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
         rLogo(mob?28:40),
         React.createElement('div',{style:{borderLeft:mob?'none':'1px solid rgba(255,255,255,.15)',paddingLeft:mob?0:10}},
@@ -1714,7 +1799,8 @@ function GameScreen(props){
           React.createElement('div',{style:{fontSize:10,opacity:0.5,marginTop:-1,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
             React.createElement('span',null,isSolo?'Solo vs IA':'Online'),
             isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 5px'}},'copas batido') : null,
-            g.tieBonus>0 ? React.createElement('span',{style:{background:'#7B3010',borderRadius:4,padding:'1px 5px',fontSize:10}},'vale '+(1+g.tieBonus)+' pts') : null
+            g.tieBonus>0 ? React.createElement('span',{style:{background:'#7B3010',borderRadius:4,padding:'1px 5px',fontSize:10}},'vale '+(1+g.tieBonus)+' pts') : null,
+            React.createElement('span',{style:{opacity:0.5,fontSize:10,color:th.accent||'#d4a843'}},th.name)
           )
         )
       ),
@@ -1723,6 +1809,7 @@ function GameScreen(props){
           React.createElement('span',{style:{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}),
           React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.6}},mob?'A':'Dupla A'),
           React.createElement('b',{style:{fontSize:mob?14:16}},g.mPts[0]),
+          swA>0?React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.52,fontWeight:500}},' ('+swA+')'):null,
           React.createElement('span',{style:{opacity:0.4}},'/4')
         ),
         React.createElement('span',{style:{opacity:0.3,fontSize:18}},'|'),
@@ -1730,16 +1817,15 @@ function GameScreen(props){
           React.createElement('span',{style:{width:10,height:10,borderRadius:'50%',background:'#f87171',display:'inline-block'}}),
           React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.6}},mob?'B':'Dupla B'),
           React.createElement('b',{style:{fontSize:mob?14:16}},g.mPts[1]),
+          swB>0?React.createElement('span',{style:{fontSize:mob?10:11,opacity:0.52,fontWeight:500}},' ('+swB+')'):null,
           React.createElement('span',{style:{opacity:0.4}},'/4')
         )
       )
     ),
-    React.createElement('div',{style:{display:'flex',justifyContent:'center',fontSize:11,opacity:0.7,margin:'6px 0 8px',gap:12}},
-      React.createElement('span',null,'🏆 Dupla A: '+((g.setWins&&g.setWins[0])||0)),
-      React.createElement('span',null,'🏆 Dupla B: '+((g.setWins&&g.setWins[1])||0))
-    ),
-    React.createElement('div',{style:{height:mob?4:8}}),
-    React.createElement('div',{style:{background:'rgba(0,0,0,.4)',borderRadius:8,padding:mob?'6px 8px':'5px 12px',marginBottom:8,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center'}},
+    React.createElement('div',{style:playShell},
+      React.createElement('div',{style:playPanel},
+    React.createElement('div',{style:{height:mob?2:4}}),
+    React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
       React.createElement('span',null,g.msg),
       React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
@@ -1771,7 +1857,7 @@ function GameScreen(props){
         React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
-      React.createElement('div',{style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.name==='Terrafé'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
+      React.createElement('div',{style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
         th.decor ? th.decor() : null,
         React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
@@ -1791,6 +1877,9 @@ function GameScreen(props){
         )
       )
     ),
+    ),
+    ),
+    ),
     modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100dvh'}},
       React.createElement('div',{style:{background:'#3a0808',border:'1px solid #C41230',borderRadius:14,padding:28,maxWidth:400,width:'90%'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
@@ -1800,9 +1889,16 @@ function GameScreen(props){
         React.createElement('div',{style:{marginBottom:14}},
           g.summary ? g.summary.map(function(s,i){ return React.createElement('div',{key:i,style:{padding:'5px 0',fontSize:13,borderBottom:'1px solid rgba(255,255,255,.1)'}},s); }) : null
         ),
-        React.createElement('div',{style:{textAlign:'center',fontSize:22,fontWeight:'bold',margin:'16px 0'}},'🟢 '+g.mPts[0]+' x '+g.mPts[1]+' 🔴'),
-        React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.9,marginBottom:12}},
-          'Partidas: 🟢 '+((g.setWins&&g.setWins[0])||0)+' x '+((g.setWins&&g.setWins[1])||0)+' 🔴'
+        React.createElement('div',{style:{display:'flex',justifyContent:'center',alignItems:'center',gap:mob?14:20,margin:'16px 0',fontSize:mob?18:22,fontWeight:'bold',fontVariantNumeric:'tabular-nums'}},
+          React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:8}},
+            React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#22c55e'}}),
+            React.createElement('span',null,g.mPts[0])),
+          React.createElement('span',{style:{opacity:0.35,fontWeight:400}},'\u2014'),
+          React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:8}},
+            React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#f87171'}}),
+            React.createElement('span',null,g.mPts[1]))),
+        React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.78,marginBottom:12,letterSpacing:0.02}},
+          'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
         ),
         React.createElement('div',{style:{textAlign:'center'}},
           React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,g.starter,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:BTN},'Proxima rodada')
