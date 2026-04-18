@@ -1094,6 +1094,7 @@ function LocationScreen(P){
 
   return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'52px 20px 28px',position:'relative',overflow:'hidden'}},
     React.createElement('style',null,ACSS),
+    React.createElement('style',null,'.bfLocTile{-webkit-tap-highlight-color:transparent;outline:none;touch-action:manipulation;box-shadow:0 10px 28px rgba(0,0,0,.55)}@media (hover:hover) and (pointer:fine){.bfLocTile:hover{box-shadow:0 0 30px var(--bfGlow);transform:translateY(-6px);border-color:var(--bfLoc) !important}}'),
     floats.map(function(f,i){return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s);}),
     React.createElement('div',{style:{position:'absolute',top:20,left:20,display:'flex',alignItems:'center',gap:8}},
       React.createElement('button',{onClick:P.onBack,style:{background:'none',border:'none',color:'rgba(255,255,255,.4)',cursor:'pointer',fontSize:20}},'←'),
@@ -1106,10 +1107,9 @@ function LocationScreen(P){
     React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,width:'100%',maxWidth:360}},
       locs.map(function(loc){
         return React.createElement('div',{key:loc.id,
+          className:'bfLocTile',
           onClick:function(){P.onSelect(loc.id);},
-          onMouseEnter:function(e){e.currentTarget.style.boxShadow='0 0 30px '+loc.glow;e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.borderColor=loc.color;},
-          onMouseLeave:function(e){e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.5)';e.currentTarget.style.transform='none';e.currentTarget.style.borderColor=loc.color+'33';},
-          style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:18,padding:'24px 14px 20px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,transition:'all .3s cubic-bezier(.4,0,.2,1)',boxShadow:'0 10px 28px rgba(0,0,0,.55)',minHeight:142}
+          style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:18,padding:'24px 14px 20px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,transition:'all .3s cubic-bezier(.4,0,.2,1)',minHeight:142,'--bfLoc':loc.color,'--bfGlow':loc.glow}
         },
           React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:56,width:'100%'}},loc.logo()),
           React.createElement('div',{style:{textAlign:'center'}},venueNameChip(THEMES[loc.id]||THEMES.sala,13))
@@ -2277,12 +2277,12 @@ export default function App(){
   var ohvs=useState(null); var oHov=ohvs[0], setOHov=ohvs[1];
   var optc=useState(0); var oPart=optc[0], setOPT=optc[1];
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
-  var lcs=useState('sala'); var locId=lcs[0], setLocId=lcs[1];
+  var lcs=useState(null); var locId=lcs[0], setLocId=lcs[1];
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
   var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
-  var themeKey = locId;
+  var themeKey = locId && THEMES[locId] ? locId : 'sala';
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
   var theme = THEMES[themeKey];
