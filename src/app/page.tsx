@@ -1360,6 +1360,7 @@ function homeIconPeople() {
 }
 
 function HomeScreen(P){
+  var resumeTopPad = typeof P.resumeTopPad === "number" ? P.resumeTopPad : 0;
   var ns=useState(''); var nm=ns[0], setNm=ns[1];
   var cs=useState(''); var cd=cs[0], setCd=cs[1];
   var es=useState(''); var er=es[0], setEr=es[1];
@@ -1401,7 +1402,7 @@ function HomeScreen(P){
     );
   };
 
-  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,position:'relative',overflow:'hidden'}},
+  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,paddingTop:20+(resumeTopPad||0),position:'relative',overflow:'hidden',zIndex:0}},
     React.createElement('style',null,ACSS),
     floats.map(function(f,i){ return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s); }),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:30,animation:'fadeIn .8s ease-out'}},
@@ -2369,19 +2370,23 @@ export default function App(){
       ? React.createElement(
           "div",
           {
+            role: "dialog",
+            "aria-label": "Continuar na mesa",
             style: {
               position: "fixed",
               top: "max(10px, env(safe-area-inset-top))",
-              left: "max(12px, env(safe-area-inset-left))",
-              right: "max(12px, env(safe-area-inset-right))",
-              maxWidth: 360,
-              margin: "0 auto",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(360px, calc(100vw - 24px))",
               padding: "14px 16px",
               borderRadius: 14,
-              background: "rgba(196,18,48,.12)",
-              border: "1px solid rgba(196,18,48,.35)",
+              background: "linear-gradient(165deg, #2a1014 0%, #1a0a0e 55%, #14080c 100%)",
+              border: "1px solid rgba(196,18,48,.45)",
               boxSizing: "border-box",
-              zIndex: 120,
+              boxShadow: "0 12px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.35)",
+              zIndex: 5000,
+              isolation: "isolate",
+              pointerEvents: "auto",
             },
           },
           React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#f0d078", marginBottom: 6 } }, "Continuar na mesa"),
@@ -2389,9 +2394,9 @@ export default function App(){
           React.createElement("div", { style: { fontSize: 12, opacity: 0.75, marginBottom: 8 } }, resumeOffer.name),
           React.createElement(
             "div",
-            { style: { fontSize: 11, opacity: 0.55, lineHeight: 1.45, marginBottom: 12 } },
+            { style: { fontSize: 11, opacity: 0.75, lineHeight: 1.5, marginBottom: 12, maxWidth: "100%" } },
             resumeOffer.inGame
-              ? "A partida já começou — reconecte para voltar ao mesmo lugar (crash, internet ou fecho acidental do separador)."
+              ? "A partida já começou. Reconecte para voltar ao mesmo lugar (internet, crash ou fecho acidental do separador)."
               : "Você ainda está na sala no servidor — volte ao lobby se fechou o site sem sair por \"Voltar\"."
           ),
           React.createElement(
@@ -2424,16 +2429,18 @@ export default function App(){
       : null;
 
   if(screen==='home'){
+    var resumePad = resumeOffer ? 168 : 0;
     return React.createElement(React.Fragment,null,
-      resumeBanner,
       React.createElement(HomeScreen,{
+        resumeTopPad: resumePad,
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
         onGoPickCreate:function(name){ setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
           writeBfSession({ code: code, playerId: id, playerName: name });
           setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
         }
-      })
+      }),
+      resumeBanner
     );
   }
 
@@ -2499,8 +2506,8 @@ export default function App(){
   }
 
   return React.createElement(React.Fragment,null,
-    resumeBanner,
-    React.createElement(HomeScreen,{onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}})
+    React.createElement(HomeScreen,{resumeTopPad: resumeOffer ? 168 : 0, onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}}),
+    resumeBanner
   );
 }
 
