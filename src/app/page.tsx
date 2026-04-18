@@ -1870,9 +1870,18 @@ function GameScreen(props){
           if(pv.tPts[l]<30){ mPts[win]++; sum.push('Capote! +1 extra'); }
         } else { newTB=pv.tieBonus+1; sum.push('Empate 60x60! Proxima vale '+(1+newTB)+' pts!'); }
         pv.events.forEach(function(e){ mPts[e.tm]++; sum.push(e.lbl+' +1 dupla '+(e.tm===0?'A':'B')); });
-        var go = mPts[0]>=4 || mPts[1]>=4;
-        if(go){
-          var matchWinner = mPts[0]>=4 ? 0 : 1;
+        var m0 = mPts[0], m1 = mPts[1];
+        var bothAtOrPast4 = m0 >= 4 && m1 >= 4;
+        var go;
+        if (bothAtOrPast4) {
+          /* 4-4, 5-5, etc.: só fecha a partida quando há vencedor na mesa (não 60x60) e os pontos da partida ficam desiguais — “quem ganhar a próxima na mesa”. */
+          go = win >= 0 && m0 !== m1;
+          if (!go && win >= 0 && m0 === m1) sum.push('Partida empatada (' + m0 + '-' + m1 + '). Continua até desempatar na mesa.');
+        } else {
+          go = m0 >= 4 || m1 >= 4;
+        }
+        if (go) {
+          var matchWinner = m0 > m1 ? 0 : 1;
           setWins[matchWinner] += 1;
           sum.push('Dupla '+(matchWinner===0?'A':'B')+' fechou a partida de 4 pontos!');
           mPts = [0,0];
