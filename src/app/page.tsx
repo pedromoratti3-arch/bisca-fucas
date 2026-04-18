@@ -617,6 +617,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
+  // Parceiro já pôs Ás ou 7 na rodada (bisca): recuperar esses pontos pesa mais que poupar corte baixo
+  var partnerPutBisca = trick.some(function(t){
+    return pTm(t.player)===mt && t.card && (t.card.v==='A' || t.card.v==='7');
+  });
+
   // ── OPPONENT WINNING ──
 
   // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
@@ -639,6 +644,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
+    if(partnerPutBisca){
+      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
+    }
     // Adversário já vai ganhando de corte, rodada fraca, ainda não és o último a jogar: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
     if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
       var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
