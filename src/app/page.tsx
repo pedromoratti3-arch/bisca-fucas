@@ -461,6 +461,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var losing = oppScore > myScore + 10;
   var winning = myScore > oppScore + 20;
   var endGame = trickN >= 7; // last 3 tricks
+  var earlyLead = trickN <= 2;
 
   function byPtsAsc(a,b){ return cPts(a)-cPts(b) || cRnk(a)-cRnk(b); }
   function byPtsDesc(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); }
@@ -486,13 +487,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // ══ LEADING ══
   if(!trick.length){
 
-    // RULE 1: 7 de trunfo cedo (1ª vaza = trickN===0 e somos quem abre — alinha com bónus 7 de abertura por distribuição)
+    // RULE 1: 7 de trunfo na 1ª vaza só com trunfo forte de reserva (evita abrir 7 “no escuro”).
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(my7t && hand.length>=5 && trickN===0) return my7t;
+    if(my7t && hand.length>=5 && trickN===0 && strongTrumps.length>=2 && trumpCards.length>=2) return my7t;
 
     // RULE 2: Force opponents to use trump — lead suit they're void in
     // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
-    if(!winning){
+    if(!winning && (!earlyLead || losing)){
       var forceSuits = SUITS.filter(function(s){
         if(s===trump) return false;
         // I have high card in this suit AND opponent is void
@@ -519,23 +520,25 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(el.length) return el[0];
     }
 
-    // RULE 4: Ás of non-trump — safe if opponent can't trump it
+    // RULE 4: Ás fora de trunfo — nas primeiras mãos só com leitura (adversários não “secos”) ou fim de jogo / mal na mesa
     var aces = nonTrump.filter(function(c){ return c.v==='A'; });
     if(aces.length){
-      // Find Ás where opponents likely can't trump (they have cards of that suit)
       var safeAces = aces.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
       if(safeAces.length) return safeAces[0];
-      // With trump backup, any Ás is fine
-      if(hasTrumpBackup) return aces[0];
-      if(hand.length<=4) return aces[0]; // endgame, just play it
+      if(!earlyLead || losing || hand.length<=5){
+        if(hasTrumpBackup) return aces[0];
+        if(hand.length<=4) return aces[0];
+      }
     }
 
-    // RULE 5: 7 of non-trump (same logic as Ás)
+    // RULE 5: 7 fora de trunfo — mesma cautela nas primeiras mãos
     var sevens = nonTrump.filter(function(c){ return c.v==='7'; });
     if(sevens.length){
       var safeSevens = sevens.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
       if(safeSevens.length && hasTrumpBackup) return safeSevens[0];
-      if(hasTrumpBackup) return sevens[0];
+      if(!earlyLead || losing || hand.length<=5){
+        if(hasTrumpBackup) return sevens[0];
+      }
     }
 
     // RULE 6: If losing badly, be more aggressive — play K/J to grab some points
@@ -572,16 +575,44 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var is2nd = trick.length===1;
   var is3rd = trick.length===2;
   var followSuit = pool.filter(function(c){ return c.s===lead; });
-  var partnerIdx = mt===0 ? 2 : (mt===1 ? 3 : (mt===2 ? 0 : 1));
 
   // ── PARTNER WINNING ──
   if(partnerWinning){
-    // Só cartas que mantêm o parceiro a ganhar a vaza — nunca cortar com trunfo por cima dele
     var safePool = pool.filter(function(c){
       var w = getWin(trick.concat([{player:mySeat,card:c}]), trump);
       return pTm(w.player)===mt;
     });
-    var usePool = safePool.length ? safePool : pool;
+    var deferPool = safePool.filter(function(c){
+      return getWin(trick.concat([{player:mySeat,card:c}]), trump).player===curWin.player;
+    });
+    var mateWinsTrump = curWin.card.s===trump;
+    var deferNT = deferPool.filter(function(c){ return c.s!==trump; });
+    /* Parceiro já ganhou de trunfo: não voltar a cortar se houver jogada fora de trunfo; meter pontos na vaza antes de lixo. */
+    var playDefer = mateWinsTrump && deferNT.length ? deferNT : deferPool;
+    if(!playDefer.length) playDefer = deferPool;
+
+    function isTrashDump(c){
+      return c.s!==trump && cPts(c)===0 && cRnk(c)<=4;
+    }
+
+    var feedHi = playDefer.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
+    if(feedHi.length) return feedHi[0];
+    var feedK = playDefer.filter(function(c){ return cPts(c)>=4; }).sort(byPtsDesc);
+    if(feedK.length) return feedK[0];
+    var feedJ = playDefer.filter(function(c){ return cPts(c)>=3; }).sort(byPtsDesc);
+    if(feedJ.length) return feedJ[0];
+    var feedQ = playDefer.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
+    if(feedQ.length) return feedQ[0];
+    var trashD = playDefer.filter(isTrashDump);
+    if(trashD.length) return lowest(trashD);
+    if(playDefer.length) return lowest(playDefer);
+
+    var usePool;
+    if(deferPool.length) usePool = deferPool;
+    else if(safePool.length){
+      var safeNT = safePool.filter(function(c){ return c.s!==trump; });
+      usePool = safeNT.length ? safeNT : safePool;
+    } else usePool = pool;
     var useNonTrump = usePool.filter(function(c){ return c.s!==trump; });
     var useTrump = usePool.filter(function(c){ return c.s===trump; });
 
