@@ -1843,7 +1843,8 @@ function GameScreen(props){
         for(var j=0;j<4;j++){ var pl=TORD[(wi+j)%4]; if(deck.length>0) hands[pl].push(deck.shift()); }
         var tN=pv.trickN+1, over=hands.every(function(h){ return h.length===0; });
         var cs = false;
-        if(!over && tN<=3 && pv.tc && pv.tc.v!=='2' && deck.some(function(c){ return c && c.id===pv.tc.id; })){
+        /* Corte alto: só até ao fim da 3.ª mão (trickN 0,1,2). Ao concluir a 3.ª mão pv.trickN===2 → já não oferece. */
+        if(!over && pv.trickN<=1 && pv.tc && pv.tc.v!=='2' && deck.some(function(c){ return c && c.id===pv.tc.id; })){
           for(var si=0;si<4;si++){ if(hands[si].some(function(c){ return c.s===trump && c.v==='2'; })){ cs=si; break; } }
         }
         return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)'});
@@ -1862,11 +1863,16 @@ function GameScreen(props){
         var mPts=pv.mPts.slice(), setWins=(pv.setWins||[0,0]).slice(), sum=[];
         var win=pv.tPts[0]>pv.tPts[1]?0:pv.tPts[1]>pv.tPts[0]?1:-1, newTB=0;
         if(win>=0){
-          var l=1-win, basePts=(pv.batido&&pv.trump==='copas')?2:1, totalPts=basePts+pv.tieBonus;
+          var l=1-win, basePts=(pv.batido&&pv.trump==='copas')?2:1;
+          /* 61 a 59 na mesa: +1 na partida (como um rele), por cima dos pontos da vitória por ponto / batido. */
+          var ponta61 = pv.tPts[win]===61 && pv.tPts[l]===59;
+          var pontaPts = ponta61 ? 1 : 0;
+          var totalPts=basePts+pv.tieBonus+pontaPts;
           mPts[win]+=totalPts;
           var note=' +'+totalPts;
           if(pv.batido&&pv.trump==='copas') note+=' (copas batido!)';
           if(pv.tieBonus>0) note+=' (+'+pv.tieBonus+' empate)';
+          if(ponta61) note+=' (+1 ponta 61-59)';
           sum.push('Dupla '+(win===0?'A':'B')+' venceu ('+pv.tPts[win]+'x'+pv.tPts[l]+'pts)'+note);
           if(pv.tPts[l]<30){ mPts[win]++; sum.push('Capote! +1 extra'); }
         } else { newTB=pv.tieBonus+1; sum.push('Empate 60x60! Proxima vale '+(1+newTB)+' pts!'); }
@@ -1909,6 +1915,39 @@ function GameScreen(props){
       return Object.assign({},pv,{hands:hands,deck:deck,tc:null,canSwap:false,msg:'Corte alto! '+pv.tc.v+SYM[pv.trump]+' na mao, 2 no meio do baralho.',lastActor:isOnline?myPid:pv.lastActor});
     });
   }
+
+  /* IA / host online: troca 2 pelo corte sempre que o corte for maior que o 2 no trunfo (3, 4, … até ao Ás). */
+  useEffect(function(){
+    if(g.phase!=='playing') return;
+    if(isSolo && partnerCount>0) return;
+    var seat = g.canSwap;
+    if(seat!==0&&seat!==1&&seat!==2&&seat!==3) return;
+    if(!g.tc || g.tc.v==='2') return;
+    if(!g.trump || g.tc.s!==g.trump) return;
+    var isBotSeat = !!botSeats[seat];
+    if(!(isOnline && isRoomHost && isBotSeat) && !(isSolo && seat!==0)) return;
+    var hand=g.hands[seat]||[];
+    if(!hand.some(function(c){ return c && c.s===g.trump && c.v==='2'; })) return;
+    if(cRnk(g.tc)<=cRnk({v:'2',s:g.trump})) return;
+    var t=setTimeout(function(){
+      sg(function(pv){
+        if(pv.phase!=='playing'||pv.canSwap!==seat||!pv.tc||pv.tc.v==='2') return pv;
+        if(!pv.trump||pv.tc.s!==pv.trump) return pv;
+        var hands=pv.hands.map(function(h){ return h.slice(); });
+        var i=hands[seat].findIndex(function(c){ return c && c.s===pv.trump && c.v==='2'; });
+        if(i<0) return pv;
+        var two=hands[seat][i], tc=pv.tc;
+        hands[seat][i]=tc;
+        var deck=pv.deck.filter(function(c){ return c && c.id!==tc.id; });
+        deck.splice(Math.floor(deck.length/2),0,two);
+        var msg='Corte alto (IA): '+tc.v+SYM[tc.s]+' na mao, 2 no baralho.';
+        var upd={hands:hands,deck:deck,tc:null,canSwap:false,msg:msg};
+        if(isOnline) Object.assign(upd,{lastActor:myPid});
+        return Object.assign({},pv,upd);
+      });
+    },550);
+    return function(){ clearTimeout(t); };
+  },[g.phase,g.canSwap,g.tc,g.trump,isSolo,isOnline,isRoomHost,myPid,botSeats,partnerCount]);
 
   var myTurn = g.curP===mySeat && g.phase==='playing' && (isSolo||isOnline);
   var modal = g.phase==='show_summary' || g.phase==='end_game';
