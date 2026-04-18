@@ -519,6 +519,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
+    // RULE 2b: últimas 3 rodadas (trickN 7–9) — abrir com o 7 de corte antes da última rodada se ainda não saiu,
+    // para o parceiro poder usar o Ás de corte a tempo (Ás de corte só depois do 7 na mesa).
+    var sevenOpen = pool.find(function(c){ return c.v==='7' && c.s===trump; });
+    if(sevenOpen && endGame && !sevenOut && trickN < 9) return sevenOpen;
+
     // RULE 3 (abertura): sair baixo num naipe onde tens A ou 7 (trabalhar o naipe). Isto não é "encarte" na tua mesa.
     var openLowSuits = SUITS.filter(function(s){
       return s!==trump && suitHigh(s) && suitLows(s).length>0;
@@ -646,6 +651,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(trumpW.length){
     if(partnerPutBisca){
       return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
+    }
+    if(endGame && !sevenOut && trickN < 9){
+      var trumpSevenWin = trumpW.find(function(c){ return c.v==='7' && c.s===trump; });
+      if(trumpSevenWin) return trumpSevenWin;
     }
     // Adversário já vai ganhando de corte, rodada fraca, ainda não és o último a jogar: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
     if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
