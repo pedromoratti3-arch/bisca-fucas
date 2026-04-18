@@ -429,6 +429,12 @@ function opponentsVoidIn(mem, mt, suit){
   return isVoid(mem, opp1, suit) || isVoid(mem, opp2, suit);
 }
 
+/** 7 de trunfo não pode ser a 4.ª carta da vaza sem ter o Ás de trunfo na mão (regra de mesa). */
+function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
+  if(trickLen!==3 || !card || card.v!=='7' || card.s!==trump) return true;
+  return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
+}
+
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
@@ -440,12 +446,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var pool = hand.filter(function(c){
     if(!c) return false;
     if(c.v==='A' && c.s===trump && !sevenOut && !s7 && !h7 && hand.length>1) return false;
-    if(trick.length===3 && c.v==='7' && c.s===trump && hand.length>1){
-      if(!hand.some(function(h){ return h && h.v==='A' && h.s===trump; })) return false;
-    }
+    if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c)) return false;
     return true;
   });
-  if(!pool.length) pool = hand.filter(function(c){ return !!c; });
+  if(!pool.length){
+    pool = hand.filter(function(c){ return !!c; }).filter(function(c){
+      return mayPlaySevenTrumpFourth(trick.length, hand, trump, c);
+    });
+  }
   if(!pool.length) return null;
   if(avoidLast){ var ns=pool.filter(function(c){ return !(c.v==='7' && c.s===trump); }); if(ns.length) pool=ns; }
 
@@ -462,9 +470,6 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var winning = myScore > oppScore + 20;
   var endGame = trickN >= 7; // last 3 tricks
   var earlyLead = trickN <= 2;
-  var roundGoal = 60;
-  var closeBehind = oppScore >= roundGoal - 14 && myScore < oppScore;
-  var tightFinish = myScore >= roundGoal - 10 || oppScore >= roundGoal - 10;
 
   function byPtsAsc(a,b){ return cPts(a)-cPts(b) || cRnk(a)-cRnk(b); }
   function byPtsDesc(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); }
@@ -517,13 +522,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       return s!==trump && suitHigh(s) && suitLows(s).length>0;
     });
     if(encSuits.length){
-      // Prefer naipe onde adversários não estão os dois secos; depois mais cartas no naipe
-      encSuits.sort(function(a,b){
-        var ao = opponentsVoidIn(mem, mt, a) ? 1 : 0;
-        var bo = opponentsVoidIn(mem, mt, b) ? 1 : 0;
-        if(ao !== bo) return ao - bo;
-        return suitCount(b) - suitCount(a);
-      });
+      encSuits.sort(function(a,b){ return suitCount(b)-suitCount(a); });
       var el = suitLows(encSuits[0]);
       if(el.length) return el[0];
     }
@@ -549,8 +548,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
-    // RULE 6: A retaguardar na volta ou no placar, abrir K/J com backup de trunfo para buscar pontos
-    if(losing || closeBehind){
+    // RULE 6: If losing badly, be more aggressive — play K/J to grab some points
+    if(losing){
       var mids = nonTrump.filter(function(c){ return c.v==='K'||c.v==='J'; });
       if(mids.length && hasTrumpBackup) return mids.sort(byPtsDesc)[0];
     }
@@ -684,20 +683,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
-    var partnerNotYet = !trick.some(function(t){ return pTm(t.player)===mt; });
-    var winTrumpLow = trumpW.slice().sort(byPtsAsc)[0];
-    var burnHighTrump = winTrumpLow && (winTrumpLow.v==='A' || winTrumpLow.v==='7');
-
-    // Parceiro ainda joga: não gastar Ás/7 de trunfo em vaza barata — deixa o parceiro cortar se puder
-    if(voidLead && partnerNotYet && !isLast && curWin.card.s!==trump && trickPts<=6 && !closeBehind && !losing){
-      if(burnHighTrump){
-        var gbD = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
-        if(gbD.length) return gbD[Math.floor(Math.random()*gbD.length)];
-      }
-      if(trickPts<=3){
-        var gbD2 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
-        if(gbD2.length) return gbD2[Math.floor(Math.random()*gbD2.length)];
-      }
+    // Adversário já vai ganhando de trunfo, vaza fraca, ainda não é a última: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
+    if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
+      var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
+      if(duckOff.length) return duckOff[Math.floor(Math.random()*duckOff.length)];
     }
 
     // NEVER trump a worthless trick with weak trump (Q/J of trump)
@@ -716,8 +705,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Medium value: trump if we have strong trumps or many trumps
     if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)) return lowest(trumpW);
 
-    // Losing badly or fim de volta apertado: cortar com mais liberdade
-    if((losing || closeBehind || tightFinish) && trickPts>=3) return lowest(trumpW);
+    // Losing badly? Be more aggressive with trumping
+    if(losing && trickPts>=3) return lowest(trumpW);
 
     // Endgame (last 3 tricks): trump more aggressively
     if(endGame && trickPts>=3) return lowest(trumpW);
@@ -1647,6 +1636,7 @@ function GameScreen(props){
   var cutSec = cutSecSt[0], setCutSec = cutSecSt[1];
   var cutLiftSt = useState(null);
   var cutLift = cutLiftSt[0], setCutLift = cutLiftSt[1];
+  var aceRevealT = useRef(/** @type {any} */ (null));
 
   // Write online state (ONLY here, GameScreen is the single writer)
   useEffect(function(){
@@ -1832,18 +1822,22 @@ function GameScreen(props){
     if(card.v==='A' && card.s===g.trump && !g.trumpSevenOut && !s7 && !h7 && hand.length>1){
       sg(function(p){ return Object.assign({},p,{msg:'O As de '+g.trump+' so sai apos o 7!'}); }); return;
     }
-    if(g.trick.length===3 && card.v==='7' && card.s===g.trump && hand.length>1){
-      if(!hand.some(function(c){ return c && c.v==='A' && c.s===g.trump; })){
-        sg(function(p){ return Object.assign({},p,{msg:'7 de trunfo nao pode ser a 4a carta sem o As!'}); }); return;
-      }
+    if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card)){
+      sg(function(p){ return Object.assign({},p,{msg:'7 de trunfo nao pode ser a 4a carta sem o As de trunfo na mao!'}); }); return;
     }
+    var revealAceTrump = g.trick.length===3 && card.v==='7' && card.s===g.trump && hand.some(function(c){ return c && c.v==='A' && c.s===g.trump; });
     if(isSolo) recordPlay(aiMemory, seat, card, g.trick, g.trump);
     sg(function(p){
       if(p.curP!==seat || p.phase!=='playing') return p;
       var hands=p.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
       var trick=p.trick.concat([{player:seat,card:card}]);
       var done=trick.length===4;
-      return Object.assign({},p,{hands:hands,trick:trick,curP:done?-1:nxt(seat),phase:done?'end_trick':'playing',msg:NAMES[seat]+' jogou '+card.v+SYM[card.s],lastActor:isOnline?myPid:p.lastActor});
+      var msg = NAMES[seat]+' jogou '+card.v+SYM[card.s];
+      if(revealAceTrump) msg += ' | Mostrou As de trunfo!';
+      var upd = {hands:hands,trick:trick,curP:done?-1:nxt(seat),phase:done?'end_trick':'playing',msg:msg};
+      if(revealAceTrump) Object.assign(upd,{aceReveal:{seat:seat,t:Date.now()}});
+      if(isOnline) Object.assign(upd,{lastActor:myPid});
+      return Object.assign({},p,upd);
     });
   }
 
@@ -1868,13 +1862,32 @@ function GameScreen(props){
         var hands=pv.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
         var trick=pv.trick.concat([{player:p,card:card}]);
         var done=trick.length===4;
-        var upd = {hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:NAMES[p]+' jogou '+card.v+SYM[card.s]};
+        var revealAceTrump = pv.trick.length===3 && card.v==='7' && card.s===pv.trump && pv.hands[p].some(function(c){ return c && c.v==='A' && c.s===pv.trump; });
+        var msg = NAMES[p]+' jogou '+card.v+SYM[card.s];
+        if(revealAceTrump) msg += ' | Mostrou As de trunfo!';
+        var upd = {hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:msg};
+        if(revealAceTrump) Object.assign(upd,{aceReveal:{seat:p,t:Date.now()}});
         if(hostPlaysBot) Object.assign(upd,{lastActor:myPid});
         return Object.assign({},pv,upd);
       });
     },750);
     return function(){ clearTimeout(t); };
   },[g.curP,g.phase,partnerCount,isSolo,isOnline,isRoomHost,myPid]);
+
+  // Limpa o "reveal" do Ás de trunfo após curto destaque visual
+  useEffect(function(){
+    if(!g.aceReveal) return;
+    if(isOnline && g.lastActor!==myPid) return;
+    if(aceRevealT.current) clearTimeout(aceRevealT.current);
+    aceRevealT.current = setTimeout(function(){
+      sg(function(pv){
+        if(!pv.aceReveal) return pv;
+        if(isOnline && pv.lastActor!==myPid) return pv;
+        return Object.assign({},pv,{aceReveal:null});
+      });
+    },1200);
+    return function(){ if(aceRevealT.current) clearTimeout(aceRevealT.current); };
+  },[g.aceReveal,g.lastActor,isOnline,myPid]);
 
   // End trick
   useEffect(function(){
@@ -2021,7 +2034,15 @@ function GameScreen(props){
 
   function rPlaced(p){
     var pl=g.trick.find(function(t){ return t.player===p; });
-    return pl && pl.card ? rCard(pl.card,null,false,false,true,false,mob,cbk) : rSlot(g.curP===p && g.phase==='playing',mob);
+    var base = pl && pl.card ? rCard(pl.card,null,false,false,true,false,mob,cbk) : rSlot(g.curP===p && g.phase==='playing',mob);
+    var show = g.aceReveal && g.aceReveal.seat===p && pl && pl.card && pl.card.v==='7' && pl.card.s===g.trump;
+    if(!show) return base;
+    return React.createElement('div',{style:{position:'relative',display:'inline-block'}},
+      base,
+      React.createElement('div',{style:{position:'absolute',left:'50%',top:-10,transform:'translateX(-50%)',pointerEvents:'none',animation:'cin .28s ease-out'}},
+        React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.24)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.7)',borderRadius:999,padding:mob?'2px 8px':'3px 10px',fontSize:mob?9:10,fontWeight:800,letterSpacing:0.2,boxShadow:'0 0 18px rgba(251,191,36,.28), inset 0 1px 0 rgba(255,255,255,.18)',animation:'pls .9s ease-in-out 2'}},'Ás de trunfo!')
+      )
+    );
   }
 
   function rHand(seat,isMe,isPartner){
@@ -2189,6 +2210,9 @@ function GameScreen(props){
         !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
       )
     ),
+    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:8,textAlign:'center',animation:'cin .28s ease-out'}},
+      React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.2)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.65)',borderRadius:999,padding:mob?'3px 10px':'4px 12px',fontSize:mob?10:11,fontWeight:700,letterSpacing:0.2,boxShadow:'0 0 14px rgba(251,191,36,.26), inset 0 1px 0 rgba(255,255,255,.2)',animation:'pls 1.1s ease-in-out 2'}},'As de trunfo revelado')
+    ) : null,
     isSolo&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
