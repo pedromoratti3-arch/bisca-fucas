@@ -462,6 +462,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var winning = myScore > oppScore + 20;
   var endGame = trickN >= 7; // last 3 tricks
   var earlyLead = trickN <= 2;
+  var roundGoal = 60;
+  var closeBehind = oppScore >= roundGoal - 14 && myScore < oppScore;
+  var tightFinish = myScore >= roundGoal - 10 || oppScore >= roundGoal - 10;
 
   function byPtsAsc(a,b){ return cPts(a)-cPts(b) || cRnk(a)-cRnk(b); }
   function byPtsDesc(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); }
@@ -514,8 +517,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       return s!==trump && suitHigh(s) && suitLows(s).length>0;
     });
     if(encSuits.length){
-      // Prefer suit with most cards (more control) and where A isn't out
-      encSuits.sort(function(a,b){ return suitCount(b)-suitCount(a); });
+      // Prefer naipe onde adversários não estão os dois secos; depois mais cartas no naipe
+      encSuits.sort(function(a,b){
+        var ao = opponentsVoidIn(mem, mt, a) ? 1 : 0;
+        var bo = opponentsVoidIn(mem, mt, b) ? 1 : 0;
+        if(ao !== bo) return ao - bo;
+        return suitCount(b) - suitCount(a);
+      });
       var el = suitLows(encSuits[0]);
       if(el.length) return el[0];
     }
@@ -541,8 +549,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
-    // RULE 6: If losing badly, be more aggressive — play K/J to grab some points
-    if(losing){
+    // RULE 6: A retaguardar na volta ou no placar, abrir K/J com backup de trunfo para buscar pontos
+    if(losing || closeBehind){
       var mids = nonTrump.filter(function(c){ return c.v==='K'||c.v==='J'; });
       if(mids.length && hasTrumpBackup) return mids.sort(byPtsDesc)[0];
     }
@@ -574,6 +582,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var isLast = trick.length===3;
   var is2nd = trick.length===1;
   var is3rd = trick.length===2;
+  var followOpts = pool.filter(function(c){ return c.s===lead; });
+  var voidLead = followOpts.length===0;
+  if(followOpts.length){
+    pool = followOpts;
+    trumpCards = pool.filter(function(c){ return c.s===trump; });
+    nonTrump = pool.filter(function(c){ return c.s!==trump; });
+    strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
+    hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
+  }
   var followSuit = pool.filter(function(c){ return c.s===lead; });
 
   // ── PARTNER WINNING ──
@@ -667,6 +684,22 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
+    var partnerNotYet = !trick.some(function(t){ return pTm(t.player)===mt; });
+    var winTrumpLow = trumpW.slice().sort(byPtsAsc)[0];
+    var burnHighTrump = winTrumpLow && (winTrumpLow.v==='A' || winTrumpLow.v==='7');
+
+    // Parceiro ainda joga: não gastar Ás/7 de trunfo em vaza barata — deixa o parceiro cortar se puder
+    if(voidLead && partnerNotYet && !isLast && curWin.card.s!==trump && trickPts<=6 && !closeBehind && !losing){
+      if(burnHighTrump){
+        var gbD = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
+        if(gbD.length) return gbD[Math.floor(Math.random()*gbD.length)];
+      }
+      if(trickPts<=3){
+        var gbD2 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
+        if(gbD2.length) return gbD2[Math.floor(Math.random()*gbD2.length)];
+      }
+    }
+
     // NEVER trump a worthless trick with weak trump (Q/J of trump)
     if(trickPts<=3 && strongTrumps.length===0){
       var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
@@ -683,8 +716,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Medium value: trump if we have strong trumps or many trumps
     if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)) return lowest(trumpW);
 
-    // Losing badly? Be more aggressive with trumping
-    if(losing && trickPts>=3) return lowest(trumpW);
+    // Losing badly or fim de volta apertado: cortar com mais liberdade
+    if((losing || closeBehind || tightFinish) && trickPts>=3) return lowest(trumpW);
 
     // Endgame (last 3 tricks): trump more aggressively
     if(endGame && trickPts>=3) return lowest(trumpW);
