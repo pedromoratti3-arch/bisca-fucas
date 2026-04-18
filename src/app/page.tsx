@@ -2188,7 +2188,7 @@ function GameScreen(props){
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
         : null,
-      g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Corte alto: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
+      g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Trocar: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
     ),
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
