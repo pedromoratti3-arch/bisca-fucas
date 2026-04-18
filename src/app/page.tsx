@@ -429,13 +429,16 @@ function opponentsVoidIn(mem, mt, suit){
   return isVoid(mem, opp1, suit) || isVoid(mem, opp2, suit);
 }
 
-/** 7 de trunfo não pode ser a 4.ª carta da vaza sem ter o Ás de trunfo na mão (regra de mesa). */
+/** 7 de corte não pode ser a 4.ª carta da rodada sem ter o Ás de corte na mão (regra de mesa). */
 function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
   if(trickLen!==3 || !card || card.v!=='7' || card.s!==trump) return true;
   return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
 }
 
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
+  /* Vocabulário Bisca Fucas (mesa): "corte" = trunfo; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
+     "encarte" = matar a carta do adversário no mesmo naipe (carta maior que a que vai ganhando). Na abertura,
+     RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -495,7 +498,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // ══ LEADING ══
   if(!trick.length){
 
-    // RULE 1: 7 de trunfo na 1ª vaza só com trunfo forte de reserva (evita abrir 7 “no escuro”).
+    // RULE 1: 7 de corte na 1.ª rodada só com corte forte de reserva (evita abrir 7 “no escuro”).
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
     if(my7t && hand.length>=5 && trickN===0 && strongTrumps.length>=2 && trumpCards.length>=2) return my7t;
 
@@ -516,14 +519,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
-    // RULE 3: Encarte — low card of suit where I have A or 7
-    // But ONLY if the Ás of that suit hasn't been played and opponent might have trump
-    var encSuits = SUITS.filter(function(s){
+    // RULE 3 (abertura): sair baixo num naipe onde tens A ou 7 (trabalhar o naipe). Isto não é "encarte" na tua mesa.
+    var openLowSuits = SUITS.filter(function(s){
       return s!==trump && suitHigh(s) && suitLows(s).length>0;
     });
-    if(encSuits.length){
-      encSuits.sort(function(a,b){ return suitCount(b)-suitCount(a); });
-      var el = suitLows(encSuits[0]);
+    if(openLowSuits.length){
+      openLowSuits.sort(function(a,b){ return suitCount(b)-suitCount(a); });
+      var el = suitLows(openLowSuits[0]);
       if(el.length) return el[0];
     }
 
@@ -560,7 +562,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       // Prefer suits where opponent has cards (won't trump)
       var safeGarbage = garbage.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
       if(safeGarbage.length) return safeGarbage[Math.floor(Math.random()*safeGarbage.length)];
-      // Prefer suits where I DON'T have high cards (save encarte)
+      // Prefer naipes onde não tens A/7 (guardar o setup da RULE 3)
       var pureG = garbage.filter(function(c){ return !suitHigh(c.s); });
       if(pureG.length) return pureG[Math.floor(Math.random()*pureG.length)];
       return garbage[Math.floor(Math.random()*garbage.length)];
@@ -603,7 +605,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     });
     var mateWinsTrump = curWin.card.s===trump;
     var deferNT = deferPool.filter(function(c){ return c.s!==trump; });
-    /* Parceiro já ganhou de trunfo: não voltar a cortar se houver jogada fora de trunfo; meter pontos na vaza antes de lixo. */
+    /* Parceiro já ganhou de corte: não voltar a cortar se houver jogada fora de corte; meter pontos na rodada antes de lixo. */
     var playDefer = mateWinsTrump && deferNT.length ? deferNT : deferPool;
     if(!playDefer.length) playDefer = deferPool;
 
@@ -664,15 +666,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
   // ── OPPONENT WINNING ──
 
-  // Can I win with same suit?
+  // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
   var suitW = winners(followSuit, curWin.card, lead);
   if(suitW.length){
-    var cw = suitW.slice().sort(byRnkAsc);
-    // Don't waste A/7 on empty trick
+    var cw = suitW.slice().sort(byPtsAsc);
+    // Vaza muito fraca: não gastar A/7 se houver carta intermédia que já ganha
     if(trickPts<=2){
       var cnb = cw.filter(function(c){ return c.v!=='A' && c.v!=='7'; });
       if(cnb.length) return cnb[0];
-      // If only A/7 can win and trick is worthless, maybe don't bother
+      // Só A/7 ganham e a rodada não vale nada: não encartar; lixo no naipe (parceiro pode salvar)
       if(!isLast && nonTrump.filter(function(c){ return cPts(c)===0; }).length>0){
         return lowest(nonTrump.filter(function(c){ return cPts(c)===0; }));
       }
@@ -683,7 +685,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
-    // Adversário já vai ganhando de trunfo, vaza fraca, ainda não é a última: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
+    // Adversário já vai ganhando de corte, rodada fraca, ainda não és o último a jogar: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
     if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
       var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
       if(duckOff.length) return duckOff[Math.floor(Math.random()*duckOff.length)];
@@ -1906,7 +1908,7 @@ function GameScreen(props){
           if(trick[i].card.s===trump && trick[i].card.v==='7' && trick[i+1].card.s===trump && trick[i+1].card.v==='A')
             events.push({tm:pTm(trick[i+1].player),lbl:'Rele! '+pv.playerNames[trick[i+1].player]+' jogou As apos o 7'});
         }
-        /* 7 de abertura: em cada nova distribuição, só na 1ª vaza, aberto pelo starter; anula se a dupla adversária jogar Ás de trunfo nesta vaza. Não vale na 1ª carta da última mão (trickN>0). */
+        /* 7 de abertura: em cada nova distribuição, só na 1.ª rodada, aberto pelo starter; anula se a dupla adversária jogar Ás de corte nesta rodada. Não vale na 1.ª carta da última mão (trickN>0). */
         var stDeal = parseSeat(pv.starter);
         if(isNaN(stDeal)) stDeal = 2;
         if(pv.trickN===0 && trick[0].player===stDeal && trick[0].card.s===trump && trick[0].card.v==='7'){
