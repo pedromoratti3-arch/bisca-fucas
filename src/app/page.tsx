@@ -594,74 +594,27 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   }
   var followSuit = pool.filter(function(c){ return c.s===lead; });
 
-  // ── PARTNER WINNING ──
+  // ── PARTNER WINNING (dupla vai ganhando a rodada): maximizar pontos com a nossa carta; se o parceiro já ganha de corte, não subir com mais corte se der para jogar fora de corte ──
   if(partnerWinning){
-    var safePool = pool.filter(function(c){
-      var w = getWin(trick.concat([{player:mySeat,card:c}]), trump);
+    function teamWinsWith(card){
+      var w = getWin(trick.concat([{player:mySeat,card:card}]), trump);
       return pTm(w.player)===mt;
-    });
-    var deferPool = safePool.filter(function(c){
-      return getWin(trick.concat([{player:mySeat,card:c}]), trump).player===curWin.player;
-    });
+    }
+    var safePool = pool.filter(function(c){ return teamWinsWith(c); });
+    if(!safePool.length) return lowest(pool);
+
     var mateWinsTrump = curWin.card.s===trump;
-    var deferNT = deferPool.filter(function(c){ return c.s!==trump; });
-    /* Parceiro já ganhou de corte: não voltar a cortar se houver jogada fora de corte; meter pontos na rodada antes de lixo. */
-    var playDefer = mateWinsTrump && deferNT.length ? deferNT : deferPool;
-    if(!playDefer.length) playDefer = deferPool;
-
-    function isTrashDump(c){
-      return c.s!==trump && cPts(c)===0 && cRnk(c)<=4;
+    var candidates = safePool;
+    if(mateWinsTrump){
+      var ntOnly = safePool.filter(function(c){ return c.s!==trump; });
+      if(ntOnly.length) candidates = ntOnly;
     }
 
-    var feedHi = playDefer.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
-    if(feedHi.length) return feedHi[0];
-    var feedK = playDefer.filter(function(c){ return cPts(c)>=4; }).sort(byPtsDesc);
-    if(feedK.length) return feedK[0];
-    var feedJ = playDefer.filter(function(c){ return cPts(c)>=3; }).sort(byPtsDesc);
-    if(feedJ.length) return feedJ[0];
-    var feedQ = playDefer.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
-    if(feedQ.length) return feedQ[0];
-    var trashD = playDefer.filter(isTrashDump);
-    if(trashD.length) return lowest(trashD);
-    if(playDefer.length) return lowest(playDefer);
-
-    var usePool;
-    if(deferPool.length) usePool = deferPool;
-    else if(safePool.length){
-      var safeNT = safePool.filter(function(c){ return c.s!==trump; });
-      usePool = safeNT.length ? safeNT : safePool;
-    } else usePool = pool;
-    var useNonTrump = usePool.filter(function(c){ return c.s!==trump; });
-    var useTrump = usePool.filter(function(c){ return c.s===trump; });
-
-    var partnerCard = trick.find(function(t){ return t.player===curWin.player; });
-    var partnerStrong = partnerCard && (partnerCard.card.v==='A' || partnerCard.card.v==='7' || partnerCard.card.v==='K');
-
-    if(isLast){
-      var bestFeed = useNonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
-      if(bestFeed.length) return bestFeed[0];
-      var midFeed = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
-      if(midFeed.length) return midFeed[0];
-      var trumpFeed = useTrump.filter(function(c){ return cPts(c)>=2 && c.v!=='7'; }).sort(byPtsDesc);
-      if(trumpFeed.length && trickPts>=6) return trumpFeed[0];
-      return lowest(usePool);
+    var trumpOnly = mateWinsTrump && candidates.length>0 && candidates.every(function(c){ return c.s===trump; });
+    if(trumpOnly){
+      return candidates.slice().sort(byPtsAsc)[0];
     }
-
-    if(partnerStrong || trickPts>=12){
-      var bf = useNonTrump.filter(function(c){ return cPts(c)>=10; }).sort(byPtsDesc);
-      if(bf.length) return bf[0];
-      var mf = useNonTrump.filter(function(c){ return cPts(c)>=3; }).sort(byPtsDesc);
-      if(mf.length) return mf[0];
-      var qf = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
-      if(qf.length) return qf[0];
-    }
-
-    if(trickPts>=6){
-      var gf = useNonTrump.filter(function(c){ return cPts(c)>=2; }).sort(byPtsDesc);
-      if(gf.length) return gf[0];
-    }
-
-    return lowest(usePool);
+    return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
   // ── OPPONENT WINNING ──
@@ -674,8 +627,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(trickPts<=2){
       var cnb = cw.filter(function(c){ return c.v!=='A' && c.v!=='7'; });
       if(cnb.length) return cnb[0];
-      // Só A/7 ganham e a rodada não vale nada: não encartar; lixo no naipe (parceiro pode salvar)
-      if(!isLast && nonTrump.filter(function(c){ return cPts(c)===0; }).length>0){
+      var partnerNotInTrick = !trick.some(function(t){ return pTm(t.player)===mt; });
+      // Só A/7 ganham e a rodada está fraca: só deixa de encartar se o parceiro ainda vai jogar (pode salvar sem gastar figuras)
+      if(partnerNotInTrick && !isLast && nonTrump.filter(function(c){ return cPts(c)===0; }).length>0){
         return lowest(nonTrump.filter(function(c){ return cPts(c)===0; }));
       }
     }
@@ -688,13 +642,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Adversário já vai ganhando de corte, rodada fraca, ainda não és o último a jogar: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
     if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
       var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
-      if(duckOff.length) return duckOff[Math.floor(Math.random()*duckOff.length)];
+      if(duckOff.length) return lowest(duckOff);
     }
 
     // NEVER trump a worthless trick with weak trump (Q/J of trump)
     if(trickPts<=3 && strongTrumps.length===0){
       var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
-      if(gb.length) return gb[Math.floor(Math.random()*gb.length)];
+      if(gb.length) return lowest(gb);
       if(nonTrump.length) return lowest(nonTrump);
     }
 
@@ -715,7 +669,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
     // Not worth trumping
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
-    if(gb2.length) return gb2[Math.floor(Math.random()*gb2.length)];
+    if(gb2.length) return lowest(gb2);
     if(nonTrump.length) return lowest(nonTrump);
     return lowest(trumpW);
   }
@@ -724,15 +678,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // IMPORTANT: if partner still hasn't played, throw low — partner might win!
   var partnerStillToPlay = !trick.some(function(t){ return pTm(t.player)===mt; });
   if(partnerStillToPlay){
-    // Throw garbage, partner might save us
     var zeros = nonTrump.filter(function(c){ return cPts(c)===0; });
-    if(zeros.length) return zeros[Math.floor(Math.random()*zeros.length)];
+    if(zeros.length) return lowest(zeros);
     return lowest(pool);
   }
 
-  // Both us and partner can't win — minimize damage
+  // Dupla adversária vai ganhando: não dar pontos — lixo mínimo, depois damos o mínimo de valor possível
   var zeros2 = nonTrump.filter(function(c){ return cPts(c)===0; });
-  if(zeros2.length) return zeros2[Math.floor(Math.random()*zeros2.length)];
+  if(zeros2.length) return lowest(zeros2);
   var qs = nonTrump.filter(function(c){ return c.v==='Q'; });
   if(qs.length) return qs[0];
   if(nonTrump.length) return lowest(nonTrump);
