@@ -487,7 +487,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
-     (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza. */
+     (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
+     Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -584,10 +585,18 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(el.length) return el[0];
     }
 
-    // RULE 4: Ás fora de trunfo — com dupla mal na mesa não abrir bísca cedo só por “losing” (poupa A/7 para quando compensa)
+    // Ás/7 de bísca como 1.ª da vaza: só quando a mesa já deu contexto, mão curta, fim de jogo, ou desvantagem clara (senão arrisca-se dar 10/11 a quem corta).
+    var okOpenBiscaLead =
+      endGame ||
+      trickN >= 5 ||
+      hand.length <= 4 ||
+      (losing && trickN >= 3 && oppScore > myScore + 4) ||
+      (losing && trickN >= 2 && oppScore > myScore + 14 && strongTrumps.length >= 2 && hasTrumpBackup);
+
+    // RULE 4: Ás fora de trunfo (bísca) — sem okOpenBiscaLead não abrir; depois mantém cautela com “safe” e corte de reserva
     var aces = nonTrump.filter(function(c){ return c.v==='A'; });
     var losingOkForBisca = losing && (!earlyLead || trickN>=4 || hand.length<=5 || endGame);
-    if(aces.length){
+    if(aces.length && okOpenBiscaLead){
       var safeAces = aces.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
       if(safeAces.length && (!earlyLead || losingOkForBisca)) return safeAces[0];
       if(!earlyLead || losingOkForBisca || hand.length<=5){
@@ -596,9 +605,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
-    // RULE 5: 7 fora de trunfo — mesma lógica que o Ás (evita 7’s de bísca nas primeiras mãos quando vais mal)
+    // RULE 5: 7 fora de trunfo (bísca) — igual ao Ás na abertura
     var sevens = nonTrump.filter(function(c){ return c.v==='7'; });
-    if(sevens.length){
+    if(sevens.length && okOpenBiscaLead){
       var safeSevens = sevens.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
       if(safeSevens.length && hasTrumpBackup && (!earlyLead || losingOkForBisca || hand.length<=5)) return safeSevens[0];
       if(!earlyLead || losingOkForBisca || hand.length<=5){
