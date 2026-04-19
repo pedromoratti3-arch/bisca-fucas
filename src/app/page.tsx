@@ -1598,7 +1598,7 @@ function GameScreen(props){
   var BOT_SWAP_DELAY_MS = 550;
   /** Bot a cortar o maço (solo / host). */
   var BOT_AUTO_CUT_DELAY_MS = 1500;
-  /** Toast “Corte alto — troca do 2”: quanto tempo fica no ecrã (+ margem para o ticker redesenhar). */
+  /** Toast “Troca do 2”: quanto tempo fica no ecrã (+ margem para o ticker redesenhar). */
   var SWAP_TOAST_VISIBLE_MS = 5400;
   var SWAP_TOAST_TICK_MS = SWAP_TOAST_VISIBLE_MS + 800;
 
@@ -2005,7 +2005,7 @@ function GameScreen(props){
       return Object.assign({},pv,{
         hands:hands,deck:deck,tc:null,canSwap:false,
         swapToast:{
-          title:'Corte alto — troca do 2',
+          title:'Troca do 2',
           body:who+' trocou o 2'+sym+' pela carta de corte '+tcTake.v+sym+'. O 2 volta ao meio do baralho.',
           ts:Date.now()
         },
@@ -2045,7 +2045,7 @@ function GameScreen(props){
         var upd={
           hands:hands,deck:deck,tc:null,canSwap:false,msg:msg,
           swapToast:{
-            title:'Corte alto — troca do 2',
+            title:'Troca do 2',
             body:who0+' trocou o 2'+sym0+' pela carta de corte '+tc.v+sym0+'. O 2 volta ao meio do baralho.',
             ts:Date.now()
           }
