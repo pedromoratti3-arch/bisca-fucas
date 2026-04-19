@@ -1193,12 +1193,12 @@ function rCard(c,onClick,back,glow,sm,blocked,mob,bk){
   var W,H,fs,symFs,pad;
   if(mob){
     if(back||!c){
-      W=sm?28:34; H=sm?40:48;
+      W=sm?26:30; H=sm?38:44;
       var bdM = glow ? bk.hi : bk.border;
       return React.createElement('div',{style:{width:W,height:H,boxSizing:'border-box',background:bk.grad,border:'2px solid '+bdM,borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
     }
-    if(sm){ W=32;H=44;fs=10;symFs=13;pad='3px 4px'; }
-    else { W=50;H=66;fs=13;symFs=18;pad='5px 7px'; }
+    if(sm){ W=30;H=40;fs=9;symFs=12;pad='3px 3px'; }
+    else { W=44;H=58;fs=12;symFs=17;pad='5px 6px'; }
   } else {
     W=sm?30:46; H=sm?42:63;
     if(back||!c){
@@ -1229,13 +1229,13 @@ function rCard(c,onClick,back,glow,sm,blocked,mob,bk){
 }
 
 function rSlot(a,mob){
-  var w=mob?32:30, h=mob?44:42;
+  var w=30, h=mob?40:42;
   return React.createElement('div',{style:{width:w,height:h,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent',flexShrink:0}});
 }
 
 function deckPile(n,onClick,hi,mob,bk){
   bk = bk || DEFAULT_CARD_BACK;
-  var cw=mob?34:46, ch=mob?48:63, off=mob?1:2, boxW=mob?40:52, boxH=mob?56:70, fs=mob?11:11;
+  var cw=mob?30:46, ch=mob?44:63, off=mob?1:2, boxW=mob?36:52, boxH=mob?52:70, fs=mob?10:11;
   var bdLay = hi ? bk.hi : bk.border;
   var layers = [2,1,0].map(function(i){
     return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:i*-off,width:cw,height:ch,background:bk.grad,border:'2px solid '+bdLay,borderRadius:5,boxShadow:'0 2px 6px #0005'}});
@@ -2214,7 +2214,7 @@ function GameScreen(props){
           React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:15}},SYM[g.trump]+' '+g.trump),
           isCB ? React.createElement('span',{style:{background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11}},'BATIDO') : null
         ),
-        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(76px,min(44vw,190px)) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?6:6,rowGap:mob?6:undefined,alignItems:'center',justifyItems:'center',alignContent:mob?'center':undefined,flex:1,minWidth:0,width:'100%'}},
+        React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(56px,32vw) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?4:6,alignItems:'center',justifyItems:'center',flex:1,minWidth:0,width:'100%'}},
           React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{display:'flex',gap:3,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false,false,mob,cbk)):null; })),
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dN])
@@ -2246,16 +2246,14 @@ function GameScreen(props){
   }
 
   // ── PLAYING SCREEN ──
-  var gridColsPlay = mob ? 'minmax(0,1fr) minmax(76px,min(44vw,190px)) minmax(0,1fr)' : '1fr 192px 1fr';
-  var tblW = mob ? 'min(44vw, 176px)' : 192;
-  var tblH = mob ? 'min(42vw, 168px)' : 178;
-  var edge = mob ? 8 : 7;
+  var gridColsPlay = mob ? 'minmax(0,1fr) minmax(56px,32vw) minmax(0,1fr)' : '1fr 192px 1fr';
+  var tblW = mob ? 'min(32vw, 128px)' : 192;
+  var tblH = mob ? 'min(30vw, 118px)' : 178;
+  var edge = mob ? 6 : 7;
   var swA=(g.setWins&&g.setWins[0])||0, swB=(g.setWins&&g.setWins[1])||0;
-  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?6:0,padding:mob?'8px 10px':'11px 16px',marginBottom:mob?6:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
-  var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 2px':'0 10px',boxSizing:'border-box'};
-  if(mob){ playShell.flex=1; playShell.minHeight=0; playShell.display='flex'; playShell.flexDirection='column'; }
-  var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'8px 6px 10px':'14px 16px 18px'};
-  if(mob){ playPanel.flex=1; playPanel.minHeight=0; playPanel.display='flex'; playPanel.flexDirection='column'; }
+  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+  var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
+  var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   var swapSt = g.swapToast;
   void swapToastTickSt[0];
   var swapToastEl =
@@ -2287,11 +2285,11 @@ function GameScreen(props){
           React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } }, swapSt.body)
         )
       : null;
-  return React.createElement('div',{style:{minHeight:'100dvh',height:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'4px max(4px, env(safe-area-inset-left)) 4px max(4px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(48px, calc(6px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw',display:'flex',flexDirection:'column'}},
+  return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
     swapToastEl,
-    React.createElement('div',{style:{position:'relative',zIndex:2,flex:1,minHeight:0,display:'flex',flexDirection:'column',width:'100%'}},
+    React.createElement('div',{style:{position:'relative',zIndex:2}},
     React.createElement('div',{style:hdrGlassPl},
       React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
         rLogo(mob?28:40,th),
@@ -2314,9 +2312,9 @@ function GameScreen(props){
     React.createElement('div',{style:playShell},
       React.createElement('div',{style:playPanel},
     React.createElement('div',{style:{height:mob?2:4}}),
-    React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'7px 8px':'8px 14px',marginBottom:mob?6:10,fontSize:mob?11:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
-      React.createElement('span',{style:{fontWeight:500}},g.msg),
-      React.createElement('span',{style:{opacity:0.78,fontSize:mob?10:11,lineHeight:1.35}},
+    React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
+      React.createElement('span',null,g.msg),
+      React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
         ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+g.deck.length,
@@ -2342,13 +2340,13 @@ function GameScreen(props){
         : null,
       g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Trocar: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
     ),
-    React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?6:8,rowGap:mob?8:undefined,alignItems:'center',justifyItems:'center',alignContent:mob?'space-evenly':undefined,width:'100%',maxWidth:'100%',minWidth:0,flex:mob?1:undefined,minHeight:mob?0:undefined,boxSizing:'border-box'}},
+    React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
         React.createElement('div',{style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
-        React.createElement('div',{style:{fontSize:mob?10:11,opacity:0.82,textAlign:'center',lineHeight:1.2,padding:'0 4px',fontWeight:500}},NAMES[dN]+(g.curP===dN?' 🎯':''),' ',React.createElement('span',{style:{color:'#86efac'}},mob?(pTm(dN)===0?'A':'B'):'dupla '+(pTm(dN)===0?'A':'B')))
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 4px'}},NAMES[dN]+(g.curP===dN?' 🎯':''),' ',React.createElement('span',{style:{color:'#86efac'}},mob?(pTm(dN)===0?'A':'B'):'dupla '+(pTm(dN)===0?'A':'B')))
       ),
       React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?10:11,opacity:0.82,textAlign:'center',lineHeight:1.2,padding:'0 2px',fontWeight:500}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
@@ -2360,14 +2358,14 @@ function GameScreen(props){
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
       React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?10:11,opacity:0.82,textAlign:'center',lineHeight:1.2,padding:'0 2px',fontWeight:500}},NAMES[dE]+(g.curP===dE?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dE)===0?'A':'B'):'dupla '+(pTm(dE)===0?'A':'B'))),
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dE]+(g.curP===dE?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dE)===0?'A':'B'):'dupla '+(pTm(dE)===0?'A':'B'))),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
       ),
-      React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?5:6,paddingBottom:mob?2:0,marginTop:mob?'auto':0,minWidth:0,maxWidth:'100%'}},
-        React.createElement('div',{style:{display:'flex',gap:mob?4:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
-        React.createElement('div',{style:{fontSize:mob?12:12,fontWeight:'bold',color:myTurn&&(!isSolo||partnerCount<=0)?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
+      React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
+        React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
+        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&(!isSolo||partnerCount<=0)?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
           NAMES[dS]+(myTurn&&(!isSolo||partnerCount<=0)?(mob?' — Toque na carta':' Clique para jogar!'):''),' ',
-          React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?10:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
+          React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?9:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
         )
       )
     ),
