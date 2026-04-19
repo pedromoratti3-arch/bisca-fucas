@@ -828,7 +828,8 @@ var ACSS = [
   '@keyframes float2{0%,100%{transform:translateY(0) rotate(3deg)}50%{transform:translateY(-14px) rotate(-4deg)}}',
   '@keyframes float3{0%,100%{transform:translateY(-5px) rotate(2deg)}50%{transform:translateY(-22px) rotate(-6deg)}}',
   '@keyframes glow{0%,100%{text-shadow:0 0 20px rgba(196,18,48,.4)}50%{text-shadow:0 0 40px rgba(196,18,48,.7),0 0 60px rgba(212,168,67,.3)}}',
-  '@keyframes spin{to{transform:rotate(360deg)}}'
+  '@keyframes spin{to{transform:rotate(360deg)}}',
+  '@keyframes bfConnPulse{0%,100%{opacity:.45}50%{opacity:1}}'
 ].join('');
 
 /* ═══ RENDER HELPERS ═══ */
@@ -1155,6 +1156,25 @@ function LocationScreen(P){
       React.createElement('div',{style:{fontSize:'clamp(26px,8vw,34px)',fontWeight:900,letterSpacing:2,lineHeight:1.1,marginBottom:10,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite'}},'Escolha a mesa'),
       React.createElement('div',{style:{fontSize:13,opacity:0.5,letterSpacing:0.3,lineHeight:1.4}},P.pickForCreate?'Escolha a mesa da sala — todos verão o mesmo cenário.':'Onde você quer jogar?')
     ),
+    P.pickForCreate && P.createRoomError
+      ? React.createElement('div',{
+          role: 'alert',
+          style: {
+            width: '100%',
+            maxWidth: 360,
+            marginBottom: 12,
+            padding: '12px 14px',
+            boxSizing: 'border-box',
+            borderRadius: 12,
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: 'rgba(254,242,242,.95)',
+            background: 'rgba(127,29,29,.35)',
+            border: '1px solid rgba(248,113,113,.35)',
+            textAlign: 'left',
+          },
+        }, P.createRoomError)
+      : null,
     React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,width:'100%',maxWidth:360}},
       locs.map(function(loc){
         return React.createElement('div',{key:loc.id,
@@ -1544,6 +1564,86 @@ function HomeScreen(P){
   );
 }
 
+/**
+ * Ligação ao Realtime Database (Firebase `.info/connected`).
+ * `variant`: `inline` — lobby (alinha à direita na barra); `hud` — chip compacto dentro do cabeçalho do jogo.
+ */
+function RtConnectionBadge(P){
+  var c = P.connected;
+  var variant = P.variant === 'hud' ? 'hud' : 'inline';
+  var isHud = variant === 'hud';
+  var dot = '#facc15';
+  var label = 'A reconectar';
+  var border = 'rgba(250,204,21,.42)';
+  var labelColor = '#fef9c3';
+  if (c === true) {
+    dot = '#4ade80';
+    label = 'Online';
+    border = 'rgba(74,222,128,.35)';
+    labelColor = 'rgba(240,253,244,.95)';
+  }
+  if (c === false) {
+    dot = '#94a3b8';
+    label = 'Offline';
+    border = 'rgba(148,163,184,.4)';
+    labelColor = 'rgba(203,213,225,.95)';
+  }
+  var title =
+    c === false
+      ? 'Sem ligação ao servidor. Verifique o Wi‑Fi ou os dados móveis; o estado atualiza quando a ligação voltar.'
+      : c === true
+        ? 'Ligação ativa com o servidor (Firebase).'
+        : 'A estabelecer ligação com o servidor…';
+  var dotPx = isHud ? 6 : 7;
+  var pill = React.createElement(
+    'div',
+    {
+      role: 'status',
+      'aria-live': c === false ? 'assertive' : 'polite',
+      title: title,
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: isHud ? 5 : 6,
+        padding: isHud ? '3px 9px' : '4px 10px',
+        borderRadius: 999,
+        fontSize: isHud ? 9.5 : 10,
+        fontWeight: 600,
+        letterSpacing: 0.02,
+        background: isHud ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.42)',
+        border: '1px solid ' + border,
+        color: labelColor,
+        pointerEvents: 'none',
+        fontFamily: 'system-ui,sans-serif',
+        boxSizing: 'border-box',
+        maxWidth: isHud ? 'min(132px, 42vw)' : 'min(168px, 52vw)',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      },
+    },
+    React.createElement('span', {
+      style: {
+        width: dotPx,
+        height: dotPx,
+        borderRadius: '50%',
+        background: dot,
+        flexShrink: 0,
+        boxShadow:
+          c === false
+            ? '0 0 6px rgba(148,163,184,.35)'
+            : c === true
+              ? '0 0 6px rgba(74,222,128,.4)'
+              : '0 0 7px rgba(250,204,21,.5)',
+        animation: c === null ? 'bfConnPulse 1.1s ease-in-out infinite' : undefined,
+      },
+    }),
+    React.createElement('span', { style: { lineHeight: 1.2 } }, label)
+  );
+  if (isHud) return pill;
+  return React.createElement('div', { style: { flexShrink: 0, marginLeft: 'auto', minWidth: 0, display: 'flex', justifyContent: 'flex-end' } }, pill);
+}
+
 /* ═══ LOBBY ═══ */
 function LobbyScreen(P){
   var room=P.room, myId=P.myId, presenceByPlayer=P.presenceByPlayer||{}, isHost=room.hostId===myId;
@@ -1613,10 +1713,11 @@ function LobbyScreen(P){
   return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14)',fontFamily:'system-ui,sans-serif',color:'white',padding:20,display:'flex',flexDirection:'column',alignItems:'center'}},
     React.createElement('style',null,ACSS),
     React.createElement('div',{style:{width:'100%',maxWidth:420,display:'flex',flexDirection:'column',gap:16,animation:'fadeIn .6s ease-out'}},
-      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10}},
-        React.createElement('button',{onClick:P.onLeave,style:{background:'none',border:'none',color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:20}},'←'),
-        rLogoW(28),
-        React.createElement('div',{style:{fontSize:18,fontWeight:700}},'Bisca Fucas')
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,width:'100%',minWidth:0}},
+        React.createElement('button',{onClick:P.onLeave,style:{background:'none',border:'none',color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:20,flexShrink:0}},'←'),
+        React.createElement('div',{style:{flexShrink:0}},rLogoW(28)),
+        React.createElement('div',{style:{fontSize:18,fontWeight:700,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'Bisca Fucas'),
+        RT.isConfigured() ? React.createElement(RtConnectionBadge,{connected:P.serverConnected,variant:'inline'}) : null
       ),
       React.createElement('div',{style:{background:'rgba(196,18,48,.08)',borderRadius:14,padding:20,textAlign:'center',border:'1px solid rgba(196,18,48,.25)'}},
         React.createElement('div',{style:{fontSize:11,opacity:0.4,letterSpacing:2}},'CÓDIGO DA SALA'),
@@ -1681,6 +1782,8 @@ function GameScreen(props){
   var _ms = props.mySeat;
   var mySeat = typeof _ms === 'number' && _ms >= 0 && _ms <= 3 ? _ms : 0;
   var isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
+  /** `true` | `false` | `null` = Firebase RTDB `.info/connected` (só multijogador). */
+  var serverConnected = props.serverConnected;
   var partnerCount=props.partnerCount||0, setPT=props.setPT;
   /** Pausa local (não vai para o RT) para ver as cartas do parceiro — solo e mesa online. */
   var partnerViewPause = isSolo || isOnline;
@@ -2446,17 +2549,24 @@ function GameScreen(props){
         React.createElement('div',{style:{borderLeft:mob?'none':'1px solid rgba(255,255,255,.15)',paddingLeft:mob?0:10}},
           React.createElement('div',{style:{fontSize:mob?15:18,fontWeight:'bold',letterSpacing:0.4}},'Bisca Fucas'),
           React.createElement('div',{style:{fontSize:10,opacity:0.5,marginTop:2,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
-            React.createElement('span',null,isSolo?'Solo vs IA':'Online'),
+            React.createElement('span',null,isSolo?'Solo vs IA':'Multijogador'),
             isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 5px'}},'copas batido') : null,
             g.tieBonus>0 ? React.createElement('span',{style:{background:'#7B3010',borderRadius:4,padding:'1px 5px',fontSize:10}},'vale '+(1+g.tieBonus)+' pts') : null,
             venueNameChip(th,9)
           )
         )
       ),
-      React.createElement('div',{style:{display:'flex',gap:mob?8:14,fontSize:13,alignItems:'center',justifyContent:mob?'space-between':'flex-end',flexWrap:'wrap',rowGap:6}},
-        scoreTeamLine(mob,'#22c55e',mob?'A':'Dupla A',g.mPts[0],swA,4,false),
-        React.createElement('span',{style:{opacity:0.28,fontWeight:300,display:mob?'none':'inline'}},'|'),
-        scoreTeamLine(mob,'#f87171',mob?'B':'Dupla B',g.mPts[1],swB,4,false)
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:mob?'stretch':'flex-end',gap:6,minWidth:0,width:mob?'100%':'auto'}},
+        isOnline && RT.isConfigured()
+          ? React.createElement('div',{style:{display:'flex',justifyContent:mob?'center':'flex-end',width:mob?'100%':'auto'}},
+              React.createElement(RtConnectionBadge,{connected:serverConnected,variant:'hud'})
+            )
+          : null,
+        React.createElement('div',{style:{display:'flex',gap:mob?8:14,fontSize:13,alignItems:'center',justifyContent:mob?'space-between':'flex-end',flexWrap:'wrap',rowGap:6}},
+          scoreTeamLine(mob,'#22c55e',mob?'A':'Dupla A',g.mPts[0],swA,4,false),
+          React.createElement('span',{style:{opacity:0.28,fontWeight:300,display:mob?'none':'inline'}},'|'),
+          scoreTeamLine(mob,'#f87171',mob?'B':'Dupla B',g.mPts[1],swB,4,false)
+        )
       )
     ),
     React.createElement('div',{style:playShell},
@@ -2597,9 +2707,12 @@ export default function App(){
   var exs=useState(false); var showExit=exs[0], setShowExit=exs[1];
   var lcs=useState(null); var locId=lcs[0], setLocId=lcs[1];
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
+  var crErrSt=useState(''); var createRoomErr=crErrSt[0], setCreateRoomErr=crErrSt[1];
   var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
+  var rtConnSt=useState(/** @type {boolean | null} */ (null));
+  var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
@@ -2610,6 +2723,22 @@ export default function App(){
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
+
+  useEffect(function(){
+    if (!db) return;
+    if (screen !== 'lobby' && screen !== 'online' && screen !== 'pickLocCreate') {
+      setRtdbConnected(null);
+      return;
+    }
+    var infoRef = ref(db, '.info/connected');
+    var unsub = onValue(infoRef, function (snap) {
+      setRtdbConnected(!!snap.val());
+    });
+    return function () {
+      unsub();
+      setRtdbConnected(null);
+    };
+  }, [screen]);
 
   useEffect(function(){
     if(screen!=="home"){
@@ -2851,7 +2980,7 @@ export default function App(){
       React.createElement(HomeScreen,{
         resumeTopPad: resumePad,
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
-        onGoPickCreate:function(name){ setMyName(name); setScreen('pickLocCreate'); },
+        onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
           writeBfSession({ code: code, playerId: id, playerName: name });
           setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
@@ -2865,9 +2994,15 @@ export default function App(){
     return React.createElement(React.Fragment,null,
       React.createElement(LocationScreen,{
         pickForCreate:true,
-        onBack:function(){ if(!crBusy) setScreen('home'); },
+        createRoomError:createRoomErr,
+        onBack:function(){ if(!crBusy){ setCreateRoomErr(''); setScreen('home');} },
         onSelect:async function(loc){
           if(crBusy || !RT.isConfigured()) return;
+          setCreateRoomErr('');
+          if(rtdbConnected===false){
+            setCreateRoomErr('Não foi possível criar a sala: não há ligação à internet ou ao servidor. Verifique o Wi‑Fi ou os dados móveis e tente novamente.');
+            return;
+          }
           setCrBusy(true);
           var c=mkCode(), pid=uid();
           var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc};
@@ -2876,6 +3011,8 @@ export default function App(){
           if(ok){
             writeBfSession({ code: c, playerId: pid, playerName: myName });
             setMyId(pid); setRoomCode(c); setLocId(loc); setRoom(roomNew); setScreen('lobby');
+          }else{
+            setCreateRoomErr('Não foi possível criar a sala no servidor. Confirme que tem ligação estável à internet e tente de novo. Se o problema persistir, aguarde alguns minutos ou tente noutra rede.');
           }
         }
       }),
@@ -2893,7 +3030,7 @@ export default function App(){
   }
 
   if(screen==='lobby' && room){
-    return React.createElement(LobbyScreen,{room:room,myId:myId,presenceByPlayer:presenceByPlayer,onLeave:goHome});
+    return React.createElement(LobbyScreen,{room:room,myId:myId,presenceByPlayer:presenceByPlayer,onLeave:goHome,serverConnected:rtdbConnected});
   }
 
   if(screen==='online' && room && og){
@@ -2904,8 +3041,8 @@ export default function App(){
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
-    return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme}),
+    return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
     );
@@ -2919,7 +3056,10 @@ export default function App(){
   }
 
   if(screen==='online' && room && room.game && !og){
-    return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'system-ui,sans-serif',fontSize:14}},'Carregando mesa...');
+    return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,fontFamily:'system-ui,sans-serif',fontSize:14,position:'relative',boxSizing:'border-box',padding:'max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right))'}},
+      RT.isConfigured() ? React.createElement(RtConnectionBadge,{connected:rtdbConnected,variant:'hud'}) : null,
+      React.createElement('div',{style:{opacity:0.9}},'Carregando mesa…')
+    );
   }
 
   return React.createElement(React.Fragment,null,
