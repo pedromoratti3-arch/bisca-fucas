@@ -747,7 +747,9 @@ function mkGame(pm,ps,tb,names,actor,sw){
     setWins:Array.isArray(sw)?sw.slice():[0,0],
     events:[], summary:null, lastW:null, deck:[], dealStep:0, msg:'',
     playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
-    lastActor: actor || ''
+    lastActor: actor || '',
+    swapToast: null,
+    aceReveal: null
   };
 }
 
@@ -1593,6 +1595,26 @@ function GameScreen(props){
   var cutLiftSt = useState(null);
   var cutLift = cutLiftSt[0], setCutLift = cutLiftSt[1];
   var aceRevealT = useRef(/** @type {any} */ (null));
+  var swapToastTickSt = useState(0);
+  var setSwapToastTick = swapToastTickSt[1];
+  useEffect(
+    function () {
+      if (!g.swapToast || typeof g.swapToast.ts !== "number") return;
+      var id = setInterval(function () {
+        setSwapToastTick(function (x) {
+          return x + 1;
+        });
+      }, 320);
+      var maxT = setTimeout(function () {
+        clearInterval(id);
+      }, 4500);
+      return function () {
+        clearInterval(id);
+        clearTimeout(maxT);
+      };
+    },
+    [g.swapToast]
+  );
 
   // Write online state (ONLY here, GameScreen is the single writer)
   useEffect(function(){
@@ -1829,7 +1851,7 @@ function GameScreen(props){
     return function(){ clearTimeout(t); };
   },[g.curP,g.phase,partnerCount,isSolo,isOnline,isRoomHost,myPid]);
 
-  // Limpa o "reveal" do Ás de trunfo após curto destaque visual
+  // Segurança: limpa aceReveal se ficou preso (o fluxo normal limpa ao fechar a mão).
   useEffect(function(){
     if(!g.aceReveal) return;
     if(isOnline && g.lastActor!==myPid) return;
@@ -1840,7 +1862,7 @@ function GameScreen(props){
         if(isOnline && pv.lastActor!==myPid) return pv;
         return Object.assign({},pv,{aceReveal:null});
       });
-    },1200);
+    },6200);
     return function(){ if(aceRevealT.current) clearTimeout(aceRevealT.current); };
   },[g.aceReveal,g.lastActor,isOnline,myPid]);
 
@@ -1848,6 +1870,7 @@ function GameScreen(props){
   useEffect(function(){
     if(g.phase!=='end_trick') return;
     if(isOnline && g.lastActor!==myPid) return;
+    var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 3200 : 0);
     var t = setTimeout(function(){
       sg(function(pv){
         if(pv.phase!=='end_trick') return pv;
@@ -1879,11 +1902,11 @@ function GameScreen(props){
         if(!over && pv.trickN<=1 && pv.tc && pv.tc.v!=='2' && deck.some(function(c){ return c && c.id===pv.tc.id; })){
           for(var si=0;si<4;si++){ if(hands[si].some(function(c){ return c.s===trump && c.v==='2'; })){ cs=si; break; } }
         }
-        return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)'});
+        return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,aceReveal:null,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)'});
       });
-    }, isSolo?1100:800);
+    }, endTrickDelay);
     return function(){ clearTimeout(t); };
-  },[g.phase]);
+  },[g.phase,g.aceReveal,isSolo,isOnline,myPid]);
 
   // End round
   useEffect(function(){
@@ -1930,7 +1953,7 @@ function GameScreen(props){
         if(isNaN(stKeep)) stKeep = 2;
         return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep});
       });
-    },500);
+    },2000);
     return function(){ clearTimeout(t); };
   },[g.phase]);
 
@@ -1940,11 +1963,23 @@ function GameScreen(props){
       var hands=pv.hands.map(function(h){ return h.slice(); });
       var i=hands[mySeat].findIndex(function(c){ return c && c.s===pv.trump && c.v==='2'; });
       if(i<0) return pv;
-      var twoCard = hands[mySeat][i]; // Save the 2 card
-      hands[mySeat][i]=pv.tc; // Put cut card in hand
-      var deck=pv.deck.filter(function(c){ return c && c.id!==pv.tc.id; }); // Remove cut card from deck
-      deck.splice(Math.floor(deck.length/2),0,twoCard); // Put the 2 in middle of deck
-      return Object.assign({},pv,{hands:hands,deck:deck,tc:null,canSwap:false,msg:'Corte alto! '+pv.tc.v+SYM[pv.trump]+' na mao, 2 no meio do baralho.',lastActor:isOnline?myPid:pv.lastActor});
+      var tcTake = pv.tc;
+      var twoCard = hands[mySeat][i];
+      hands[mySeat][i]=tcTake;
+      var deck=pv.deck.filter(function(c){ return c && c.id!==tcTake.id; });
+      deck.splice(Math.floor(deck.length/2),0,twoCard);
+      var who = (pv.playerNames && pv.playerNames[mySeat]) || 'Jogador';
+      var sym = SYM[pv.trump] || '';
+      return Object.assign({},pv,{
+        hands:hands,deck:deck,tc:null,canSwap:false,
+        swapToast:{
+          title:'Corte alto — troca do 2',
+          body:who+' trocou o 2'+sym+' pela carta de corte '+tcTake.v+sym+'. O 2 volta ao meio do baralho.',
+          ts:Date.now()
+        },
+        msg:'Corte alto! '+tcTake.v+sym+' na mao, 2 no meio do baralho.',
+        lastActor:isOnline?myPid:pv.lastActor
+      });
     });
   }
 
@@ -1972,8 +2007,17 @@ function GameScreen(props){
         hands[seat][i]=tc;
         var deck=pv.deck.filter(function(c){ return c && c.id!==tc.id; });
         deck.splice(Math.floor(deck.length/2),0,two);
-        var msg='Corte alto (IA): '+tc.v+SYM[tc.s]+' na mao, 2 no baralho.';
-        var upd={hands:hands,deck:deck,tc:null,canSwap:false,msg:msg};
+        var sym0 = SYM[pv.trump] || '';
+        var who0 = (pv.playerNames && pv.playerNames[seat]) || 'Bot';
+        var msg='Corte alto (IA): '+tc.v+sym0+' na mao, 2 no baralho.';
+        var upd={
+          hands:hands,deck:deck,tc:null,canSwap:false,msg:msg,
+          swapToast:{
+            title:'Corte alto — troca do 2',
+            body:who0+' trocou o 2'+sym0+' pela carta de corte '+tc.v+sym0+'. O 2 volta ao meio do baralho.',
+            ts:Date.now()
+          }
+        };
         if(isOnline) Object.assign(upd,{lastActor:myPid});
         return Object.assign({},pv,upd);
       });
@@ -1994,8 +2038,8 @@ function GameScreen(props){
     if(!show) return base;
     return React.createElement('div',{style:{position:'relative',display:'inline-block'}},
       base,
-      React.createElement('div',{style:{position:'absolute',left:'50%',top:-10,transform:'translateX(-50%)',pointerEvents:'none',animation:'cin .28s ease-out'}},
-        React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.24)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.7)',borderRadius:999,padding:mob?'2px 8px':'3px 10px',fontSize:mob?9:10,fontWeight:800,letterSpacing:0.2,boxShadow:'0 0 18px rgba(251,191,36,.28), inset 0 1px 0 rgba(255,255,255,.18)',animation:'pls .9s ease-in-out 2'}},'Ás de trunfo!')
+      React.createElement('div',{style:{position:'absolute',left:'50%',top:-10,transform:'translateX(-50%)',pointerEvents:'none',animation:'cin .55s ease-out'}},
+        React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.24)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.7)',borderRadius:999,padding:mob?'2px 8px':'3px 10px',fontSize:mob?9:10,fontWeight:800,letterSpacing:0.2,boxShadow:'0 0 18px rgba(251,191,36,.28), inset 0 1px 0 rgba(255,255,255,.18)',animation:'pls 1.85s ease-in-out infinite'}},'Ás de trunfo!')
       )
     );
   }
@@ -2130,9 +2174,41 @@ function GameScreen(props){
   var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
   var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
+  var swapSt = g.swapToast;
+  void swapToastTickSt[0];
+  var swapToastEl =
+    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < 4100
+      ? React.createElement(
+          'div',
+          {
+            role: 'status',
+            'aria-live': 'polite',
+            style: {
+              position: 'fixed',
+              left: '50%',
+              bottom: mob ? 'calc(92px + env(safe-area-inset-bottom, 0px))' : '24px',
+              transform: 'translateX(-50%)',
+              zIndex: 95,
+              maxWidth: 'min(440px, 94vw)',
+              padding: mob ? '12px 14px' : '14px 20px',
+              borderRadius: 14,
+              background: 'linear-gradient(165deg, rgba(22,22,34,.94) 0%, rgba(10,10,18,.96) 100%)',
+              border: '1px solid rgba(255,255,255,.14)',
+              boxShadow: '0 14px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07)',
+              backdropFilter: 'saturate(1.1) blur(14px)',
+              WebkitBackdropFilter: 'saturate(1.1) blur(14px)',
+              pointerEvents: 'none',
+              textAlign: 'center',
+            },
+          },
+          React.createElement('div', { style: { fontSize: mob ? 13 : 14, fontWeight: 800, letterSpacing: 0.35, color: '#fde68a', marginBottom: 5 } }, swapSt.title),
+          React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } }, swapSt.body)
+        )
+      : null;
   return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
+    swapToastEl,
     React.createElement('div',{style:{position:'relative',zIndex:2}},
     React.createElement('div',{style:hdrGlassPl},
       React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
@@ -2165,8 +2241,8 @@ function GameScreen(props){
         !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
       )
     ),
-    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:8,textAlign:'center',animation:'cin .28s ease-out'}},
-      React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.2)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.65)',borderRadius:999,padding:mob?'3px 10px':'4px 12px',fontSize:mob?10:11,fontWeight:700,letterSpacing:0.2,boxShadow:'0 0 14px rgba(251,191,36,.26), inset 0 1px 0 rgba(255,255,255,.2)',animation:'pls 1.1s ease-in-out 2'}},'As de trunfo revelado')
+    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:8,textAlign:'center',animation:'cin .5s ease-out'}},
+      React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.2)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.65)',borderRadius:999,padding:mob?'3px 10px':'4px 12px',fontSize:mob?10:11,fontWeight:700,letterSpacing:0.2,boxShadow:'0 0 14px rgba(251,191,36,.26), inset 0 1px 0 rgba(255,255,255,.2)',animation:'pls 1.85s ease-in-out infinite'}},'As de trunfo revelado')
     ) : null,
     isSolo&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
