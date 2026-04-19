@@ -1571,6 +1571,13 @@ function useNarrowScreen(){
 }
 
 function GameScreen(props){
+  /** Pausa antes de bots/IA jogarem — mais legível que o antigo ~0,75 s. */
+  var BOT_PLAY_DELAY_MS = 1280;
+  /** Troca automática do 2 pelo corte (bot). */
+  var BOT_SWAP_DELAY_MS = 900;
+  /** Bot a cortar o maço (solo / host). */
+  var BOT_AUTO_CUT_DELAY_MS = 2100;
+
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
   var _ms = props.mySeat;
@@ -1646,7 +1653,7 @@ function GameScreen(props){
     if(!runAuto) return;
     var t = setTimeout(function(){
       performCut(null);
-    },1500);
+    },BOT_AUTO_CUT_DELAY_MS);
     return function(){ clearTimeout(t); };
   },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter]);
 
@@ -1847,7 +1854,7 @@ function GameScreen(props){
         if(hostPlaysBot) Object.assign(upd,{lastActor:myPid});
         return Object.assign({},pv,upd);
       });
-    },750);
+    },BOT_PLAY_DELAY_MS);
     return function(){ clearTimeout(t); };
   },[g.curP,g.phase,partnerCount,isSolo,isOnline,isRoomHost,myPid]);
 
@@ -2021,7 +2028,7 @@ function GameScreen(props){
         if(isOnline) Object.assign(upd,{lastActor:myPid});
         return Object.assign({},pv,upd);
       });
-    },550);
+    },BOT_SWAP_DELAY_MS);
     return function(){ clearTimeout(t); };
   },[g.phase,g.canSwap,g.tc,g.trump,isSolo,isOnline,isRoomHost,myPid,botSeats,partnerCount]);
 
