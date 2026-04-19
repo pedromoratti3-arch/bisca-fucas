@@ -395,6 +395,27 @@ function aiPickCutRotateIndex(fd){
   return 16 + Math.floor(Math.random() * 5);
 }
 
+/**
+ * Partida a 4 pts: adversário com 3 e a dupla do cortador com 0, 1 ou 2 (3×0, 3×1, 3×2).
+ * Copas batido faz a vitória na mesa valer +2 na partida — boa jogada de desespero/risco.
+ */
+function shouldBatDesvantagemPartida(mPts, cutterTeam){
+  if(!Array.isArray(mPts) || mPts.length<2) return false;
+  var my = mPts[cutterTeam], opp = mPts[1-cutterTeam];
+  return opp===3 && my<=2;
+}
+
+/** Transição do corte para deal em modo copas batido (mesma lógica do botão "Bater!"). */
+function stateBatidoFromCut(pv, lastActor){
+  var actor = lastActor!=null && lastActor!=='' ? lastActor : pv.lastActor;
+  return Object.assign({},pv,{
+    phase:'deal',tc:null,trump:'copas',batido:true,dealStep:0,
+    canSwap:false,trumpSevenOut:false,tPts:[0,0],trickN:0,trick:[],events:[],
+    lastW:null,rawTc:null,msg:'COPAS BATIDO! Distribuindo 3 cartas por vez...',
+    lastActor:actor
+  });
+}
+
 /* ═══ AI PRO ═══ */
 // Memory tracker — tracks played cards and void suits per player
 function makeMemory(){
@@ -1652,7 +1673,7 @@ function GameScreen(props){
     var runAuto = !isOnline ? cutter!==0 : (isRoomHost && !!botSeats[cutter]);
     if(!runAuto) return;
     var t = setTimeout(function(){
-      performCut(null);
+      performCut(null,true);
     },BOT_AUTO_CUT_DELAY_MS);
     return function(){ clearTimeout(t); };
   },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter]);
@@ -1749,10 +1770,11 @@ function GameScreen(props){
     return function(){ clearInterval(id); setPT(0); };
   },[g.trickN,isSolo]);
 
-  function performCut(ci){
+  /** @param preferBat se true (só auto-corte do bot), tenta copas batido quando a dupla do cortador está 0–2 na partida e o adversário tem 3. */
+  function performCut(ci, preferBat = false){
     setCutSec(null);
     sg(function(pv){
-      if(pv.phase!=='cut' || !Array.isArray(pv.fd) || pv.fd.length<20) return pv;
+      if(pv.phase!=='cut') return pv;
       if(isOnline){
         var stCut = parseSeat(pv.starter);
         if(isNaN(stCut)) stCut = 2;
@@ -1760,6 +1782,10 @@ function GameScreen(props){
         var allowedCut = cutterSeat===mySeat || (isRoomHost && !!botSeats[cutterSeat]);
         if(!allowedCut) return pv;
       }
+      if(preferBat && shouldBatDesvantagemPartida(pv.mPts, pTm(cutter))){
+        return stateBatidoFromCut(pv, isOnline?myPid:pv.lastActor);
+      }
+      if(!Array.isArray(pv.fd) || pv.fd.length<20) return pv;
       var useCi = ci!=null && typeof ci==='number' && !isNaN(ci) ? ci : aiPickCutRotateIndex(pv.fd);
       var fd=pv.fd.slice(), newFd=fd.slice(useCi).concat(fd.slice(0,useCi));
       var rawTc=newFd[12], tc, trump;
@@ -1788,12 +1814,8 @@ function GameScreen(props){
     if(g.phase!=='cut') return;
     if(isOnline && !iAmCutter) return;
     setCutSec(null);
-    // Go to deal phase with batido flag — animation deals 3 at a time
     sg(function(pv){
-      return Object.assign({},pv,{phase:'deal',tc:null,trump:'copas',batido:true,dealStep:0,
-        canSwap:false,trumpSevenOut:false,tPts:[0,0],trickN:0,trick:[],events:[],
-        lastW:null,rawTc:null,msg:'COPAS BATIDO! Distribuindo 3 cartas por vez...',
-        lastActor:isOnline?myPid:pv.lastActor});
+      return stateBatidoFromCut(pv, isOnline?myPid:pv.lastActor);
     });
   }
 
