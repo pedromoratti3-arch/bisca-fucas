@@ -933,71 +933,6 @@ function gameBackdropLayer(th){
 }
 
 /* === LOCATION MARKS (SVG) === */
-/** Xícara (Terrafé) — traço limpo, herda cor do cartão. */
-function TerrafeMark(sz) {
-  return React.createElement(
-    'svg',
-    {
-      viewBox: '0 0 56 56',
-      width: sz,
-      height: sz,
-      'aria-hidden': true,
-      style: { display: 'block' },
-    },
-    React.createElement('ellipse', {
-      cx: 28,
-      cy: 46,
-      rx: 17,
-      ry: 3.2,
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      opacity: 0.9,
-    }),
-    React.createElement('path', {
-      d: 'M 16 24 L 16 34 Q 16 41 28 41 Q 40 41 40 34 L 40 24',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2.15,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    }),
-    React.createElement('ellipse', {
-      cx: 28,
-      cy: 24,
-      rx: 12,
-      ry: 3.8,
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-    }),
-    React.createElement('ellipse', {
-      cx: 28,
-      cy: 24,
-      rx: 9,
-      ry: 2.2,
-      fill: 'currentColor',
-      opacity: 0.22,
-    }),
-    React.createElement('path', {
-      d: 'M 40 27 C 47 27 50 31 50 36 C 50 41 46 44 40 44',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2.15,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    }),
-    React.createElement('path', {
-      d: 'M 22 16 Q 24 12 22 8 M 28 15 Q 30 11 28 7 M 34 16 Q 36 12 34 8',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 1.6,
-      strokeLinecap: 'round',
-      opacity: 0.55,
-    })
-  );
-}
 /** HUB — texto colorido centrado no cartão (evita âncora à esquerda do SVG). */
 function HubMark(sz) {
   var fs = Math.max(26, Math.round(sz * 0.52));
@@ -1083,7 +1018,31 @@ function LocationScreen(P){
 
   var locs = [
     {id:'terrafe',name:'Terrafé',color:'#c9956a',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
-      logo:function(){return React.createElement('div',{style:{color:'#e8c9a0'}},TerrafeMark(54));}},
+      logo:function(){
+        var u = 'url(/assets/terrafe/logo.png)';
+        var sz = 52;
+        return React.createElement('div',{
+          role:'img',
+          'aria-label':'Terrafé',
+          style:{
+            width:sz,
+            height:sz,
+            flexShrink:0,
+            boxSizing:'border-box',
+            backgroundColor:'#e8c9a0',
+            WebkitMaskImage:u,
+            WebkitMaskSize:'contain',
+            WebkitMaskRepeat:'no-repeat',
+            WebkitMaskPosition:'center',
+            maskImage:u,
+            maskSize:'contain',
+            maskRepeat:'no-repeat',
+            maskPosition:'center',
+            display:'block',
+            filter:'drop-shadow(0 0 2px rgba(0,0,0,.45))',
+          },
+        });
+      }},
     {id:'hub',name:'HUB Fucape',color:'#60a5fa',bg:'linear-gradient(145deg,#0e1230,#080818)',glow:'rgba(37,99,235,.5)',
       logo:function(){return HubMark(84);}},
     {id:'floresta',name:'Floresta',color:'#6ee7b7',bg:'linear-gradient(145deg,#142a18,#0a1a0e)',glow:'rgba(45,90,39,.5)',
@@ -1111,8 +1070,8 @@ function LocationScreen(P){
           onClick:function(){P.onSelect(loc.id);},
           style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:18,padding:'24px 14px 20px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,transition:'all .3s cubic-bezier(.4,0,.2,1)',minHeight:142,'--bfLoc':loc.color,'--bfGlow':loc.glow}
         },
-          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:56,width:'100%'}},loc.logo()),
-          React.createElement('div',{style:{textAlign:'center'}},venueNameChip(THEMES[loc.id]||THEMES.sala,13))
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',minHeight:56,boxSizing:'border-box'}},loc.logo()),
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',boxSizing:'border-box'}},venueNameChip(THEMES[loc.id]||THEMES.sala,13))
         );
       })
     )
