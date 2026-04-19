@@ -674,6 +674,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(mateWinsTrump){
       var ntOnly = safePool.filter(function(c){ return c.s!==trump; });
       if(ntOnly.length) candidates = ntOnly;
+    } else if(curWin.card.s===lead && curWin.card.s!==trump){
+      /* Dupla já vai ganhando no naipe (ex.: encartou Ás); não cortar por cima — somar bísca/lixo fora de corte. */
+      var ntLeadWin = safePool.filter(function(c){ return c.s!==trump; });
+      if(ntLeadWin.length) candidates = ntLeadWin;
     }
     // Parceiro já segura com corte: corte mais baixo que o dele não muda a mão — só gasta corte (ex.: Rei já ganha, não jogar Valete por baixo).
     if(mateWinsTrump && winCard.s===trump){
@@ -845,7 +849,8 @@ function mkGame(pm,ps,tb,names,actor,sw){
     playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
     lastActor: actor || '',
     swapToast: null,
-    aceReveal: null
+    aceReveal: null,
+    summaryFinalMPts: null
   };
 }
 
@@ -2266,16 +2271,18 @@ function GameScreen(props){
         } else {
           go = m0 >= 4 || m1 >= 4;
         }
+        var summaryFinalMPts = null;
         if (go) {
           var matchWinner = m0 > m1 ? 0 : 1;
           setWins[matchWinner] += 1;
           sum.push('Dupla '+(matchWinner===0?'A':'B')+' fechou a partida de 4 pontos!');
+          summaryFinalMPts = mPts.slice();
           mPts = [0,0];
           newTB = 0;
         }
         var stKeep = parseSeat(pv.starter);
         if(isNaN(stKeep)) stKeep = 2;
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep});
+        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep,summaryFinalMPts:summaryFinalMPts});
       });
     },2000);
     return function(){ clearTimeout(t); };
@@ -2780,13 +2787,21 @@ function GameScreen(props){
           g.summary ? g.summary.map(function(s,i){ return React.createElement('div',{key:i,style:{padding:'5px 0',fontSize:13,borderBottom:'1px solid rgba(255,255,255,.1)'}},s); }) : null
         ),
         React.createElement('div',{style:{display:'flex',justifyContent:'center',alignItems:'center',gap:mob?14:20,margin:'16px 0',fontSize:mob?18:22,fontWeight:'bold',fontVariantNumeric:'tabular-nums'}},
-          React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:8}},
+          (function(){
+            var sf = g.summaryFinalMPts;
+            var d0 = sf!=null && sf.length>0 ? sf[0] : g.mPts[0];
+            var d1 = sf!=null && sf.length>1 ? sf[1] : g.mPts[1];
+            return [
+          React.createElement('span',{key:'a',style:{display:'inline-flex',alignItems:'center',gap:8}},
             React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#22c55e'}}),
-            React.createElement('span',null,g.mPts[0])),
-          React.createElement('span',{style:{opacity:0.35,fontWeight:400}},'\u2014'),
-          React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:8}},
+            React.createElement('span',null,d0)),
+          React.createElement('span',{key:'m',style:{opacity:0.35,fontWeight:400}},'\u2014'),
+          React.createElement('span',{key:'b',style:{display:'inline-flex',alignItems:'center',gap:8}},
             React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#f87171'}}),
-            React.createElement('span',null,g.mPts[1]))),
+            React.createElement('span',null,d1))
+            ];
+          })()),
+        g.summaryFinalMPts ? React.createElement('div',{style:{textAlign:'center',fontSize:11,opacity:0.55,marginTop:-8,marginBottom:4}},'Placar final desta partida') : null,
         React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.78,marginBottom:12,letterSpacing:0.02}},
           'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
         ),
