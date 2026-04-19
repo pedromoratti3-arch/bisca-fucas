@@ -2330,7 +2330,7 @@ function GameScreen(props){
       )
     ) : null,
     partnerViewPause&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
-    isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
+    isLastHand && g.trickN===7 && partnerCount>0 ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'\u00daltima m\u00e3o!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
       React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Corte:'),
       g.tc ? rCard(g.tc,null,false,false,true,false,mob,cbk)
