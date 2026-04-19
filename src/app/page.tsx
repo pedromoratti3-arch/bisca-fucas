@@ -1270,6 +1270,36 @@ function chatMsgCountLabel(n) {
   return (n > 50 ? '50+' : String(n)) + ' msgs';
 }
 
+/** Indicador de “vez de jogar” (SVG): branco, tamanho em px para alinhar com o nome na mesma linha flex. */
+function rTurnIndicator(mob) {
+  var px = mob ? 13 : 15;
+  return React.createElement(
+    'svg',
+    {
+      width: px,
+      height: px,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      xmlns: 'http://www.w3.org/2000/svg',
+      'aria-label': 'Vez de jogar',
+      role: 'img',
+      style: {
+        display: 'block',
+        flexShrink: 0,
+      },
+    },
+    React.createElement('circle', { cx: 12, cy: 12, r: 3.25, fill: '#ffffff' }),
+    React.createElement('circle', {
+      cx: 12,
+      cy: 12,
+      r: 8,
+      stroke: 'rgba(255,255,255,.55)',
+      strokeWidth: 1.65,
+      fill: 'none',
+    })
+  );
+}
+
 function ChatPanel(P){
   var mob = useNarrowScreen();
   var vs=useState(false); var open=vs[0], setOpen=vs[1];
@@ -2463,10 +2493,16 @@ function GameScreen(props){
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
         React.createElement('div',{style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 4px'}},NAMES[dN]+(g.curP===dN?' 🎯':''),' ',React.createElement('span',{style:{color:'#86efac'}},mob?(pTm(dN)===0?'A':'B'):'dupla '+(pTm(dN)===0?'A':'B')))
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 4px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
+          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dN]),
+          g.curP===dN ? rTurnIndicator(mob) : null
+        )
       ),
       React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
+          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dW]),
+          g.curP===dW ? rTurnIndicator(mob) : null
+        ),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
@@ -2478,14 +2514,17 @@ function GameScreen(props){
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
       React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dE]+(g.curP===dE?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dE)===0?'A':'B'):'dupla '+(pTm(dE)===0?'A':'B'))),
+        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
+          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dE]),
+          g.curP===dE ? rTurnIndicator(mob) : null
+        ),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
       ),
       React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
         React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
-        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&(!partnerViewPause||partnerCount<=0)?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
-          NAMES[dS]+(myTurn&&(!partnerViewPause||partnerCount<=0)?(mob?' — Arraste ao centro da mesa':' — Arraste uma carta ao centro da mesa para jogar'):''),' ',
-          React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?9:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
+        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:'#ffffff',textAlign:'center',padding:'0 8px',lineHeight:1,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?20:22}},
+          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dS]),
+          g.curP===dS ? rTurnIndicator(mob) : null
         )
       )
     ),
