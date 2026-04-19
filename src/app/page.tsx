@@ -472,11 +472,22 @@ function isBiscaCard(card, trump){
   return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
 }
 
+/** Vaza com muito em jogo: bísca na mesa, Ás/7 (10–11 pts) ou soma já alta — ao cortar, usar o maior corte que ganha para não deixarem ir por cima. */
+function trickNeedsStrongTrumpCut(trick, trump, trickPts){
+  if(trickPts >= 10) return true;
+  if(trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); })) return true;
+  if(trick.some(function(t){ return t.card && cPts(t.card) >= 10; })) return true;
+  return false;
+}
+
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
   /* Vocabulário Bisca Fucas (mesa): "corte" = trunfo; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
      "bísca" = Ás ou 7 fora do naipe de trunfo (Ás/7 de trunfo não são bíscas);
      "encarte" = matar a carta do adversário no mesmo naipe (carta maior que a que vai ganhando). Na abertura,
-     RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte. */
+     RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
+     Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
+     (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
+     (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -639,7 +650,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   }
   var followSuit = pool.filter(function(c){ return c.s===lead; });
 
-  // ── PARTNER WINNING (dupla vai ganhando a rodada): maximizar pontos com a nossa carta; se o parceiro já ganha de corte, não subir com mais corte se der para jogar fora de corte ──
+  // ── PARTNER WINNING (dupla vai ganhando a rodada): maximizar pontos na vaza quando a mão é segura; nunca “corte morto” abaixo do corte do parceiro ──
   if(partnerWinning){
     function teamWinsWith(card){
       var w = getWin(trick.concat([{player:mySeat,card:card}]), trump);
@@ -649,14 +660,25 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(!safePool.length) return lowest(pool);
 
     var mateWinsTrump = curWin.card.s===trump;
+    var winCard = curWin.card;
     var candidates = safePool;
     if(mateWinsTrump){
       var ntOnly = safePool.filter(function(c){ return c.s!==trump; });
       if(ntOnly.length) candidates = ntOnly;
     }
+    // Parceiro já segura com corte: corte mais baixo que o dele não muda a mão — só gasta corte (ex.: Rei já ganha, não jogar Valete por baixo).
+    if(mateWinsTrump && winCard.s===trump){
+      function futileLowerTrump(c){
+        return c.s===trump && cRnk(c) < cRnk(winCard);
+      }
+      var notFutile = candidates.filter(function(c){ return !futileLowerTrump(c); });
+      if(notFutile.length) candidates = notFutile;
+    }
 
     var trumpOnly = mateWinsTrump && candidates.length>0 && candidates.every(function(c){ return c.s===trump; });
     if(trumpOnly){
+      var overs = candidates.filter(function(c){ return cRnk(c) > cRnk(winCard); });
+      if(overs.length) return overs.slice().sort(byRnkAsc)[0];
       return candidates.slice().sort(byPtsAsc)[0];
     }
     // Parceiro já largou bísca (Ás/7 fora de trunfo): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
@@ -667,11 +689,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var cheapWin = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
       if(cheapWin.length) return cheapWin.slice().sort(byPtsAsc)[0];
     }
-    // Parceiro já segura com corte: não “subir” com bísca/figuras — lixo ou o mínimo de valor
-    if(mateWinsTrump){
-      return candidates.slice().sort(byPtsAsc)[0];
-    }
-    // Parceiro ganha no naipe: ainda faz sentido somar pontos na vaza
+    // Parceiro com corte (ou tu só podes somar no naipe): somar o máximo de pontos possível na vaza.
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
@@ -702,12 +720,20 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
+    var stakeHigh = trickNeedsStrongTrumpCut(trick, trump, trickPts);
     function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
     /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
     function pickWinningTrumpPreferLow(){
       var esc = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
       if(esc.length) return lowest(esc);
       return lowest(trumpW);
+    }
+    /** Bísca / vaza pesada: maior corte que ganha (força, depois pontos). */
+    function pickWinningTrumpPreferHigh(){
+      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
+    }
+    function pickWinningTrumpChosen(){
+      return stakeHigh ? pickWinningTrumpPreferHigh() : pickWinningTrumpPreferLow();
     }
     var partnerNotYetPlayed = !trick.some(function(t){ return pTm(t.player)===mt; });
 
@@ -719,7 +745,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(trumpSevenWin) return trumpSevenWin;
     }
     // Parceiro ainda joga: vaza sem grande valor — não abrir cortes em cadeia; lixo fora de trunfo
-    if(partnerNotYetPlayed && !isLast && !partnerPutBisca && voidLead && !losing){
+    if(!stakeHigh && partnerNotYetPlayed && !isLast && !partnerPutBisca && voidLead && !losing){
       if(trickPts<=8){
         var shed0 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
         if(shed0.length) return lowest(shed0);
@@ -730,13 +756,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
     // Adversário já vai ganhando de corte, rodada fraca/média, ainda não és o último: deixa o parceiro poupar cortes
-    if(voidLead && !isLast && curWin.card.s===trump && trickPts<=10 && !losing && !partnerPutBisca){
+    if(!stakeHigh && voidLead && !isLast && curWin.card.s===trump && trickPts<=10 && !losing && !partnerPutBisca){
       var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
       if(duckOff.length) return lowest(duckOff);
     }
 
     // Vaza fraca: não cortar só com K/J/Q (ou sem “corte baixo” que ganhe) se dá para lixar
-    if(!partnerPutBisca && !losing){
+    if(!stakeHigh && !partnerPutBisca && !losing){
       var trumpNoKQJ = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
       var onlyKQJWins = !trumpNoKQJ.length;
       if((trickPts<=3 && strongTrumps.length===0) || (trickPts<=7 && onlyKQJWins && !endGame)){
@@ -747,34 +773,34 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     }
 
     // Last to play: trump if trick has value
-    if(isLast && trickPts>=4) return pickWinningTrumpPreferLow();
+    if(isLast && trickPts>=4) return pickWinningTrumpChosen();
 
     // High value trick: always trump
-    if(trickPts>=10) return pickWinningTrumpPreferLow();
+    if(trickPts>=10) return pickWinningTrumpChosen();
 
     // Medium value: cortar só se compensa (evita gastar figuras de corte em vazas médias)
     if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)){
-      if(!losing && !endGame && trickPts<8){
+      if(!stakeHigh && !losing && !endGame && trickPts<8){
         var minWin = pickWinningTrumpPreferLow();
         if(isKQJTrumpCard(minWin) && trickPts<=6){
           var gbMid = nonTrump.filter(function(c){ return cPts(c)===0; });
           if(gbMid.length) return lowest(gbMid);
         }
       }
-      return pickWinningTrumpPreferLow();
+      return pickWinningTrumpChosen();
     }
 
     // Losing badly? Be more aggressive with trumping
-    if(losing && trickPts>=3) return pickWinningTrumpPreferLow();
+    if(losing && trickPts>=3) return pickWinningTrumpChosen();
 
     // Endgame (last 3 tricks): trump more aggressively
-    if(endGame && trickPts>=3) return pickWinningTrumpPreferLow();
+    if(endGame && trickPts>=3) return pickWinningTrumpChosen();
 
     // Not worth trumping
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
     if(nonTrump.length) return lowest(nonTrump);
-    return pickWinningTrumpPreferLow();
+    return pickWinningTrumpChosen();
   }
 
   // Can't win — minimize loss
