@@ -1672,6 +1672,14 @@ function GameScreen(props){
   var cutLiftSt = useState(null);
   var cutLift = cutLiftSt[0], setCutLift = cutLiftSt[1];
   var aceRevealT = useRef(/** @type {any} */ (null));
+  var tableDropRef = useRef(/** @type {HTMLElement|null} */ (null));
+  var dragSessionRef = useRef(/** @type {any} */ (null));
+  var handGhostSt = useState(/** @type {{ card: any; x: number; y: number } | null} */ (null));
+  var handGhost = handGhostSt[0],
+    setHandGhost = handGhostSt[1];
+  var handLiftIdSt = useState(/** @type {string|null} */ (null));
+  var handLiftId = handLiftIdSt[0],
+    setHandLiftId = handLiftIdSt[1];
   var swapToastTickSt = useState(0);
   var setSwapToastTick = swapToastTickSt[1];
   useEffect(
@@ -1820,6 +1828,12 @@ function GameScreen(props){
     return function(){ clearInterval(id); setPT(0); };
   },[g.trickN,partnerViewPause]);
 
+  useEffect(function () {
+    setHandGhost(null);
+    setHandLiftId(null);
+    dragSessionRef.current = null;
+  }, [g.phase, g.trick.length, g.curP, mySeat]);
+
   /** @param preferBat se true (só auto-corte do bot), tenta copas batido quando a dupla do cortador está 0–2 na partida e o adversário tem 3. */
   function performCut(ci, preferBat = false){
     setCutSec(null);
@@ -1895,6 +1909,69 @@ function GameScreen(props){
       if(isOnline) Object.assign(upd,{lastActor:myPid});
       return Object.assign({},p,upd);
     });
+  }
+
+  var HAND_DROP_PAD = 18;
+  var HAND_DRAG_THRESH_SQ = 10 * 10;
+  function handInDropZone(clientX, clientY) {
+    var el = tableDropRef.current;
+    if (!el) return false;
+    var r = el.getBoundingClientRect();
+    return (
+      clientX >= r.left - HAND_DROP_PAD &&
+      clientX <= r.right + HAND_DROP_PAD &&
+      clientY >= r.top - HAND_DROP_PAD &&
+      clientY <= r.bottom + HAND_DROP_PAD
+    );
+  }
+  function onPlayablePointerDown(e, card) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragSessionRef.current = {
+      pointerId: e.pointerId,
+      sx: e.clientX,
+      sy: e.clientY,
+      card: card,
+      dragging: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+  function onPlayablePointerMove(e) {
+    var d = dragSessionRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    var dx = e.clientX - d.sx;
+    var dy = e.clientY - d.sy;
+    if (!d.dragging) {
+      if (dx * dx + dy * dy < HAND_DRAG_THRESH_SQ) return;
+      d.dragging = true;
+      setHandLiftId(null);
+    }
+    setHandGhost({ card: d.card, x: e.clientX, y: e.clientY });
+  }
+  function onPlayablePointerUp(e, card) {
+    var d = dragSessionRef.current;
+    var el = e.currentTarget;
+    dragSessionRef.current = null;
+    setHandGhost(null);
+    try {
+      if (d && d.pointerId != null) el.releasePointerCapture(d.pointerId);
+    } catch (_) {}
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (d.dragging) {
+      if (handInDropZone(e.clientX, e.clientY)) playCard(mySeat, d.card);
+      return;
+    }
+    setHandLiftId(card.id);
+  }
+  function onPlayablePointerCancel(e) {
+    var d = dragSessionRef.current;
+    dragSessionRef.current = null;
+    setHandGhost(null);
+    setHandLiftId(null);
+    try {
+      if (d && d.pointerId != null) e.currentTarget.releasePointerCapture(d.pointerId);
+    } catch (_) {}
   }
 
   // IA (solo) ou bots online — só o host simula bots e grava lastActor para sincronizar
@@ -2137,7 +2214,47 @@ function GameScreen(props){
       var s7out = g.trumpSevenOut || g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; }) || hand.some(function(h){ return h && h.v==='7' && h.s===g.trump; });
       var ab = c.v==='A' && c.s===g.trump && !s7out && hand.length>1;
       var canClick = myTurn && !ab && (!partnerViewPause || partnerCount<=0);
-      return React.createElement(React.Fragment,{key:c.id},rCard(c,canClick?function(){playCard(mySeat,c);}:null,false,canClick,false,ab,mob,cbk));
+      if (canClick) {
+        var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
+        var liftedThis = handLiftId === c.id;
+        return React.createElement(
+          'div',
+          {
+            key: c.id,
+            role: 'button',
+            tabIndex: 0,
+            'aria-label': 'Arraste a carta para o centro da mesa para jogar. Toque para levantar.',
+            style: {
+              display: 'inline-flex',
+              touchAction: 'none',
+              cursor: draggingThis ? 'grabbing' : 'grab',
+              opacity: draggingThis ? 0.22 : 1,
+              transition: 'opacity 0.14s ease, transform 0.36s cubic-bezier(.2,.9,.2,1), box-shadow 0.28s ease',
+              transform: liftedThis ? 'translateY(-12px) scale(1.04)' : undefined,
+              boxShadow: liftedThis ? '0 16px 32px rgba(0,0,0,.4)' : undefined,
+              borderRadius: 8,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            },
+            onPointerDown: function (ev) {
+              onPlayablePointerDown(ev, c);
+            },
+            onPointerMove: onPlayablePointerMove,
+            onPointerUp: function (ev) {
+              onPlayablePointerUp(ev, c);
+            },
+            onPointerCancel: onPlayablePointerCancel,
+            onKeyDown: function (ev) {
+              if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                playCard(mySeat, c);
+              }
+            },
+          },
+          rCard(c, null, false, true, false, ab, mob, cbk)
+        );
+      }
+      return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,ab,mob,cbk));
     });
   }
 
@@ -2352,7 +2469,7 @@ function GameScreen(props){
         React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,textAlign:'center',lineHeight:1.2,padding:'0 2px'}},NAMES[dW]+(g.curP===dW?' 🎯':''),' ',React.createElement('span',{style:{color:'#fca5a5'}},mob?(pTm(dW)===0?'A':'B'):'dupla '+(pTm(dW)===0?'A':'B'))),
         React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
-      React.createElement('div',{style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
+      React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
         th.decor ? th.decor() : null,
         React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
@@ -2367,11 +2484,29 @@ function GameScreen(props){
       React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
         React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
         React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:myTurn&&(!partnerViewPause||partnerCount<=0)?(th.accent||'#FFD700'):'rgba(255,255,255,.6)',textAlign:'center',padding:'0 8px',lineHeight:1.25}},
-          NAMES[dS]+(myTurn&&(!partnerViewPause||partnerCount<=0)?(mob?' — Toque na carta':' Clique para jogar!'):''),' ',
+          NAMES[dS]+(myTurn&&(!partnerViewPause||partnerCount<=0)?(mob?' — Arraste ao centro da mesa':' — Arraste uma carta ao centro da mesa para jogar'):''),' ',
           React.createElement('span',{style:{color:'#86efac',fontWeight:'normal',fontSize:mob?9:10}},mob?(pTm(dS)===0?'Dupla A':'Dupla B'):'dupla '+(pTm(dS)===0?'A':'B'))
         )
       )
     ),
+    handGhost && handGhost.card
+      ? React.createElement(
+          'div',
+          {
+            key: 'hand-drag-ghost',
+            style: {
+              position: 'fixed',
+              left: handGhost.x - (mob ? 22 : 23),
+              top: handGhost.y - (mob ? 29 : 31),
+              zIndex: 4500,
+              pointerEvents: 'none',
+              filter: 'drop-shadow(0 14px 28px rgba(0,0,0,.5))',
+              transform: 'rotate(-2deg)',
+            },
+          },
+          rCard(handGhost.card, null, false, true, false, false, mob, cbk)
+        )
+      : null,
     ),
     ),
     ),
