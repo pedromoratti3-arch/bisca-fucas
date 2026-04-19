@@ -1598,6 +1598,9 @@ function GameScreen(props){
   var BOT_SWAP_DELAY_MS = 550;
   /** Bot a cortar o maço (solo / host). */
   var BOT_AUTO_CUT_DELAY_MS = 1500;
+  /** Toast “Corte alto — troca do 2”: quanto tempo fica no ecrã (+ margem para o ticker redesenhar). */
+  var SWAP_TOAST_VISIBLE_MS = 5400;
+  var SWAP_TOAST_TICK_MS = SWAP_TOAST_VISIBLE_MS + 800;
 
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
@@ -1635,7 +1638,7 @@ function GameScreen(props){
       }, 320);
       var maxT = setTimeout(function () {
         clearInterval(id);
-      }, 4500);
+      }, SWAP_TOAST_TICK_MS);
       return function () {
         clearInterval(id);
         clearTimeout(maxT);
@@ -2206,7 +2209,7 @@ function GameScreen(props){
   var swapSt = g.swapToast;
   void swapToastTickSt[0];
   var swapToastEl =
-    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < 4100
+    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS
       ? React.createElement(
           'div',
           {
