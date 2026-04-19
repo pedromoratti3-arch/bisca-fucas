@@ -542,7 +542,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
     // RULE 2: Force opponents to use trump — lead suit they're void in
     // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
-    if(!winning && (!earlyLead || losing)){
+    // Forçar naipe “seco” no adversário: evitar nas primeiras mãos se a dupla vai mal — poupa A/7 e não despeja bísca à toa
+    if(!winning && (!earlyLead || losing) && !(losing && earlyLead && trickN<5)){
       var forceSuits = SUITS.filter(function(s){
         if(s===trump) return false;
         // I have high card in this suit AND opponent is void
@@ -572,29 +573,30 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(el.length) return el[0];
     }
 
-    // RULE 4: Ás fora de trunfo — nas primeiras mãos só com leitura (adversários não “secos”) ou fim de jogo / mal na mesa
+    // RULE 4: Ás fora de trunfo — com dupla mal na mesa não abrir bísca cedo só por “losing” (poupa A/7 para quando compensa)
     var aces = nonTrump.filter(function(c){ return c.v==='A'; });
+    var losingOkForBisca = losing && (!earlyLead || trickN>=4 || hand.length<=5 || endGame);
     if(aces.length){
       var safeAces = aces.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeAces.length && (!earlyLead || losing)) return safeAces[0];
-      if(!earlyLead || losing || hand.length<=5){
+      if(safeAces.length && (!earlyLead || losingOkForBisca)) return safeAces[0];
+      if(!earlyLead || losingOkForBisca || hand.length<=5){
         if(hasTrumpBackup) return aces[0];
         if(hand.length<=4) return aces[0];
       }
     }
 
-    // RULE 5: 7 fora de trunfo — mesma cautela nas primeiras mãos
+    // RULE 5: 7 fora de trunfo — mesma lógica que o Ás (evita 7’s de bísca nas primeiras mãos quando vais mal)
     var sevens = nonTrump.filter(function(c){ return c.v==='7'; });
     if(sevens.length){
       var safeSevens = sevens.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeSevens.length && hasTrumpBackup && (!earlyLead || losing || hand.length<=5)) return safeSevens[0];
-      if(!earlyLead || losing || hand.length<=5){
+      if(safeSevens.length && hasTrumpBackup && (!earlyLead || losingOkForBisca || hand.length<=5)) return safeSevens[0];
+      if(!earlyLead || losingOkForBisca || hand.length<=5){
         if(hasTrumpBackup) return sevens[0];
       }
     }
 
-    // RULE 6: If losing badly, be more aggressive — play K/J to grab some points
-    if(losing){
+    // RULE 6: If losing badly — K/J só quando a mesa já avançou (antes disso, RULE 7 lixo)
+    if(losing && trickN>=3){
       var mids = nonTrump.filter(function(c){ return c.v==='K'||c.v==='J'; });
       if(mids.length && hasTrumpBackup) return mids.sort(byPtsDesc)[0];
     }
@@ -665,6 +667,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var cheapWin = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
       if(cheapWin.length) return cheapWin.slice().sort(byPtsAsc)[0];
     }
+    // Parceiro já segura com corte: não “subir” com bísca/figuras — lixo ou o mínimo de valor
+    if(mateWinsTrump){
+      return candidates.slice().sort(byPtsAsc)[0];
+    }
+    // Parceiro ganha no naipe: ainda faz sentido somar pontos na vaza
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
@@ -695,6 +702,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Should I trump?
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
+    function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
+    /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
+    function pickWinningTrumpPreferLow(){
+      var esc = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
+      if(esc.length) return lowest(esc);
+      return lowest(trumpW);
+    }
+    var partnerNotYetPlayed = !trick.some(function(t){ return pTm(t.player)===mt; });
+
     if(partnerPutBisca){
       return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
     }
@@ -702,39 +718,63 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var trumpSevenWin = trumpW.find(function(c){ return c.v==='7' && c.s===trump; });
       if(trumpSevenWin) return trumpSevenWin;
     }
-    // Adversário já vai ganhando de corte, rodada fraca, ainda não és o último a jogar: descartar lixo e deixar o parceiro decidir — evita gastar corte baixo à toa
-    if(voidLead && !isLast && curWin.card.s===trump && trickPts<=6 && !losing){
+    // Parceiro ainda joga: vaza sem grande valor — não abrir cortes em cadeia; lixo fora de trunfo
+    if(partnerNotYetPlayed && !isLast && !partnerPutBisca && voidLead && !losing){
+      if(trickPts<=8){
+        var shed0 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
+        if(shed0.length) return lowest(shed0);
+      }
+      if(trickPts<=5){
+        var shed1 = pool.filter(function(c){ return c.s!==trump && cPts(c)<=2; });
+        if(shed1.length) return lowest(shed1);
+      }
+    }
+    // Adversário já vai ganhando de corte, rodada fraca/média, ainda não és o último: deixa o parceiro poupar cortes
+    if(voidLead && !isLast && curWin.card.s===trump && trickPts<=10 && !losing && !partnerPutBisca){
       var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
       if(duckOff.length) return lowest(duckOff);
     }
 
-    // NEVER trump a worthless trick with weak trump (Q/J of trump)
-    if(trickPts<=3 && strongTrumps.length===0){
-      var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
-      if(gb.length) return lowest(gb);
-      if(nonTrump.length) return lowest(nonTrump);
+    // Vaza fraca: não cortar só com K/J/Q (ou sem “corte baixo” que ganhe) se dá para lixar
+    if(!partnerPutBisca && !losing){
+      var trumpNoKQJ = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
+      var onlyKQJWins = !trumpNoKQJ.length;
+      if((trickPts<=3 && strongTrumps.length===0) || (trickPts<=7 && onlyKQJWins && !endGame)){
+        var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
+        if(gb.length) return lowest(gb);
+        if(trickPts<=5 && nonTrump.length) return lowest(nonTrump);
+      }
     }
 
     // Last to play: trump if trick has value
-    if(isLast && trickPts>=4) return lowest(trumpW);
+    if(isLast && trickPts>=4) return pickWinningTrumpPreferLow();
 
     // High value trick: always trump
-    if(trickPts>=10) return lowest(trumpW);
+    if(trickPts>=10) return pickWinningTrumpPreferLow();
 
-    // Medium value: trump if we have strong trumps or many trumps
-    if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)) return lowest(trumpW);
+    // Medium value: cortar só se compensa (evita gastar figuras de corte em vazas médias)
+    if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)){
+      if(!losing && !endGame && trickPts<8){
+        var minWin = pickWinningTrumpPreferLow();
+        if(isKQJTrumpCard(minWin) && trickPts<=6){
+          var gbMid = nonTrump.filter(function(c){ return cPts(c)===0; });
+          if(gbMid.length) return lowest(gbMid);
+        }
+      }
+      return pickWinningTrumpPreferLow();
+    }
 
     // Losing badly? Be more aggressive with trumping
-    if(losing && trickPts>=3) return lowest(trumpW);
+    if(losing && trickPts>=3) return pickWinningTrumpPreferLow();
 
     // Endgame (last 3 tricks): trump more aggressively
-    if(endGame && trickPts>=3) return lowest(trumpW);
+    if(endGame && trickPts>=3) return pickWinningTrumpPreferLow();
 
     // Not worth trumping
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
     if(nonTrump.length) return lowest(nonTrump);
-    return lowest(trumpW);
+    return pickWinningTrumpPreferLow();
   }
 
   // Can't win — minimize loss
@@ -2269,7 +2309,7 @@ function GameScreen(props){
       React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
-        ' | Mao '+(g.trickN+1)+'/10 | Deck:'+g.deck.length,
+        ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+g.deck.length,
         !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
       )
     ),
