@@ -819,6 +819,10 @@ var ACSS = [
   '@keyframes shfl{0%{transform:translateX(0)}30%{transform:translateX(-20px) rotate(-9deg)}70%{transform:translateX(20px) rotate(9deg)}100%{transform:translateX(0)}}',
   '@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}',
   '@keyframes cin{from{opacity:0;transform:scale(.3) translateY(-15px)}to{opacity:1;transform:scale(1) translateY(0)}}',
+  '@keyframes aceRevealIn{from{opacity:0;transform:translateY(10px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  '@keyframes aceRevealBannerIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  '@keyframes aceRevealPulse{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:1;filter:brightness(1.06)}}',
+  '@keyframes aceRevealRing{0%,100%{box-shadow:0 0 0 1px rgba(251,191,36,.55),0 8px 26px rgba(0,0,0,.55),0 0 28px rgba(245,158,11,.35),inset 0 1px 0 rgba(255,255,255,.14)}50%{box-shadow:0 0 0 2px rgba(253,224,150,.85),0 12px 32px rgba(0,0,0,.62),0 0 36px rgba(251,191,36,.5),inset 0 1px 0 rgba(255,255,255,.22)}}',
   '@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}',
   '@keyframes float1{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-18px) rotate(5deg)}}',
   '@keyframes float2{0%,100%{transform:translateY(0) rotate(3deg)}50%{transform:translateY(-14px) rotate(-4deg)}}',
@@ -2110,8 +2114,12 @@ function GameScreen(props){
     if(!show) return base;
     return React.createElement('div',{style:{position:'relative',display:'inline-block'}},
       base,
-      React.createElement('div',{style:{position:'absolute',left:'50%',top:-10,transform:'translateX(-50%)',pointerEvents:'none',animation:'cin .55s ease-out'}},
-        React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.24)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.7)',borderRadius:999,padding:mob?'2px 8px':'3px 10px',fontSize:mob?9:10,fontWeight:800,letterSpacing:0.2,boxShadow:'0 0 18px rgba(251,191,36,.28), inset 0 1px 0 rgba(255,255,255,.18)',animation:'pls 1.85s ease-in-out infinite'}},'Ás de trunfo!')
+      React.createElement('div',{style:{position:'absolute',left:'50%',top:-12,transform:'translateX(-50%)',pointerEvents:'none',zIndex:6}},
+        React.createElement('div',{style:{animation:'aceRevealIn .42s cubic-bezier(.2,.9,.2,1) forwards, aceRevealRing 2.4s ease-in-out infinite .42s',transformOrigin:'center top'}},
+          React.createElement('div',{style:{borderRadius:12,padding:mob?'5px 10px':'6px 12px',background:'linear-gradient(165deg,rgba(42,32,18,.98) 0%,rgba(14,11,8,.99) 100%)',border:'1px solid rgba(253,224,150,.88)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)'}},
+            React.createElement('span',{style:{display:'block',whiteSpace:'nowrap',color:'#fffbeb',fontSize:mob?10:11,fontWeight:800,letterSpacing:0.35,textTransform:'uppercase',textShadow:'0 1px 2px rgba(0,0,0,.9),0 0 14px rgba(251,191,36,.45)',animation:'aceRevealPulse 2s ease-in-out infinite'}},'Ás de trunfo!')
+          )
+        )
       )
     );
   }
@@ -2313,8 +2321,10 @@ function GameScreen(props){
         !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
       )
     ),
-    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:8,textAlign:'center',animation:'cin .5s ease-out'}},
-      React.createElement('span',{style:{display:'inline-block',background:'rgba(245,158,11,.2)',color:'#fcd34d',border:'1px solid rgba(251,191,36,.65)',borderRadius:999,padding:mob?'3px 10px':'4px 12px',fontSize:mob?10:11,fontWeight:700,letterSpacing:0.2,boxShadow:'0 0 14px rgba(251,191,36,.26), inset 0 1px 0 rgba(255,255,255,.2)',animation:'pls 1.85s ease-in-out infinite'}},'As de trunfo revelado')
+    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:10,textAlign:'center',animation:'aceRevealBannerIn .45s cubic-bezier(.2,.9,.2,1) forwards'}},
+      React.createElement('div',{style:{display:'inline-block',borderRadius:14,padding:mob?'8px 14px':'10px 18px',background:'linear-gradient(165deg,rgba(42,32,18,.98) 0%,rgba(14,11,8,.99) 100%)',border:'1px solid rgba(253,224,150,.88)',boxShadow:'0 0 0 1px rgba(0,0,0,.35),0 10px 32px rgba(0,0,0,.5),0 0 36px rgba(245,158,11,.32)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',animation:'aceRevealRing 2.4s ease-in-out infinite .45s'}},
+        React.createElement('span',{style:{display:'block',color:'#fffbeb',fontSize:mob?11:13,fontWeight:800,letterSpacing:0.4,textShadow:'0 1px 2px rgba(0,0,0,.9),0 0 16px rgba(251,191,36,.4)',animation:'aceRevealPulse 2s ease-in-out infinite'}},'Ás de trunfo revelado')
+      )
     ) : null,
     isSolo&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'Ultima mao!') : null,
