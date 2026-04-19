@@ -2480,7 +2480,25 @@ function GameScreen(props){
           )
         ),
         React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:6,marginTop:4}},
-          React.createElement('button',{onClick:doBat,style:Object.assign({},primaryButtonStyle(th),{padding:'10px 32px',animation:'pls 1.5s ease-in-out infinite'})},'Bater!'),
+          React.createElement('button',{
+            onClick:doBat,
+            onPointerEnter:function(){ setHovHalf('bat'); },
+            onPointerLeave:function(){ setHovHalf(function(h){ return h==='bat'?null:h; }); },
+            style:(function(){
+              var u=(th&&th.ui)||{};
+              var batHi=hovHalf==='bat';
+              var base=primaryButtonStyle(th);
+              return Object.assign({},base,{
+                padding:'10px 32px',
+                transition:'box-shadow .22s ease, transform .2s ease, border-color .2s ease',
+                border:batHi?'2px solid rgba(253,224,150,.88)':(base.border||'none'),
+                boxShadow:batHi
+                  ? '0 0 18px rgba(251,191,36,.6), 0 0 32px rgba(253,224,150,.38), 0 6px 22px rgba(0,0,0,.4)'
+                  :(u.btnShadow||base.boxShadow||'0 2px 12px rgba(0,0,0,.22)'),
+                transform:batHi?'translateY(-2px)':undefined
+              });
+            })()
+          },'Bater!'),
           React.createElement('div',{style:{fontSize:10,opacity:0.45}},'Bater = trunfo e copas, vencer vale 2 pts')
         )
       ) : null,
@@ -2584,7 +2602,7 @@ function GameScreen(props){
       ),
       React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:mob?'stretch':'flex-end',gap:6,minWidth:0,width:mob?'100%':'auto'}},
         isOnline && RT.isConfigured()
-          ? React.createElement('div',{style:{display:'flex',justifyContent:mob?'center':'flex-end',width:mob?'100%':'auto'}},
+          ? React.createElement('div',{style:{display:'flex',justifyContent:'flex-end',width:'100%'}},
               React.createElement(RtConnectionBadge,{connected:serverConnected,variant:'hud'})
             )
           : null,
