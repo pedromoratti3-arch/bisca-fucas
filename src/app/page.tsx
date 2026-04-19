@@ -2548,7 +2548,7 @@ function GameScreen(props){
   var tblH = mob ? 'min(30vw, 118px)' : 178;
   var edge = mob ? 6 : 7;
   var swA=(g.setWins&&g.setWins[0])||0, swB=(g.setWins&&g.setWins[1])||0;
-  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:mob?'flex-start':'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
   var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   var swapSt = g.swapToast;
@@ -2588,30 +2588,88 @@ function GameScreen(props){
     swapToastEl,
     React.createElement('div',{style:{position:'relative',zIndex:2}},
     React.createElement('div',{style:hdrGlassPl},
-      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:mob?8:10}},
-        rLogo(mob?28:40,th),
-        React.createElement('div',{style:{borderLeft:mob?'none':'1px solid rgba(255,255,255,.15)',paddingLeft:mob?0:10}},
-          React.createElement('div',{style:{fontSize:mob?15:18,fontWeight:'bold',letterSpacing:0.4}},'Bisca Fucas'),
-          React.createElement('div',{style:{fontSize:10,opacity:0.5,marginTop:2,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
-            React.createElement('span',null,isSolo?'Solo vs IA':'Multijogador'),
-            isCB ? React.createElement('span',{style:{background:'#C41230',borderRadius:4,padding:'1px 5px'}},'copas batido') : null,
-            g.tieBonus>0 ? React.createElement('span',{style:{background:'#7B3010',borderRadius:4,padding:'1px 5px',fontSize:10}},'vale '+(1+g.tieBonus)+' pts') : null,
-            venueNameChip(th,9)
-          )
-        )
-      ),
-      React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:mob?'stretch':'flex-end',gap:6,minWidth:0,width:mob?'100%':'auto'}},
-        isOnline && RT.isConfigured()
-          ? React.createElement('div',{style:{display:'flex',justifyContent:'flex-end',width:'100%'}},
-              React.createElement(RtConnectionBadge,{connected:serverConnected,variant:'hud'})
-            )
-          : null,
-        React.createElement('div',{style:{display:'flex',gap:mob?8:14,fontSize:13,alignItems:'center',justifyContent:mob?'space-between':'flex-end',flexWrap:'wrap',rowGap:6}},
-          scoreTeamLine(mob,'#22c55e',mob?'A':'Dupla A',g.mPts[0],swA,4,false),
-          React.createElement('span',{style:{opacity:0.28,fontWeight:300,display:mob?'none':'inline'}},'|'),
-          scoreTeamLine(mob,'#f87171',mob?'B':'Dupla B',g.mPts[1],swB,4,false)
-        )
-      )
+      mob
+        ? [
+            React.createElement(
+              'div',
+              {
+                key: 'hdrTop',
+                style: {
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                },
+              },
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 } },
+                rLogo(28, th),
+                React.createElement('div', { style: { minWidth: 0 } },
+                  React.createElement('div', { style: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
+                  React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                    React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
+                    isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
+                    g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 } }, 'vale ' + (1 + g.tieBonus) + ' pts') : null,
+                    venueNameChip(th, 9)
+                  )
+                )
+              ),
+              isOnline && RT.isConfigured()
+                ? React.createElement('div', { key: 'onl', style: { flexShrink: 0, alignSelf: 'flex-start', paddingTop: 1 } },
+                    React.createElement(RtConnectionBadge, { connected: serverConnected, variant: 'hud' })
+                  )
+                : null
+            ),
+            React.createElement(
+              'div',
+              {
+                key: 'hdrScores',
+                style: {
+                  display: 'flex',
+                  gap: 8,
+                  fontSize: 13,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  rowGap: 6,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                },
+              },
+              scoreTeamLine(mob, '#22c55e', 'A', g.mPts[0], swA, 4, false),
+              scoreTeamLine(mob, '#f87171', 'B', g.mPts[1], swB, 4, false)
+            ),
+          ]
+        : [
+            React.createElement('div', { key: 'deskL', style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              rLogo(40, th),
+              React.createElement('div', { style: { borderLeft: '1px solid rgba(255,255,255,.15)', paddingLeft: 10 } },
+                React.createElement('div', { style: { fontSize: 18, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
+                React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                  React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
+                  isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
+                  g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 } }, 'vale ' + (1 + g.tieBonus) + ' pts') : null,
+                  venueNameChip(th, 9)
+                )
+              )
+            ),
+            React.createElement(
+              'div',
+              { key: 'deskR', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, minWidth: 0 } },
+              isOnline && RT.isConfigured()
+                ? React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+                    React.createElement(RtConnectionBadge, { connected: serverConnected, variant: 'hud' })
+                  )
+                : null,
+              React.createElement('div', { style: { display: 'flex', gap: 14, fontSize: 13, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', rowGap: 6 } },
+                scoreTeamLine(mob, '#22c55e', 'Dupla A', g.mPts[0], swA, 4, false),
+                React.createElement('span', { style: { opacity: 0.28, fontWeight: 300 } }, '|'),
+                scoreTeamLine(mob, '#f87171', 'Dupla B', g.mPts[1], swB, 4, false)
+              )
+            ),
+          ]
     ),
     React.createElement('div',{style:playShell},
       React.createElement('div',{style:playPanel},
