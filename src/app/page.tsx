@@ -1592,12 +1592,12 @@ function useNarrowScreen(){
 }
 
 function GameScreen(props){
-  /** Pausa antes de bots/IA jogarem — mais legível que o antigo ~0,75 s. */
-  var BOT_PLAY_DELAY_MS = 1280;
+  /** Pausa antes de bots/IA jogarem. */
+  var BOT_PLAY_DELAY_MS = 750;
   /** Troca automática do 2 pelo corte (bot). */
-  var BOT_SWAP_DELAY_MS = 900;
+  var BOT_SWAP_DELAY_MS = 550;
   /** Bot a cortar o maço (solo / host). */
-  var BOT_AUTO_CUT_DELAY_MS = 2100;
+  var BOT_AUTO_CUT_DELAY_MS = 1500;
 
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
