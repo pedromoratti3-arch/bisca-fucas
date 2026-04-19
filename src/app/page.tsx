@@ -384,6 +384,17 @@ function getWin(tk,tr){
   return tk.reduce(function(b,c){ return beats(c.card,b.card,L,tr)?c:b; }, tk[0]);
 }
 
+/**
+ * Índice de rotação do maço antes de revelar a 13.ª carta (trunfo).
+ * O UI humano usa só duas faixas: metade de baixo (8–12) e metade de cima (16–20).
+ * Os bots usavam 8–31 ao calhas, o que favorecia demais a metade de cima e cortes “estranhos”.
+ */
+function aiPickCutRotateIndex(fd){
+  if(!Array.isArray(fd) || fd.length<20) return 12;
+  if(Math.random()<0.72) return 8 + Math.floor(Math.random() * 5);
+  return 16 + Math.floor(Math.random() * 5);
+}
+
 /* ═══ AI PRO ═══ */
 // Memory tracker — tracks played cards and void suits per player
 function makeMemory(){
@@ -435,8 +446,14 @@ function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
   return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
 }
 
+/** Bíscas = Ás e 7 nos naipes que não são o de trunfo. O Ás e o 7 de trunfo não são bíscas. */
+function isBiscaCard(card, trump){
+  return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
+}
+
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
   /* Vocabulário Bisca Fucas (mesa): "corte" = trunfo; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
+     "bísca" = Ás ou 7 fora do naipe de trunfo (Ás/7 de trunfo não são bíscas);
      "encarte" = matar a carta do adversário no mesmo naipe (carta maior que a que vai ganhando). Na abertura,
      RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte. */
   if(!hand.length) return null;
@@ -498,9 +515,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // ══ LEADING ══
   if(!trick.length){
 
-    // RULE 1: 7 de corte na 1.ª rodada só com corte forte de reserva (evita abrir 7 “no escuro”).
+    // RULE 1: 7 de trunfo no início só se a dupla está mal (7 de trunfo não é bísca; evita abrir corte cedo à toa).
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(my7t && hand.length>=5 && trickN===0 && strongTrumps.length>=2 && trumpCards.length>=2) return my7t;
+    if(my7t && hand.length>=5 && trickN===0 && strongTrumps.length>=2 && trumpCards.length>=2 && losing) return my7t;
 
     // RULE 2: Force opponents to use trump — lead suit they're void in
     // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
@@ -538,7 +555,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     var aces = nonTrump.filter(function(c){ return c.v==='A'; });
     if(aces.length){
       var safeAces = aces.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeAces.length) return safeAces[0];
+      if(safeAces.length && (!earlyLead || losing)) return safeAces[0];
       if(!earlyLead || losing || hand.length<=5){
         if(hasTrumpBackup) return aces[0];
         if(hand.length<=4) return aces[0];
@@ -549,7 +566,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     var sevens = nonTrump.filter(function(c){ return c.v==='7'; });
     if(sevens.length){
       var safeSevens = sevens.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeSevens.length && hasTrumpBackup) return safeSevens[0];
+      if(safeSevens.length && hasTrumpBackup && (!earlyLead || losing || hand.length<=5)) return safeSevens[0];
       if(!earlyLead || losing || hand.length<=5){
         if(hasTrumpBackup) return sevens[0];
       }
@@ -619,12 +636,20 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(trumpOnly){
       return candidates.slice().sort(byPtsAsc)[0];
     }
+    // Parceiro já largou bísca (Ás/7 fora de trunfo): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
+    var matePlayedBisca = trick.some(function(t){
+      return pTm(t.player)===mt && isBiscaCard(t.card, trump);
+    });
+    if(matePlayedBisca){
+      var cheapWin = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
+      if(cheapWin.length) return cheapWin.slice().sort(byPtsAsc)[0];
+    }
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
-  // Parceiro já pôs Ás ou 7 na rodada (bisca): recuperar esses pontos pesa mais que poupar corte baixo
+  // Parceiro já pôs bísca (Ás/7 fora de trunfo): recuperar esses pontos pesa mais que poupar corte baixo
   var partnerPutBisca = trick.some(function(t){
-    return pTm(t.player)===mt && t.card && (t.card.v==='A' || t.card.v==='7');
+    return pTm(t.player)===mt && isBiscaCard(t.card, trump);
   });
 
   // ── OPPONENT WINNING ──
@@ -1598,8 +1623,7 @@ function GameScreen(props){
     var runAuto = !isOnline ? cutter!==0 : (isRoomHost && !!botSeats[cutter]);
     if(!runAuto) return;
     var t = setTimeout(function(){
-      var ci = 8 + Math.floor(Math.random()*24);
-      performCut(ci);
+      performCut(null);
     },1500);
     return function(){ clearTimeout(t); };
   },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter]);
@@ -1616,8 +1640,7 @@ function GameScreen(props){
       if(left<=0){
         clearInterval(iv);
         setCutSec(0);
-        var ci = 8 + Math.floor(Math.random()*24);
-        performCut(ci);
+        performCut(null);
       } else {
         setCutSec(left);
       }
@@ -1708,7 +1731,8 @@ function GameScreen(props){
         var allowedCut = cutterSeat===mySeat || (isRoomHost && !!botSeats[cutterSeat]);
         if(!allowedCut) return pv;
       }
-      var fd=pv.fd.slice(), newFd=fd.slice(ci).concat(fd.slice(0,ci));
+      var useCi = ci!=null && typeof ci==='number' && !isNaN(ci) ? ci : aiPickCutRotateIndex(pv.fd);
+      var fd=pv.fd.slice(), newFd=fd.slice(useCi).concat(fd.slice(0,useCi));
       var rawTc=newFd[12], tc, trump;
       if(!rawTc || !rawTc.v) return pv;
       if(rawTc.v==='7'||rawTc.v==='A'){ trump=PAIRS[rawTc.s]; tc=null; }
