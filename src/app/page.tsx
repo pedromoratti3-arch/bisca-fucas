@@ -1862,6 +1862,8 @@ function GameScreen(props){
   var _ms = props.mySeat;
   var mySeat = typeof _ms === 'number' && _ms >= 0 && _ms <= 3 ? _ms : 0;
   var isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
+  /** ID do host da sala (Firebase). No online, após cortar/distribuir/fechar vaza o lastActor passa a ser o host para todos os clientes gravarem o mesmo estado no RT. */
+  var roomHostId = props.roomHostId || '';
   /** `true` | `false` | `null` = Firebase RTDB `.info/connected` (só multijogador). */
   var serverConnected = props.serverConnected;
   var partnerCount=props.partnerCount||0, setPT=props.setPT;
@@ -1993,17 +1995,20 @@ function GameScreen(props){
     return function(){ clearInterval(iv); };
   },[g.phase,cutter,mySeat,isOnline,iAmCutter]);
 
-  // Deal phase — online: só quem tem lastActor (cortador após corte) corre a animação e sg; os outros só recebem via Firebase
+  // Deal phase — online: só o host corre a animação e grava (lastActor = host após o corte). Assim o cortador pode sair sem travar a distribuição.
   useEffect(function(){
     if(g.phase!=='deal') return;
-    if(isOnline && g.lastActor !== myPid) return;
+    if(isOnline && !isRoomHost) return;
 
     // Batido: deal 3 cards at a time per player (4 steps)
     if(g.batido){
       if(g.dealStep>=4){
         var fd=g.fd.slice(); var deck=fd.slice(12);
         var t=setTimeout(function(){
-          sg(function(p){ return Object.assign({},p,{phase:'playing',deck:deck,canSwap:false,curP:p.starter,msg:'COPAS BATIDO! Vencer vale 2 pts.'}); });
+          sg(function(p){
+            var la = isOnline && roomHostId ? roomHostId : p.lastActor;
+            return Object.assign({},p,{phase:'playing',deck:deck,canSwap:false,curP:p.starter,msg:'COPAS BATIDO! Vencer vale 2 pts.',lastActor:la||p.lastActor});
+          });
         },700);
         return function(){clearTimeout(t);};
       }
@@ -2031,7 +2036,10 @@ function GameScreen(props){
         for(var si=0;si<4;si++){ if(g.hands[si].some(function(c){ return c.s===g.trump && c.v==='2'; })){ cs=si; break; } }
       }
       var t = setTimeout(function(){
-        sg(function(p){ return Object.assign({},p,{phase:'playing',deck:rem,canSwap:cs,msg:NAMES[p.starter]+(p.starter===mySeat?' - sua vez!':' comeca.')}); });
+        sg(function(p){
+          var la = isOnline && roomHostId ? roomHostId : p.lastActor;
+          return Object.assign({},p,{phase:'playing',deck:rem,canSwap:cs,msg:NAMES[p.starter]+(p.starter===mySeat?' - sua vez!':' comeca.'),lastActor:la||p.lastActor});
+        });
       },700);
       return function(){ clearTimeout(t); };
     }
@@ -2046,7 +2054,7 @@ function GameScreen(props){
       });
     },340);
     return function(){ clearTimeout(t2); };
-  },[g.phase,g.dealStep,g.lastActor,isOnline,myPid]);
+  },[g.phase,g.dealStep,isOnline,isRoomHost,myPid,roomHostId]);
 
   // Partner reveal — timer só em estado local (setPT/setOPT); o jogo em RT não inclui isto (evita “vazar” pausa entre clientes como dado partilhado).
   useEffect(function(){
@@ -2085,7 +2093,7 @@ function GameScreen(props){
         if(!allowedCut) return pv;
       }
       if(preferBat && shouldBatDesvantagemPartida(pv.mPts, pTm(cutter))){
-        return stateBatidoFromCut(pv, isOnline?myPid:pv.lastActor);
+        return stateBatidoFromCut(pv, isOnline ? (roomHostId || myPid) : pv.lastActor);
       }
       if(!Array.isArray(pv.fd) || pv.fd.length<20) return pv;
       var useCi = ci!=null && typeof ci==='number' && !isNaN(ci) ? ci : aiPickCutRotateIndex(pv.fd);
@@ -2096,7 +2104,7 @@ function GameScreen(props){
       else{ trump=rawTc.s; tc=rawTc; }
       var msg = tc ? ('Trunfo: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - trunfo: '+SYM[trump]+' '+trump+'!');
       if(isOnline){
-        return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:myPid});
+        return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:roomHostId||myPid});
       }
       return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg});
     });
@@ -2117,7 +2125,7 @@ function GameScreen(props){
     if(isOnline && !iAmCutter) return;
     setCutSec(null);
     sg(function(pv){
-      return stateBatidoFromCut(pv, isOnline?myPid:pv.lastActor);
+      return stateBatidoFromCut(pv, isOnline ? (roomHostId || myPid) : pv.lastActor);
     });
   }
 
@@ -2245,25 +2253,24 @@ function GameScreen(props){
     return function(){ clearTimeout(t); };
   },[g.curP,g.phase,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid]);
 
-  // Segurança: limpa aceReveal se ficou preso (o fluxo normal limpa ao fechar a mão).
+  // Segurança: limpa aceReveal se ficou preso (o fluxo normal limpa ao fechar a mão). Online: só o host — o jogador do 7 pode desligar.
   useEffect(function(){
     if(!g.aceReveal) return;
-    if(isOnline && g.lastActor!==myPid) return;
+    if(isOnline && !isRoomHost) return;
     if(aceRevealT.current) clearTimeout(aceRevealT.current);
     aceRevealT.current = setTimeout(function(){
       sg(function(pv){
         if(!pv.aceReveal) return pv;
-        if(isOnline && pv.lastActor!==myPid) return pv;
         return Object.assign({},pv,{aceReveal:null});
       });
     },6200);
     return function(){ if(aceRevealT.current) clearTimeout(aceRevealT.current); };
-  },[g.aceReveal,g.lastActor,isOnline,myPid]);
+  },[g.aceReveal,isOnline,isRoomHost]);
 
-  // End trick
+  // End trick — online: só o host resolve (evita vaza presa se o 4.º jogador sair antes do timeout).
   useEffect(function(){
     if(g.phase!=='end_trick') return;
-    if(isOnline && g.lastActor!==myPid) return;
+    if(isOnline && !isRoomHost) return;
     var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 4300 : 0);
     var t = setTimeout(function(){
       sg(function(pv){
@@ -2296,16 +2303,17 @@ function GameScreen(props){
         if(!over && pv.trickN<=1 && pv.tc && pv.tc.v!=='2' && deck.some(function(c){ return c && c.id===pv.tc.id; })){
           for(var si=0;si<4;si++){ if(hands[si].some(function(c){ return c.s===trump && c.v==='2'; })){ cs=si; break; } }
         }
-        return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,aceReveal:null,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)'});
+        var laEt = isOnline && roomHostId ? roomHostId : pv.lastActor;
+        return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,aceReveal:null,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)',lastActor:laEt||pv.lastActor});
       });
     }, endTrickDelay);
     return function(){ clearTimeout(t); };
-  },[g.phase,g.aceReveal,isSolo,isOnline,myPid]);
+  },[g.phase,g.aceReveal,isSolo,isOnline,isRoomHost,roomHostId]);
 
-  // End round
+  // End round — online: só o host (mesmo motivo que end_trick).
   useEffect(function(){
     if(g.phase!=='end_round') return;
-    if(isOnline && g.lastActor!==myPid) return;
+    if(isOnline && !isRoomHost) return;
     var t = setTimeout(function(){
       sg(function(pv){
         if(pv.phase!=='end_round') return pv;
@@ -2354,11 +2362,12 @@ function GameScreen(props){
         }
         var stKeep = parseSeat(pv.starter);
         if(isNaN(stKeep)) stKeep = 2;
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep,summaryFinalMPts:summaryFinalMPts});
+        var laEr = isOnline && roomHostId ? roomHostId : pv.lastActor;
+        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep,summaryFinalMPts:summaryFinalMPts,lastActor:laEr||pv.lastActor});
       });
     },2000);
     return function(){ clearTimeout(t); };
-  },[g.phase]);
+  },[g.phase,isOnline,isRoomHost,roomHostId]);
 
   function swap(){
     sg(function(pv){
@@ -3061,7 +3070,12 @@ export default function App(){
       if(r.themeId && (scr==='lobby' || scr==='online')) setLocId(r.themeId);
       if(r.game && scr==="lobby") setScreen("online");
       if(r.game && scr==="online"){
-        var gm=r.game;
+        var gm = normalizeGame(r.game);
+        var hid = r.hostId || '';
+        /* Host mudou (ou RT desatualizado): fases em que lastActor deve ser o host para não travar setGame / timers. */
+        if(hid && gm && (gm.phase==='deal'||gm.phase==='end_trick'||gm.phase==='end_round'||gm.phase==='show_summary'||gm.phase==='cut') && gm.lastActor !== hid){
+          gm = Object.assign({}, gm, { lastActor: hid });
+        }
         if(gm && gm.lastActor!==myIdRef.current) setOG(gm);
       }
     });
@@ -3304,7 +3318,7 @@ export default function App(){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
     );
