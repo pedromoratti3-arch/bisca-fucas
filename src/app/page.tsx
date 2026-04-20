@@ -488,7 +488,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
-     Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm. */
+     Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
+     Seguir: com a dupla a perder a vaza, nunca jogar bísca se houver lixo/outra carta — não se dá 10/11 à toa. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -529,6 +530,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   function byRnkAsc(a,b){ return cRnk(a)-cRnk(b); }
   function lowest(cards){ return cards.slice().sort(byPtsAsc)[0]; }
   function highest(cards){ return cards.slice().sort(byPtsDesc)[0]; }
+  /** Com a mão perdida, não “oferecer” Ás/7 de bísca se houver outra carta jogável. */
+  function lowestPreferNoBisca(cards){
+    if(!cards||!cards.length) return null;
+    var nb = cards.filter(function(c){ return !isBiscaCard(c, trump); });
+    if(nb.length) return lowest(nb);
+    return lowest(cards);
+  }
   function winners(cards,cw,ld){ return cards.filter(function(c){ return beats(c,cw,ld,trump); }); }
   function suitHigh(suit){ return pool.some(function(c){ return c.s===suit && (c.v==='A'||c.v==='7'); }); }
   function suitLows(suit){ return pool.filter(function(c){ return c.s===suit && cPts(c)===0; }); }
@@ -585,13 +593,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(el.length) return el[0];
     }
 
-    // Ás/7 de bísca como 1.ª da vaza: só quando a mesa já deu contexto, mão curta, fim de jogo, ou desvantagem clara (senão arrisca-se dar 10/11 a quem corta).
+    // Ás/7 de bísca como 1.ª da vaza: só com mesa avançada ou desvantagem forte (nunca “de começo” só por ter corte na mão).
     var okOpenBiscaLead =
       endGame ||
-      trickN >= 5 ||
-      hand.length <= 4 ||
-      (losing && trickN >= 3 && oppScore > myScore + 4) ||
-      (losing && trickN >= 2 && oppScore > myScore + 14 && strongTrumps.length >= 2 && hasTrumpBackup);
+      trickN >= 7 ||
+      hand.length <= 3 ||
+      (losing && trickN >= 5 && oppScore > myScore + 6) ||
+      (losing && trickN >= 3 && oppScore > myScore + 16 && strongTrumps.length >= 2 && hasTrumpBackup);
 
     // RULE 4: Ás fora de trunfo (bísca) — sem okOpenBiscaLead não abrir; depois mantém cautela com “safe” e corte de reserva
     var aces = nonTrump.filter(function(c){ return c.v==='A'; });
@@ -637,7 +645,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     var queens = nonTrump.filter(function(c){ return c.v==='Q'; });
     if(queens.length) return queens[0];
 
-    if(nonTrump.length) return lowest(nonTrump);
+    if(nonTrump.length){
+      var lnb = lowestPreferNoBisca(nonTrump);
+      if(lnb) return lnb;
+    }
     return lowest(trumpCards);
   }
 
@@ -781,7 +792,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if((trickPts<=3 && strongTrumps.length===0) || (trickPts<=7 && onlyKQJWins && !endGame)){
         var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
         if(gb.length) return lowest(gb);
-        if(trickPts<=5 && nonTrump.length) return lowest(nonTrump);
+        if(trickPts<=5 && nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
       }
     }
 
@@ -812,7 +823,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Not worth trumping
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
-    if(nonTrump.length) return lowest(nonTrump);
+    if(nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
     return pickWinningTrumpChosen();
   }
 
@@ -822,6 +833,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(partnerStillToPlay){
     var zeros = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(zeros.length) return lowest(zeros);
+    if(nonTrump.length){
+      var pnb = lowestPreferNoBisca(nonTrump);
+      if(pnb) return pnb;
+    }
     return lowest(pool);
   }
 
@@ -830,8 +845,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(zeros2.length) return lowest(zeros2);
   var qs = nonTrump.filter(function(c){ return c.v==='Q'; });
   if(qs.length) return qs[0];
-  if(nonTrump.length) return lowest(nonTrump);
-  return lowest(pool);
+  if(nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
+  return lowestPreferNoBisca(pool) || lowest(pool);
 }
 
 /* ═══ GAME STATE ═══ */
@@ -2253,13 +2268,27 @@ function GameScreen(props){
           var pontaPts = ponta61 ? 1 : 0;
           var totalPts=basePts+pv.tieBonus+pontaPts;
           mPts[win]+=totalPts;
-          var note=' +'+totalPts;
-          if(pv.batido&&pv.trump==='copas') note+=' (copas batido!)';
-          if(pv.tieBonus>0) note+=' (+'+pv.tieBonus+' empate)';
-          if(ponta61) note+=' (+1 ponta 61-59)';
-          sum.push('Dupla '+(win===0?'A':'B')+' venceu ('+pv.tPts[win]+'x'+pv.tPts[l]+'pts)'+note);
+          sum.push('Dupla '+(win===0?'A':'B')+' venceu na mesa ('+pv.tPts[win]+' a '+pv.tPts[l]+' pts).');
+          var detLinha = 'Pontos na partida (contagem do jogo): +' + totalPts + ' pt. ';
+          if(pv.batido&&pv.trump==='copas'){
+            detLinha += 'Composição: 2 pts (Copas batido)';
+          } else {
+            detLinha += 'Composição: 1 pt (vitória por pontos, corte normal)';
+          }
+          if(pv.tieBonus>0){
+            detLinha += ' + '+pv.tieBonus+' pt de bónus por '+pv.tieBonus+' empate(s) 60-60 em partida(s) anterior(es) (+1 pt por cada empate acumulado).';
+            detLinha += ' Conta: '+(pv.batido&&pv.trump==='copas'?'2':'1')+' + '+pv.tieBonus+(ponta61?' + 1 (61 a 59)':'')+' = '+totalPts+'.';
+          } else if(ponta61){
+            detLinha += ' + 1 pt (ponta 61 a 59).';
+          }
+          sum.push(detLinha);
           if(pv.tPts[l]<30){ mPts[win]++; sum.push('Capote! +1 extra'); }
-        } else { newTB=pv.tieBonus+1; sum.push('Empate 60x60! Proxima vale '+(1+newTB)+' pts!'); }
+        } else {
+          newTB=pv.tieBonus+1;
+          sum.push('Empate 60 a 60 na mesa — ninguém marca ponto nesta partida.');
+          sum.push('Na próxima partida, quem ganhar na mesa por pontos soma +1 pt extra por cada um destes empates 60-60 (acumulado neste momento: +' + newTB + ' pt na próxima vitória por pontos).');
+          sum.push('Exemplos: corte normal → 1 + ' + newTB + ' = ' + (1 + newTB) + ' pts na partida; Copas batido → 2 + ' + newTB + ' = ' + (2 + newTB) + ' pts na partida.');
+        }
         pv.events.forEach(function(e){ mPts[e.tm]++; sum.push(e.lbl+' +1 dupla '+(e.tm===0?'A':'B')); });
         var m0 = mPts[0], m1 = mPts[1];
         var bothAtOrPast4 = m0 >= 4 && m1 >= 4;
@@ -2472,7 +2501,7 @@ function GameScreen(props){
       ),
       React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' comeca',
-        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11}},'Vale +'+(1+g.tieBonus)+' pts') : null
+        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Próxima vitória por pontos na mesa: 1+'+g.tieBonus+' (normal) ou 2+'+g.tieBonus+' (Copas batido), por empate(s) 60-60 anterior(es).'},'Na mesa: 1+'+g.tieBonus+' ou 2+'+g.tieBonus+' pts') : null
       ),
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
@@ -2627,7 +2656,7 @@ function GameScreen(props){
                   React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                     React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
                     isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
-                    g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 } }, 'vale ' + (1 + g.tieBonus) + ' pts') : null,
+                    g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
                     venueNameChip(th, 9)
                   )
                 )
@@ -2666,7 +2695,7 @@ function GameScreen(props){
                 React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                   React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
                   isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
-                  g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 } }, 'vale ' + (1 + g.tieBonus) + ' pts') : null,
+                  g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
                   venueNameChip(th, 9)
                 )
               )
