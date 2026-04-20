@@ -2430,12 +2430,14 @@ function GameScreen(props){
             'aria-label': 'Arraste a carta para o centro da mesa para jogar. Toque para levantar.',
             style: {
               display: 'inline-flex',
+              position: 'relative',
               touchAction: 'none',
               cursor: draggingThis ? 'grabbing' : 'grab',
               opacity: draggingThis ? 0.22 : 1,
-              transition: 'opacity 0.14s ease, transform 0.36s cubic-bezier(.2,.9,.2,1), box-shadow 0.28s ease',
+              /* Sem transição em box-shadow: o atraso fazia a sombra “aparecer” tarde na carta ao lado. */
+              transition: 'opacity 0.14s ease, transform 0.36s cubic-bezier(.2,.9,.2,1)',
               transform: liftedThis ? 'translateY(-12px) scale(1.04)' : undefined,
-              boxShadow: liftedThis ? '0 16px 32px rgba(0,0,0,.4)' : undefined,
+              zIndex: liftedThis ? 6 : undefined,
               borderRadius: 8,
               userSelect: 'none',
               WebkitUserSelect: 'none',
