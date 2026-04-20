@@ -801,9 +801,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
     strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
 
-    // RULE 1: 7 de trunfo no início só se a dupla está mal (7 de trunfo não é bísca; evita abrir corte cedo à toa).
+    // RULE 1: na 1.ª mão, se abrir e tiver o 7 de trunfo, sai sempre com ele (regra da mesa: vale 1 ponto).
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(my7t && hand.length>=5 && trickN===0 && strongTrumps.length>=2 && trumpCards.length>=2 && losing) return my7t;
+    if(my7t && trickN===0) return my7t;
 
     // RULE 2: Force opponents to use trump — lead suit they're void in
     // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
