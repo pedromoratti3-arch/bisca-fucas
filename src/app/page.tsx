@@ -768,6 +768,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(nb.length) return lowest(nb);
     return lowest(cards);
   }
+  /** Versão “global”: prefere não-bísca no conjunto jogável inteiro (não só fora de trunfo). */
+  function lowestPreferNoBiscaAny(cards){
+    if(!cards||!cards.length) return null;
+    var nb = cards.filter(function(c){ return !isBiscaCard(c, trump); });
+    if(nb.length) return lowest(nb);
+    return lowest(cards);
+  }
   function winners(cards,cw,ld){ return cards.filter(function(c){ return beats(c,cw,ld,trump); }); }
   function suitHigh(suit){ return pool.some(function(c){ return c.s===suit && (c.v==='A'||c.v==='7'); }); }
   function suitLows(suit){ return pool.filter(function(c){ return c.s===suit && cPts(c)===0; }); }
@@ -1108,6 +1115,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // IMPORTANT: if partner still hasn't played, throw low — partner might win!
   var partnerStillToPlay = !trick.some(function(t){ return pTm(t.player)===mt; });
   if(partnerStillToPlay){
+    var safeAny0 = pool.filter(function(c){ return !isBiscaCard(c, trump) && cPts(c)===0; });
+    if(safeAny0.length) return lowest(safeAny0);
+    var safeAny = lowestPreferNoBiscaAny(pool);
+    if(safeAny) return safeAny;
     var zeros = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(zeros.length) return lowest(zeros);
     if(nonTrump.length){
@@ -1121,6 +1132,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Dupla adversária vai ganhando: não dar pontos — lixo mínimo, depois damos o mínimo de valor possível
   var zeros2 = nonTrump.filter(function(c){ return cPts(c)===0; });
   if(zeros2.length) return lowest(zeros2);
+  var safeAny2 = pool.filter(function(c){ return !isBiscaCard(c, trump) && cPts(c)===0; });
+  if(safeAny2.length) return lowest(safeAny2);
+  var safeAnyPick = lowestPreferNoBiscaAny(pool);
+  if(safeAnyPick) return safeAnyPick;
   var qs = nonTrump.filter(function(c){ return c.v==='Q'; });
   if(qs.length) return qs[0];
   if(nonTrump.length){
@@ -2031,7 +2046,11 @@ function HomeScreen(P){
         React.createElement('input',{
           value:nm,
           maxLength:DISPLAY_NAME_MAX,
-          onChange:function(e){ setNm(formatNameWhileTyping(e.target.value)); },
+          onChange:function(e){
+            var nextName = formatNameWhileTyping(e.target.value);
+            setNm(nextName);
+            if(er==='Digite seu nome' && clampDisplayName(nextName)) setEr('');
+          },
           placeholder:'Seu nome',
           title:'Podes usar espaços entre palavras.',
           'aria-label':'Nome de jogador — podes usar espaços; máximo '+DISPLAY_NAME_MAX+' caracteres',
@@ -3286,7 +3305,7 @@ function GameScreen(props){
             React.createElement('span',{style:{color:'#fca5a5',fontSize:11}},'\u2192 trunfo: '+SYM[g.trump]+' '+g.trump),
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
-        : null,
+        : g.trump ? React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:14,fontWeight:'bold'}},SYM[g.trump]+' '+g.trump) : null,
       g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Trocar: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
     ),
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
