@@ -692,15 +692,16 @@ function mayPlaySevenTrumpFourth(trickLen, hand, trump, card, trick, trickN){
   return false;
 }
 
-/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra), exceto se não tens o 7 na mão. Na mão 10/10 (trickN===9) só tens uma carta — o Ás pode sair antes do 7 globalmente. */
+/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Exceções: mão 10/10 (trickN===9); ou só te resta uma carta na mão e é o Ás (não tens o 7 — não podes cumprir “sair com o 7 primeiro”). Se tens outras cartas e o 7 ainda não saiu, não podes antecipar o Ás. */
 function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
   if(!card || card.v!=='A' || card.s!==trump) return true;
   if(trickN===9) return true;
   var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
   if(trumpSevenOut || s7) return true;
   var holdSeven = hand.some(function(h){ return h && h.v==='7' && h.s===trump; });
-  if(!holdSeven) return true;
-  return false;
+  if(holdSeven) return false;
+  var nLeft = hand.reduce(function(n, h){ return n + (h ? 1 : 0); }, 0);
+  return nLeft <= 1;
 }
 
 /** Bíscas = Ás e 7 nos naipes que não são o de trunfo. O Ás e o 7 de trunfo não são bíscas. */
@@ -728,7 +729,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
      Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
      Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
-     Seguir: com a dupla a perder a vaza, nunca jogar bísca se houver lixo/outra carta — não se dá 10/11 à toa. */
+     Seguir: encartar no naipe de abertura quando dá para ganhar; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do trunfo) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -882,13 +883,34 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var isLast = trick.length===3;
   var is2nd = trick.length===1;
   var is3rd = trick.length===2;
-  var followOpts = pool.filter(function(c){ return c.s===lead; });
-  var followCanWin = winners(followOpts, curWin.card, lead);
+  var poolAll = pool.slice();
+  var followOpts = poolAll.filter(function(c){ return c.s===lead; });
   var voidLead = followOpts.length===0;
-  /* Regra da mesa local: só “seguir naipe” de forma rígida quando isso encarta/ganha.
-     Se não há carta do naipe que ganhe, a IA pode cortar para capturar pontos (ex.: bísca na mesa). */
-  if(followCanWin.length){
-    pool = followOpts;
+  var followWinners = winners(followOpts, curWin.card, lead);
+  /* Com cartas do naipe de abertura: se alguma ganha → só encarte (esse naipe). Se nenhuma ganha →
+     adversário a ganhar: lixar 0 pts (não trunfo) se não der para cortar a vencer; senão mão livre para cortar/lixar.
+     Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder). */
+  if(followOpts.length){
+    if(followWinners.length){
+      pool = followWinners;
+    } else {
+      var twCut = poolAll.filter(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
+      function trickStillOurs(card){
+        return pTm(getWin(trick.concat([{player:mySeat,card:card}]), trump).player)===mt;
+      }
+      var dumpZeroSafe = function(c){
+        return c.s!==lead && c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump);
+      };
+      if(!partnerWinning){
+        var d0 = poolAll.filter(dumpZeroSafe);
+        if(!twCut.length && d0.length) pool = d0;
+        else pool = poolAll;
+      } else {
+        var dm = poolAll.filter(function(c){ return dumpZeroSafe(c) && trickStillOurs(c); });
+        if(dm.length) pool = dm;
+        else pool = followOpts;
+      }
+    }
     trumpCards = pool.filter(function(c){ return c.s===trump; });
     nonTrump = pool.filter(function(c){ return c.s!==trump; });
     strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
