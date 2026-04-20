@@ -683,17 +683,23 @@ function opponentsVoidIn(mem, mt, suit){
   return isVoid(mem, opp1, suit) || isVoid(mem, opp2, suit);
 }
 
-/** 7 de corte não pode ser a 4.ª carta da rodada sem ter o Ás de corte na mão (regra de mesa). */
-function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
+/** 7 de corte como 4.ª carta só faz sentido com o Ás “presente”: na tua mão ou já na mesma vaza (ex.: parceiro jogou o Ás antes de seres o último a jogar). Na mão 10/10 (trickN===9) cada um tem uma carta — o 7 pode sair “de fundo” sem essa condição. */
+function mayPlaySevenTrumpFourth(trickLen, hand, trump, card, trick, trickN){
+  if(trickN===9) return true;
   if(trickLen!==3 || !card || card.v!=='7' || card.s!==trump) return true;
-  return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
+  if(hand.some(function(h){ return h && h.v==='A' && h.s===trump; })) return true;
+  if(trick && trick.some(function(t){ return t.card && t.card.v==='A' && t.card.s===trump; })) return true;
+  return false;
 }
 
-/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Nunca antes do 7 de corte — mesmo com uma só carta na mão. */
-function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card){
+/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra), exceto se não tens o 7 na mão. Na mão 10/10 (trickN===9) só tens uma carta — o Ás pode sair antes do 7 globalmente. */
+function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
   if(!card || card.v!=='A' || card.s!==trump) return true;
+  if(trickN===9) return true;
   var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
   if(trumpSevenOut || s7) return true;
+  var holdSeven = hand.some(function(h){ return h && h.v==='7' && h.s===trump; });
+  if(!holdSeven) return true;
   return false;
 }
 
@@ -729,14 +735,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
   var pool = hand.filter(function(c){
     if(!c) return false;
-    if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c)) return false;
-    if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c)) return false;
+    if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
+    if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN)) return false;
     return true;
   });
   if(!pool.length){
     pool = hand.filter(function(c){ return !!c; }).filter(function(c){
-      if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c)) return false;
-      return mayPlaySevenTrumpFourth(trick.length, hand, trump, c);
+      if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
+      return mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN);
     });
   }
   if(!pool.length) return null;
@@ -2660,7 +2666,7 @@ function GameScreen(props){
     if(partnerViewPause && partnerCount>0) return;
     var hand=g.hands[seat];
     var h7=hand.some(function(c){ return c && c.v==='7' && c.s===g.trump; });
-    if(!mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, card)){
+    if(!mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, card, g.trickN)){
       var msgAce = h7
         ? ('Jogue o 7 de '+SYM[g.trump]+' '+g.trump+' antes do Ás de trunfo!')
         : ('O Ás de '+g.trump+' só sai após o 7!');
@@ -2668,8 +2674,8 @@ function GameScreen(props){
       else sg(function(p){ return Object.assign({},p,{msg:msgAce}); });
       return;
     }
-    if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card)){
-      var m7 = 'O 7 de trunfo não pode ser a 4.ª carta sem o Ás de trunfo na mão!';
+    if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card, g.trick, g.trickN)){
+      var m7 = 'O 7 de trunfo não pode ser a 4.ª carta sem o Ás de trunfo na mão ou já na mesa!';
       if(isOnline) showPlayDeniedLocal(m7);
       else sg(function(p){ return Object.assign({},p,{msg:m7}); });
       return;
@@ -2941,7 +2947,7 @@ function GameScreen(props){
       if(!c) return null;
       if(!showCards) return React.createElement(React.Fragment,{key:c.id},rCard(null,null,true,false,false,false,mob,cbk));
       if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false,mob,cbk));
-      var ab = c.v==='A' && c.s===g.trump && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c);
+      var ab = c.v==='A' && c.s===g.trump && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c, g.trickN);
       var canClick = myTurn && !ab && (!partnerViewPause || partnerCount<=0);
       if (canClick) {
         var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
