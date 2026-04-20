@@ -877,8 +877,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var is2nd = trick.length===1;
   var is3rd = trick.length===2;
   var followOpts = pool.filter(function(c){ return c.s===lead; });
+  var followCanWin = winners(followOpts, curWin.card, lead);
   var voidLead = followOpts.length===0;
-  if(followOpts.length){
+  /* Regra da mesa local: só “seguir naipe” de forma rígida quando isso encarta/ganha.
+     Se não há carta do naipe que ganhe, a IA pode cortar para capturar pontos (ex.: bísca na mesa). */
+  if(followCanWin.length){
     pool = followOpts;
     trumpCards = pool.filter(function(c){ return c.s===trump; });
     nonTrump = pool.filter(function(c){ return c.s!==trump; });
