@@ -151,11 +151,16 @@ function clearBfSession() {
 
 /** Limite no estilo de jogos competitivos (ex.: nome de invocador ~16 caracteres). */
 var DISPLAY_NAME_MAX = 16;
-function clampDisplayName(s) {
+/** Enquanto digita: junta espaços repetidos e corta só espaços no início — o espaço no fim fica (senão “João |” perde o espaço antes da próxima letra). */
+function formatNameWhileTyping(s) {
   if (typeof s !== "string") return "";
-  var t = s.replace(/\s+/g, " ").trim();
+  var t = s.replace(/\s+/g, " ").replace(/^\s+/, "");
   if (t.length > DISPLAY_NAME_MAX) t = t.slice(0, DISPLAY_NAME_MAX);
   return t;
+}
+/** Nome para gravar / validar: normaliza e remove espaços extra no início e fim. */
+function clampDisplayName(s) {
+  return formatNameWhileTyping(s).trim();
 }
 
 function playerInRoom(r, playerId) {
@@ -1653,8 +1658,10 @@ function HomeScreen(P){
         React.createElement('input',{
           value:nm,
           maxLength:DISPLAY_NAME_MAX,
-          onChange:function(e){ setNm(clampDisplayName(e.target.value)); },
+          onChange:function(e){ setNm(formatNameWhileTyping(e.target.value)); },
           placeholder:'Seu nome',
+          title:'Podes usar espaços entre palavras.',
+          'aria-label':'Nome de jogador — podes usar espaços; máximo '+DISPLAY_NAME_MAX+' caracteres',
           autoComplete:'nickname',
           'aria-description':nm.length>=DISPLAY_NAME_MAX?'Limite de caracteres atingido':undefined,
           style:Object.assign({},inp,{
