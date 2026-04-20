@@ -463,7 +463,7 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
     if (trick[i].card.s === trump && trick[i].card.v === "7" && trick[i + 1].card.s === trump && trick[i + 1].card.v === "A")
       events.push({
         tm: pTm(trick[i + 1].player),
-        lbl: "Rele! " + pNs[trick[i + 1].player] + " jogou o Ás após o 7",
+        lbl: "Réle! " + pNs[trick[i + 1].player] + " jogou o Ás após o 7",
       });
   }
   var stDeal = parseSeat(pv.starter);
@@ -718,7 +718,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
-     Rele: logo após o 7 de trunfo na mesa, o próximo com o Ás de trunfo deve jogá-lo.
+     Réle: logo após o 7 de trunfo na mesa, o próximo com o Ás de trunfo deve jogá-lo.
      Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
      Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
      Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
@@ -905,7 +905,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     }
   }
 
-  // RELE: o jogador imediatamente a seguir ao 7 de trunfo na mesa deve pôr o Ás de trunfo se o tiver (pontos de rele).
+  // Réle: o jogador imediatamente a seguir ao 7 de trunfo na mesa deve pôr o Ás de trunfo se o tiver (pontos de réle).
   if(trick.length>0){
     var lastTr = trick[trick.length-1];
     if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
@@ -3248,7 +3248,6 @@ function GameScreen(props){
                   React.createElement('div', { style: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                   React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                     React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
-                    isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
                     g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
                     venueNameChip(th, 9)
                   )
@@ -3287,7 +3286,6 @@ function GameScreen(props){
                 React.createElement('div', { style: { fontSize: 18, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                 React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                   React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
-                  isCB ? React.createElement('span', { style: { background: '#C41230', borderRadius: 4, padding: '1px 5px' } }, 'copas batido') : null,
                   g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
                   venueNameChip(th, 9)
                 )
