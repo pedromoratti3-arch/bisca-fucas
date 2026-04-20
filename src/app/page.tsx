@@ -1896,7 +1896,9 @@ function GameScreen(props){
     RT.setGame(roomCode, g);
   },[g]);
 
-  // Shuffle phase — online: só o host avança para corte (evita 4 timers e sg paralelos; só lastActor===host grava no RT)
+  // Shuffle phase — online: só o host avança para corte (evita 4 timers e sg paralelos).
+  // Importante: após "Proxima rodada" lastActor pode ser outro humano; RT.setGame só corre quando lastActor===myPid.
+  // Sem isto o host avançava para cut localmente mas não gravava no RT → outros clientes ficavam em embaralhar para sempre.
   useEffect(function(){
     if(g.phase!=='shuffle') return;
     if(isSolo) aiMemory = makeMemory();
@@ -1906,9 +1908,29 @@ function GameScreen(props){
     if(isOnline && !isRoomHost){
       return function(){ setSh(false); };
     }
-    var t = setTimeout(function(){ setSh(false); sg(function(p){ return Object.assign({},p,{phase:'cut'}); }); },2400);
+    var t = setTimeout(function(){
+      setSh(false);
+      sg(function(p){
+        if(p.phase!=='shuffle') return p;
+        var next = Object.assign({}, p, { phase: 'cut' });
+        if(isOnline && isRoomHost) next.lastActor = myPid;
+        return next;
+      });
+    },2400);
     return function(){ clearTimeout(t); setSh(false); };
-  },[g.phase,isOnline,isRoomHost,roomCode,isSolo]);
+  },[g.phase,isOnline,isRoomHost,roomCode,isSolo,myPid]);
+
+  // Rede / Strict Mode / timer perdido: host força sync para cut se ainda estiver em shuffle.
+  useEffect(function(){
+    if(!isOnline || !isRoomHost || g.phase!=='shuffle') return;
+    var w = setTimeout(function(){
+      sg(function(p){
+        if(p.phase!=='shuffle') return p;
+        return Object.assign({}, p, { phase: 'cut', lastActor: myPid });
+      });
+    },4500);
+    return function(){ clearTimeout(w); };
+  },[g.phase,isOnline,isRoomHost,myPid]);
 
   // Auto-cut: solo quando quem corta é a IA; online só o host corta por IA quando o cortador é bot (cada humano só corta na própria vez)
   useEffect(function(){
