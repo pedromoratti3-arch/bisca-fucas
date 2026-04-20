@@ -443,7 +443,7 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
     if (trick[i].card.s === trump && trick[i].card.v === "7" && trick[i + 1].card.s === trump && trick[i + 1].card.v === "A")
       events.push({
         tm: pTm(trick[i + 1].player),
-        lbl: "Rele! " + pNs[trick[i + 1].player] + " jogou As apos o 7",
+        lbl: "Rele! " + pNs[trick[i + 1].player] + " jogou o Ás após o 7",
       });
   }
   var stDeal = parseSeat(pv.starter);
@@ -497,7 +497,7 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
     lastW: w.player,
     canSwap: cs,
     aceReveal: null,
-    msg: pNs[w.player] + " venceu a mao! (+" + tp + " pts)",
+    msg: pNs[w.player] + " venceu a mão! (+" + tp + " pts)",
     lastActor: laEt || pv.lastActor,
   });
 }
@@ -904,6 +904,20 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     return pTm(t.player)===mt && isBiscaCard(t.card, trump);
   });
 
+  /* Adversário já ganha com corte (ex.: 4 de copas), vaza sem bísca — nunca descartar Ás/7 fora de trunfo se houver lixo. */
+  var anyBiscaOnTableEarly = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
+  if(
+    voidLead &&
+    !partnerWinning &&
+    pTm(curWin.player) !== mt &&
+    curWin.card.s === trump &&
+    !anyBiscaOnTableEarly &&
+    trickPts <= 10
+  ){
+    var shedNoBisca = pool.filter(function(c){ return c.s !== trump && !isBiscaCard(c, trump); });
+    if(shedNoBisca.length) return shedNoBisca.slice().sort(byPtsAsc)[0];
+  }
+
   // ── OPPONENT WINNING ──
 
   // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
@@ -989,7 +1003,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if((trickPts<=3 && strongTrumps.length===0) || (trickPts<=7 && onlyKQJWins && !endGame)){
         var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
         if(gb.length) return lowest(gb);
-        if(trickPts<=5 && nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
+        if(trickPts<=5 && nonTrump.length){
+          var midNb = lowestPreferNoBisca(nonTrump);
+          if(midNb) return midNb;
+          return nonTrump.slice().sort(byPtsAsc)[0];
+        }
       }
     }
 
@@ -1017,10 +1035,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Endgame (last 3 tricks): trump more aggressively
     if(endGame && trickPts>=3) return pickWinningTrumpChosen();
 
-    // Not worth trumping
+    // Not worth trumping — mínimo de perda; nunca bísca fora de trunfo se houver outra carta
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
-    if(nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
+    if(nonTrump.length){
+      var nbb = lowestPreferNoBisca(nonTrump);
+      if(nbb) return nbb;
+      return nonTrump.slice().sort(byPtsAsc)[0];
+    }
     return pickWinningTrumpChosen();
   }
 
@@ -1033,6 +1055,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(nonTrump.length){
       var pnb = lowestPreferNoBisca(nonTrump);
       if(pnb) return pnb;
+      return nonTrump.slice().sort(byPtsAsc)[0];
     }
     return lowest(pool);
   }
@@ -1042,8 +1065,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(zeros2.length) return lowest(zeros2);
   var qs = nonTrump.filter(function(c){ return c.v==='Q'; });
   if(qs.length) return qs[0];
-  if(nonTrump.length) return lowestPreferNoBisca(nonTrump) || lowest(nonTrump);
-  return lowestPreferNoBisca(pool) || lowest(pool);
+  if(nonTrump.length){
+    var lpb2 = lowestPreferNoBisca(nonTrump);
+    if(lpb2) return lpb2;
+    return nonTrump.slice().sort(byPtsAsc)[0];
+  }
+  var lpb3 = lowestPreferNoBisca(pool);
+  if(lpb3) return lpb3;
+  return pool.slice().sort(byPtsAsc)[0];
 }
 
 /** Jogada do bot na mesa (host online ou solo). Usado pelo timer normal e pelo watchdog. */
@@ -2256,6 +2285,20 @@ function GameScreen(props){
   var handLiftIdSt = useState(/** @type {string|null} */ (null));
   var handLiftId = handLiftIdSt[0],
     setHandLiftId = handLiftIdSt[1];
+  /** Erro de regra só para o jogador (online); não vai para g.msg / Firebase. */
+  var playDeniedSt = useState(/** @type {string | null} */ (null));
+  var playDenied = playDeniedSt[0],
+    setPlayDenied = playDeniedSt[1];
+  var playDeniedTimerRef = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null));
+  /** @param {string} text */
+  function showPlayDeniedLocal(text) {
+    setPlayDenied(text);
+    if (playDeniedTimerRef.current) clearTimeout(playDeniedTimerRef.current);
+    playDeniedTimerRef.current = setTimeout(function () {
+      setPlayDenied(null);
+      playDeniedTimerRef.current = null;
+    }, 5200);
+  }
   var swapToastTickSt = useState(0);
   var setSwapToastTick = swapToastTickSt[1];
   useEffect(
@@ -2288,7 +2331,7 @@ function GameScreen(props){
   },[g]);
 
   // Shuffle phase — online: só o host avança para corte (evita 4 timers e sg paralelos).
-  // Importante: após "Proxima rodada" lastActor pode ser outro humano; RT.setGame só corre quando lastActor===myPid.
+  // Importante: após "Próxima rodada" lastActor pode ser outro humano; RT.setGame só corre quando lastActor===myPid.
   // Sem isto o host avançava para cut localmente mas não gravava no RT → outros clientes ficavam em embaralhar para sempre.
   useEffect(function(){
     if(g.phase!=='shuffle') return;
@@ -2391,7 +2434,7 @@ function GameScreen(props){
       var t = setTimeout(function(){
         sg(function(p){
           var la = isOnline && roomHostId ? roomHostId : p.lastActor;
-          return Object.assign({},p,{phase:'playing',deck:rem,canSwap:cs,msg:NAMES[p.starter]+(p.starter===mySeat?' - sua vez!':' comeca.'),lastActor:la||p.lastActor});
+          return Object.assign({},p,{phase:'playing',deck:rem,canSwap:cs,msg:NAMES[p.starter]+(p.starter===mySeat?' - sua vez!':' começa.'),lastActor:la||p.lastActor});
         });
       },700);
       return function(){ clearTimeout(t); };
@@ -2498,12 +2541,24 @@ function GameScreen(props){
     var hand=g.hands[seat];
     var h7=hand.some(function(c){ return c && c.v==='7' && c.s===g.trump; });
     if(!mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, card)){
-      var msgAce = h7 ? ('Jogue o 7 de '+g.trump+' antes do As de trunfo!') : ('O As de '+g.trump+' so sai apos o 7!');
-      sg(function(p){ return Object.assign({},p,{msg:msgAce}); }); return;
+      var msgAce = h7
+        ? ('Jogue o 7 de '+SYM[g.trump]+' '+g.trump+' antes do Ás de trunfo!')
+        : ('O Ás de '+g.trump+' só sai após o 7!');
+      if(isOnline) showPlayDeniedLocal(msgAce);
+      else sg(function(p){ return Object.assign({},p,{msg:msgAce}); });
+      return;
     }
     if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card)){
-      sg(function(p){ return Object.assign({},p,{msg:'7 de trunfo nao pode ser a 4a carta sem o As de trunfo na mao!'}); }); return;
+      var m7 = 'O 7 de trunfo não pode ser a 4.ª carta sem o Ás de trunfo na mão!';
+      if(isOnline) showPlayDeniedLocal(m7);
+      else sg(function(p){ return Object.assign({},p,{msg:m7}); });
+      return;
     }
+    if(playDeniedTimerRef.current){
+      clearTimeout(playDeniedTimerRef.current);
+      playDeniedTimerRef.current = null;
+    }
+    setPlayDenied(null);
     var revealAceTrump = g.trick.length===3 && card.v==='7' && card.s===g.trump && hand.some(function(c){ return c && c.v==='A' && c.s===g.trump; });
     var aceCardReveal = revealAceTrump ? hand.find(function(c){ return c && c.v==='A' && c.s===g.trump; }) : null;
     if(isSolo) recordPlay(aiMemory, seat, card, g.trick, g.trump);
@@ -2700,7 +2755,7 @@ function GameScreen(props){
           body:who+' trocou o 2'+sym+' pela carta de corte '+tcTake.v+sym+'. O 2 volta ao meio do baralho.',
           ts:Date.now()
         },
-        msg:'Corte alto! '+tcTake.v+sym+' na mao, 2 no meio do baralho.',
+        msg:'Corte alto! '+tcTake.v+sym+' na mão, 2 no meio do baralho.',
         lastActor:isOnline?myPid:pv.lastActor
       });
     });
@@ -2732,7 +2787,7 @@ function GameScreen(props){
         deck.splice(Math.floor(deck.length/2),0,two);
         var sym0 = SYM[pv.trump] || '';
         var who0 = (pv.playerNames && pv.playerNames[seat]) || 'Bot';
-        var msg='Corte alto (IA): '+tc.v+sym0+' na mao, 2 no baralho.';
+        var msg='Corte alto (IA): '+tc.v+sym0+' na mão, 2 no baralho.';
         var upd={
           hands:hands,deck:deck,tc:null,canSwap:false,msg:msg,
           swapToast:{
@@ -2852,7 +2907,7 @@ function GameScreen(props){
         shScore
       ),
       React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
-        NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' comeca',
+        NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' começa',
         g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Próxima vitória por pontos na mesa: 1+'+g.tieBonus+' (normal) ou 2+'+g.tieBonus+' (Copas batido), por empate(s) 60-60 anterior(es).'},'Na mesa: 1+'+g.tieBonus+' ou 2+'+g.tieBonus+' pts') : null
       ),
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
@@ -3138,14 +3193,14 @@ function GameScreen(props){
       React.createElement('div',{style:playPanel},
     React.createElement('div',{style:{height:mob?2:4}}),
     React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
-      React.createElement('span',null,g.msg),
+      React.createElement('span',{style:playDenied?{color:'#fb923c',fontWeight:600}:undefined},playDenied!=null?playDenied:g.msg),
       React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
         ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+
         (g.phase==='deal'?(g.batido?Math.max(0,28-g.dealStep*3):Math.max(0,28-g.dealStep)):g.deck.length),
         g.trump && !g.trumpSevenOut && !g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; })
-          ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu')
+          ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' não saiu')
           : null
       )
     ),
@@ -3263,7 +3318,7 @@ function GameScreen(props){
           'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
         ),
         React.createElement('div',{style:{textAlign:'center'}},
-          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Proxima rodada')
+          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Próxima rodada')
         )
       )
     ) : null
