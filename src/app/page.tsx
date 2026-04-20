@@ -2727,7 +2727,9 @@ function GameScreen(props){
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
         ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+g.deck.length,
-        !g.trumpSevenOut && g.trump ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu') : null
+        g.trump && !g.trumpSevenOut && !g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; })
+          ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu')
+          : null
       )
     ),
     g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:10,textAlign:'center',animation:'aceRevealBannerIn .45s cubic-bezier(.2,.9,.2,1) forwards'}},
