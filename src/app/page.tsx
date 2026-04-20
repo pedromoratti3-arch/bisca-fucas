@@ -467,6 +467,15 @@ function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
   return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
 }
 
+/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Se ainda tem o 7 na mão, tem de jogá-lo antes do Ás. */
+function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card){
+  if(!card || card.v!=='A' || card.s!==trump) return true;
+  if(!hand || hand.length<=1) return true;
+  var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
+  if(trumpSevenOut || s7) return true;
+  return false;
+}
+
 /** Bíscas = Ás e 7 nos naipes que não são o de trunfo. O Ás e o 7 de trunfo não são bíscas. */
 function isBiscaCard(card, trump){
   return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
@@ -494,17 +503,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
 
-  var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
-  var h7 = hand.some(function(c){ return c && c.v==='7' && c.s===trump; });
-
   var pool = hand.filter(function(c){
     if(!c) return false;
-    if(c.v==='A' && c.s===trump && !sevenOut && !s7 && !h7 && hand.length>1) return false;
+    if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c)) return false;
     if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c)) return false;
     return true;
   });
   if(!pool.length){
     pool = hand.filter(function(c){ return !!c; }).filter(function(c){
+      if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c)) return false;
       return mayPlaySevenTrumpFourth(trick.length, hand, trump, c);
     });
   }
@@ -878,6 +885,8 @@ var ACSS = [
   '@keyframes aceRevealBannerIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}',
   '@keyframes aceRevealPulse{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:1;filter:brightness(1.06)}}',
   '@keyframes aceRevealRing{0%,100%{box-shadow:0 0 0 1px rgba(251,191,36,.55),0 8px 26px rgba(0,0,0,.55),0 0 28px rgba(245,158,11,.35),inset 0 1px 0 rgba(255,255,255,.14)}50%{box-shadow:0 0 0 2px rgba(253,224,150,.85),0 12px 32px rgba(0,0,0,.62),0 0 36px rgba(251,191,36,.5),inset 0 1px 0 rgba(255,255,255,.22)}}',
+  '@keyframes bfAceFlip3d{from{transform:rotateY(180deg)}to{transform:rotateY(0deg)}}',
+  '@keyframes bfAceFlipFloat{0%{opacity:0;transform:translateY(12px) scale(.88)}18%{opacity:1}100%{opacity:1;transform:translateY(0) scale(1)}}',
   '@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}',
   '@keyframes float1{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-18px) rotate(5deg)}}',
   '@keyframes float2{0%,100%{transform:translateY(0) rotate(3deg)}50%{transform:translateY(-14px) rotate(-4deg)}}',
@@ -1306,6 +1315,21 @@ function rCard(c,onClick,back,glow,sm,blocked,mob,bk){
 function rSlot(a,mob){
   var w=30, h=mob?40:42;
   return React.createElement('div',{style:{width:w,height:h,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent',flexShrink:0}});
+}
+
+/** Ás de trunfo revelado: costas → face (3D), visível para todos. */
+function aceRevealFlipVisual(ace, mob, cbk){
+  if(!ace || !ace.v || !ace.s) return null;
+  var face = rCard(ace, null, false, false, false, false, mob, cbk);
+  var back = rCard(null, null, true, false, false, false, mob, cbk);
+  return React.createElement('div',{style:{perspective:960, filter:'drop-shadow(0 18px 32px rgba(0,0,0,.5))'}},
+    React.createElement('div',{style:{animation:'bfAceFlipFloat .95s cubic-bezier(.2,.9,.2,1) forwards'}},
+      React.createElement('div',{style:{position:'relative', display:'inline-block', transformStyle:'preserve-3d', animation:'bfAceFlip3d .9s cubic-bezier(.32,.14,.12,1) .1s both'}},
+        React.createElement('div',{style:{position:'absolute', left:0, top:0, right:0, bottom:0, display:'flex', alignItems:'center', justifyContent:'center', backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden', transform:'rotateY(180deg)'}}, back),
+        React.createElement('div',{style:{position:'relative', backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden', transform:'rotateY(0deg)'}}, face)
+      )
+    )
+  );
 }
 
 function deckPile(n,onClick,hi,mob,bk){
@@ -1831,6 +1855,7 @@ function GameScreen(props){
   /** Toast “Troca do 2”: quanto tempo fica no ecrã (+ margem para o ticker redesenhar). */
   var SWAP_TOAST_VISIBLE_MS = 5400;
   var SWAP_TOAST_TICK_MS = SWAP_TOAST_VISIBLE_MS + 800;
+  var ACE_REVEAL_TOAST_MS = 5200;
 
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
@@ -1872,7 +1897,10 @@ function GameScreen(props){
   var setSwapToastTick = swapToastTickSt[1];
   useEffect(
     function () {
-      if (!g.swapToast || typeof g.swapToast.ts !== "number") return;
+      var hasSwap = g.swapToast && typeof g.swapToast.ts === "number";
+      var hasAce = g.aceReveal && typeof g.aceReveal.t === "number";
+      if (!hasSwap && !hasAce) return;
+      var tickMs = hasAce ? Math.max(SWAP_TOAST_TICK_MS, ACE_REVEAL_TOAST_MS + 1200) : SWAP_TOAST_TICK_MS;
       var id = setInterval(function () {
         setSwapToastTick(function (x) {
           return x + 1;
@@ -1880,13 +1908,13 @@ function GameScreen(props){
       }, 320);
       var maxT = setTimeout(function () {
         clearInterval(id);
-      }, SWAP_TOAST_TICK_MS);
+      }, tickMs);
       return function () {
         clearInterval(id);
         clearTimeout(maxT);
       };
     },
-    [g.swapToast]
+    [g.swapToast, g.aceReveal]
   );
 
   // Write online state (ONLY here, GameScreen is the single writer)
@@ -2097,15 +2125,16 @@ function GameScreen(props){
     if(g.curP!==seat || g.phase!=='playing') return;
     if(partnerViewPause && partnerCount>0) return;
     var hand=g.hands[seat];
-    var s7=g.trick.some(function(t){ return t.card.v==='7' && t.card.s===g.trump; });
     var h7=hand.some(function(c){ return c && c.v==='7' && c.s===g.trump; });
-    if(card.v==='A' && card.s===g.trump && !g.trumpSevenOut && !s7 && !h7 && hand.length>1){
-      sg(function(p){ return Object.assign({},p,{msg:'O As de '+g.trump+' so sai apos o 7!'}); }); return;
+    if(!mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, card)){
+      var msgAce = h7 ? ('Jogue o 7 de '+g.trump+' antes do As de trunfo!') : ('O As de '+g.trump+' so sai apos o 7!');
+      sg(function(p){ return Object.assign({},p,{msg:msgAce}); }); return;
     }
     if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card)){
       sg(function(p){ return Object.assign({},p,{msg:'7 de trunfo nao pode ser a 4a carta sem o As de trunfo na mao!'}); }); return;
     }
     var revealAceTrump = g.trick.length===3 && card.v==='7' && card.s===g.trump && hand.some(function(c){ return c && c.v==='A' && c.s===g.trump; });
+    var aceCardReveal = revealAceTrump ? hand.find(function(c){ return c && c.v==='A' && c.s===g.trump; }) : null;
     if(isSolo) recordPlay(aiMemory, seat, card, g.trick, g.trump);
     sg(function(p){
       if(p.curP!==seat || p.phase!=='playing') return p;
@@ -2113,9 +2142,8 @@ function GameScreen(props){
       var trick=p.trick.concat([{player:seat,card:card}]);
       var done=trick.length===4;
       var msg = NAMES[seat]+' jogou '+card.v+SYM[card.s];
-      if(revealAceTrump) msg += ' | Mostrou As de trunfo!';
       var upd = {hands:hands,trick:trick,curP:done?-1:nxt(seat),phase:done?'end_trick':'playing',msg:msg};
-      if(revealAceTrump) Object.assign(upd,{aceReveal:{seat:seat,t:Date.now()}});
+      if(revealAceTrump && aceCardReveal) Object.assign(upd,{aceReveal:{seat:seat,t:Date.now(),ace:{v:aceCardReveal.v,s:aceCardReveal.s,id:aceCardReveal.id}}});
       if(isOnline) Object.assign(upd,{lastActor:myPid});
       return Object.assign({},p,upd);
     });
@@ -2206,10 +2234,10 @@ function GameScreen(props){
         var trick=pv.trick.concat([{player:p,card:card}]);
         var done=trick.length===4;
         var revealAceTrump = pv.trick.length===3 && card.v==='7' && card.s===pv.trump && pv.hands[p].some(function(c){ return c && c.v==='A' && c.s===pv.trump; });
+        var aceCardBot = revealAceTrump ? pv.hands[p].find(function(c){ return c && c.v==='A' && c.s===pv.trump; }) : null;
         var msg = NAMES[p]+' jogou '+card.v+SYM[card.s];
-        if(revealAceTrump) msg += ' | Mostrou As de trunfo!';
         var upd = {hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:msg};
-        if(revealAceTrump) Object.assign(upd,{aceReveal:{seat:p,t:Date.now()}});
+        if(revealAceTrump && aceCardBot) Object.assign(upd,{aceReveal:{seat:p,t:Date.now(),ace:{v:aceCardBot.v,s:aceCardBot.s,id:aceCardBot.id}}});
         if(hostPlaysBot) Object.assign(upd,{lastActor:myPid});
         return Object.assign({},pv,upd);
       });
@@ -2236,7 +2264,7 @@ function GameScreen(props){
   useEffect(function(){
     if(g.phase!=='end_trick') return;
     if(isOnline && g.lastActor!==myPid) return;
-    var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 3200 : 0);
+    var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 4300 : 0);
     var t = setTimeout(function(){
       sg(function(pv){
         if(pv.phase!=='end_trick') return pv;
@@ -2408,19 +2436,7 @@ function GameScreen(props){
 
   function rPlaced(p){
     var pl=g.trick.find(function(t){ return t.player===p; });
-    var base = pl && pl.card ? rCard(pl.card,null,false,false,true,false,mob,cbk) : rSlot(g.curP===p && g.phase==='playing',mob);
-    var show = g.aceReveal && g.aceReveal.seat===p && pl && pl.card && pl.card.v==='7' && pl.card.s===g.trump;
-    if(!show) return base;
-    return React.createElement('div',{style:{position:'relative',display:'inline-block'}},
-      base,
-      React.createElement('div',{style:{position:'absolute',left:'50%',top:-12,transform:'translateX(-50%)',pointerEvents:'none',zIndex:6}},
-        React.createElement('div',{style:{animation:'aceRevealIn .42s cubic-bezier(.2,.9,.2,1) forwards, aceRevealRing 2.4s ease-in-out infinite .42s',transformOrigin:'center top'}},
-          React.createElement('div',{style:{borderRadius:12,padding:mob?'5px 10px':'6px 12px',background:'linear-gradient(165deg,rgba(42,32,18,.98) 0%,rgba(14,11,8,.99) 100%)',border:'1px solid rgba(253,224,150,.88)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)'}},
-            React.createElement('span',{style:{display:'block',whiteSpace:'nowrap',color:'#fffbeb',fontSize:mob?10:11,fontWeight:800,letterSpacing:0.35,textTransform:'uppercase',textShadow:'0 1px 2px rgba(0,0,0,.9),0 0 14px rgba(251,191,36,.45)',animation:'aceRevealPulse 2s ease-in-out infinite'}},'Ás de trunfo!')
-          )
-        )
-      )
-    );
+    return pl && pl.card ? rCard(pl.card,null,false,false,true,false,mob,cbk) : rSlot(g.curP===p && g.phase==='playing',mob);
   }
 
   function rHand(seat,isMe,isPartner){
@@ -2430,8 +2446,7 @@ function GameScreen(props){
       if(!c) return null;
       if(!showCards) return React.createElement(React.Fragment,{key:c.id},rCard(null,null,true,false,false,false,mob,cbk));
       if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false,mob,cbk));
-      var s7out = g.trumpSevenOut || g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; }) || hand.some(function(h){ return h && h.v==='7' && h.s===g.trump; });
-      var ab = c.v==='A' && c.s===g.trump && !s7out && hand.length>1;
+      var ab = c.v==='A' && c.s===g.trump && hand.length>1 && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c);
       var canClick = myTurn && !ab && (!partnerViewPause || partnerCount<=0);
       if (canClick) {
         var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
@@ -2644,10 +2659,76 @@ function GameScreen(props){
           React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } }, swapSt.body)
         )
       : null;
+  var ar = g.aceReveal;
+  var swapVisible =
+    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS;
+  var aceRevealToastEl =
+    ar && ar.ace && ar.ace.v && typeof ar.t === 'number' && typeof ar.seat === 'number' && Date.now() - ar.t < ACE_REVEAL_TOAST_MS
+      ? React.createElement(
+          'div',
+          {
+            role: 'status',
+            'aria-live': 'polite',
+            style: {
+              position: 'fixed',
+              left: '50%',
+              bottom: mob
+                ? 'calc(' + (swapVisible ? 168 : 92) + 'px + env(safe-area-inset-bottom, 0px))'
+                : swapVisible
+                  ? 100
+                  : 24,
+              transform: 'translateX(-50%)',
+              zIndex: 96,
+              maxWidth: 'min(440px, 94vw)',
+              padding: mob ? '12px 14px' : '14px 20px',
+              borderRadius: 14,
+              background: 'linear-gradient(165deg, rgba(22,28,44,.94) 0%, rgba(10,14,26,.96) 100%)',
+              border: '1px solid rgba(147,197,253,.22)',
+              boxShadow: '0 14px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07)',
+              backdropFilter: 'saturate(1.1) blur(14px)',
+              WebkitBackdropFilter: 'saturate(1.1) blur(14px)',
+              pointerEvents: 'none',
+              textAlign: 'center',
+            },
+          },
+          React.createElement('div', { style: { fontSize: mob ? 13 : 14, fontWeight: 800, letterSpacing: 0.35, color: '#93c5fd', marginBottom: 5 } }, 'Ás de trunfo na mesa'),
+          React.createElement(
+            'div',
+            { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } },
+            NAMES[ar.seat] +
+              ' fechou a rodada com o 7 de trunfo e mostrou o Ás ' +
+              SYM[g.trump] +
+              ' (' +
+              (g.trump || '') +
+              ') que tinha na mão. A carta fica à vista de todos.'
+          )
+        )
+      : null;
+  var aceRevealFlipEl =
+    ar && ar.ace && ar.ace.v && typeof ar.t === 'number' && Date.now() - ar.t < ACE_REVEAL_TOAST_MS + 350
+      ? React.createElement(
+          'div',
+          {
+            style: {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 125,
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: mob ? 12 : 20,
+            },
+          },
+          aceRevealFlipVisual(ar.ace, mob, cbk)
+        )
+      : null;
   return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
     React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
     swapToastEl,
+    aceRevealFlipEl,
+    aceRevealToastEl,
     React.createElement('div',{style:{position:'relative',zIndex:2}},
     React.createElement('div',{style:hdrGlassPl},
       mob
@@ -2747,11 +2828,6 @@ function GameScreen(props){
           : null
       )
     ),
-    g.msg.indexOf('Mostrou As de trunfo!')!==-1 ? React.createElement('div',{style:{marginTop:-2,marginBottom:10,textAlign:'center',animation:'aceRevealBannerIn .45s cubic-bezier(.2,.9,.2,1) forwards'}},
-      React.createElement('div',{style:{display:'inline-block',borderRadius:14,padding:mob?'8px 14px':'10px 18px',background:'linear-gradient(165deg,rgba(42,32,18,.98) 0%,rgba(14,11,8,.99) 100%)',border:'1px solid rgba(253,224,150,.88)',boxShadow:'0 0 0 1px rgba(0,0,0,.35),0 10px 32px rgba(0,0,0,.5),0 0 36px rgba(245,158,11,.32)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',animation:'aceRevealRing 2.4s ease-in-out infinite .45s'}},
-        React.createElement('span',{style:{display:'block',color:'#fffbeb',fontSize:mob?11:13,fontWeight:800,letterSpacing:0.4,textShadow:'0 1px 2px rgba(0,0,0,.9),0 0 16px rgba(251,191,36,.4)',animation:'aceRevealPulse 2s ease-in-out infinite'}},'Ás de trunfo revelado')
-      )
-    ) : null,
     partnerViewPause&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand && g.trickN===7 && partnerCount>0 ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'\u00daltima m\u00e3o!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
