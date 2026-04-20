@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 
@@ -2434,6 +2434,10 @@ function GameScreen(props){
   var cutLift = cutLiftSt[0], setCutLift = cutLiftSt[1];
   var aceRevealT = useRef(/** @type {any} */ (null));
   var tableDropRef = useRef(/** @type {HTMLElement|null} */ (null));
+  var handAreaRefN = useRef(/** @type {HTMLDivElement | null} */ (null));
+  var handAreaRefW = useRef(/** @type {HTMLDivElement | null} */ (null));
+  var handAreaRefE = useRef(/** @type {HTMLDivElement | null} */ (null));
+  var handAreaRefS = useRef(/** @type {HTMLDivElement | null} */ (null));
   var dragSessionRef = useRef(/** @type {any} */ (null));
   var handGhostSt = useState(/** @type {{ card: any; x: number; y: number } | null} */ (null));
   var handGhost = handGhostSt[0],
@@ -2456,7 +2460,13 @@ function GameScreen(props){
     }, 5200);
   }
   var swapToastTickSt = useState(0);
+  var swapToastTick = swapToastTickSt[0];
   var setSwapToastTick = swapToastTickSt[1];
+  var aceRevealHandRectSt = useState(
+    /** @type {{ left: number; top: number; width: number; height: number } | null} */ (null)
+  );
+  var aceRevealHandRect = aceRevealHandRectSt[0],
+    setAceRevealHandRect = aceRevealHandRectSt[1];
   useEffect(
     function () {
       var hasSwap = g.swapToast && typeof g.swapToast.ts === "number";
@@ -2477,6 +2487,50 @@ function GameScreen(props){
       };
     },
     [g.swapToast, g.aceReveal]
+  );
+
+  useLayoutEffect(
+    function () {
+      function measureAceRevealHand() {
+        var arM = g.aceReveal;
+        if (!arM || !arM.ace || typeof arM.t !== "number" || typeof arM.seat !== "number") {
+          setAceRevealHandRect(null);
+          return;
+        }
+        if (Date.now() - arM.t >= ACE_REVEAL_TOAST_MS + 350) {
+          setAceRevealHandRect(null);
+          return;
+        }
+        var el =
+          arM.seat === dN
+            ? handAreaRefN.current
+            : arM.seat === dW
+              ? handAreaRefW.current
+              : arM.seat === dE
+                ? handAreaRefE.current
+                : arM.seat === dS
+                  ? handAreaRefS.current
+                  : null;
+        if (!el) {
+          setAceRevealHandRect(null);
+          return;
+        }
+        var r = el.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) {
+          setAceRevealHandRect(null);
+          return;
+        }
+        setAceRevealHandRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+      }
+      measureAceRevealHand();
+      window.addEventListener("resize", measureAceRevealHand);
+      window.addEventListener("orientationchange", measureAceRevealHand);
+      return function () {
+        window.removeEventListener("resize", measureAceRevealHand);
+        window.removeEventListener("orientationchange", measureAceRevealHand);
+      };
+    },
+    [g.aceReveal, dN, dW, dE, dS, mob, swapToastTick, g.phase]
   );
 
   // Write online state (ONLY here, GameScreen is the single writer)
@@ -3171,7 +3225,7 @@ function GameScreen(props){
   var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   var swapSt = g.swapToast;
-  void swapToastTickSt[0];
+  void swapToastTick;
   var swapToastEl =
     swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS
       ? React.createElement(
@@ -3246,22 +3300,31 @@ function GameScreen(props){
           )
         )
       : null;
+  var aceRevealFlipBase = {
+    position: 'fixed',
+    zIndex: 125,
+    pointerEvents: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+  var aceRevealFlipPos =
+    aceRevealHandRect && aceRevealHandRect.width > 0
+      ? {
+          left: aceRevealHandRect.left + aceRevealHandRect.width / 2,
+          top: aceRevealHandRect.top + aceRevealHandRect.height / 2,
+          transform: 'translate(-50%, -50%)',
+        }
+      : null;
   var aceRevealFlipEl =
     ar && ar.ace && ar.ace.v && typeof ar.t === 'number' && Date.now() - ar.t < ACE_REVEAL_TOAST_MS + 350
       ? React.createElement(
           'div',
           {
             style: Object.assign(
-              {
-                position: 'fixed',
-                zIndex: 125,
-                pointerEvents: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: mob ? 4 : 6,
-              },
-              aceRevealFlipAnchorStyle(ar.seat, mySeat, mob)
+              {},
+              aceRevealFlipBase,
+              aceRevealFlipPos || Object.assign({ padding: mob ? 4 : 6 }, aceRevealFlipAnchorStyle(ar.seat, mySeat, mob))
             ),
           },
           aceRevealFlipVisual(ar.ace, mob, cbk)
@@ -3387,7 +3450,7 @@ function GameScreen(props){
     ),
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
-        React.createElement('div',{style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
+        React.createElement('div',{ref:handAreaRefN,style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
         React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 4px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
           React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dN]),
           g.curP===dN ? rTurnIndicator(mob) : null
@@ -3398,7 +3461,7 @@ function GameScreen(props){
           React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dW]),
           g.curP===dW ? rTurnIndicator(mob) : null
         ),
-        React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
+        React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
         th.decor ? th.decor() : null,
@@ -3413,10 +3476,10 @@ function GameScreen(props){
           React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dE]),
           g.curP===dE ? rTurnIndicator(mob) : null
         ),
-        React.createElement('div',{style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
+        React.createElement('div',{ref:handAreaRefE,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
       ),
       React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
-        React.createElement('div',{style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
+        React.createElement('div',{ref:handAreaRefS,style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
         React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:'#ffffff',textAlign:'center',padding:'0 8px',lineHeight:1,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?20:22}},
           React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dS]),
           g.curP===dS ? rTurnIndicator(mob) : null
