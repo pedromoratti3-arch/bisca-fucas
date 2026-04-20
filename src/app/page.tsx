@@ -980,6 +980,19 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
   var suitW = winners(followSuit, curWin.card, lead);
   if(suitW.length){
+    if(lead===trump){
+      var loseTrumpFollow = followSuit.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
+      function isHeavyTrump(c){ return c.v==='A' || c.v==='7' || c.v==='K' || c.v==='J' || c.v==='Q'; }
+      var lightWinTrump = suitW.filter(function(c){ return !isHeavyTrump(c); });
+      /* Trunfo puxado (corte sobre corte): em vaza sem bísca e fraca/média, não “encartar” trunfos altos à toa. */
+      if(!anyBiscaTableGlobal && trickPts<=8){
+        if(!isLast && loseTrumpFollow.length) return lowest(loseTrumpFollow);
+        if(isLast){
+          if(lightWinTrump.length) return lowest(lightWinTrump);
+          if(trickPts<=4 && loseTrumpFollow.length) return lowest(loseTrumpFollow);
+        }
+      }
+    }
     /* Com bísca na mesa e a dupla a perder a vaza: matar com a MAIOR carta do naipe (fixar pontos), não a mínima. */
     if(anyBiscaTableGlobal && !partnerWinning && pTm(curWin.player)!==mt){
       return suitW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
