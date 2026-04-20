@@ -58,6 +58,9 @@ function normalizeGame(g) {
       names[ni] = pn[ni] || pn[String(ni)] || "?";
     }
   }
+  for (var nj = 0; nj < 4; nj++) {
+    names[nj] = clampDisplayName(String(names[nj] || "?")) || "?";
+  }
   var stRaw = parseSeat(g.starter);
   return Object.assign({}, g, {
     hands: hands,
@@ -91,6 +94,11 @@ function normalizeRoom(r) {
         });
     } else players = [];
   }
+  players = players.map(function (p) {
+    if (!p || typeof p !== "object") return p;
+    var nm = clampDisplayName(typeof p.name === "string" ? p.name : "") || "Jogador";
+    return Object.assign({}, p, { name: nm });
+  });
   var game = r.game != null ? normalizeGame(r.game) : null;
   var tid = r.themeId;
   if (tid !== "terrafe" && tid !== "hub" && tid !== "floresta" && tid !== "sala") tid = "sala";
@@ -107,7 +115,11 @@ function readBfSession() {
     if (!o || typeof o !== "object") return null;
     var code = typeof o.code === "string" ? o.code.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4) : "";
     if (code.length !== 4 || !o.playerId) return null;
-    return { code: code, playerId: String(o.playerId), playerName: typeof o.playerName === "string" ? o.playerName : "" };
+    return {
+      code: code,
+      playerId: String(o.playerId),
+      playerName: clampDisplayName(typeof o.playerName === "string" ? o.playerName : ""),
+    };
   } catch {
     return null;
   }
@@ -117,7 +129,12 @@ function writeBfSession(s) {
     if (typeof localStorage === "undefined") return;
     localStorage.setItem(
       BF_SESSION_KEY,
-      JSON.stringify({ v: 1, code: s.code, playerId: s.playerId, playerName: s.playerName || "" })
+      JSON.stringify({
+        v: 1,
+        code: s.code,
+        playerId: s.playerId,
+        playerName: clampDisplayName(s.playerName || ""),
+      })
     );
   } catch {
     void 0;
@@ -131,6 +148,16 @@ function clearBfSession() {
     void 0;
   }
 }
+
+/** Limite no estilo de jogos competitivos (ex.: nome de invocador ~16 caracteres). */
+var DISPLAY_NAME_MAX = 16;
+function clampDisplayName(s) {
+  if (typeof s !== "string") return "";
+  var t = s.replace(/\s+/g, " ").trim();
+  if (t.length > DISPLAY_NAME_MAX) t = t.slice(0, DISPLAY_NAME_MAX);
+  return t;
+}
+
 function playerInRoom(r, playerId) {
   if (!r || !playerId || !Array.isArray(r.players)) return null;
   for (var i = 0; i < r.players.length; i++) {
@@ -261,14 +288,20 @@ var RT = {
   },
   setGame: async function (code, game) {
     if (!db) return false;
-    try {
-      var gref = gameDbRef(code);
-      if (!gref) return false;
-      await rtSet(gref, game);
-      return true;
-    } catch {
-      return false;
+    var gref = gameDbRef(code);
+    if (!gref) return false;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await rtSet(gref, game);
+        return true;
+      } catch {
+        if (attempt === 2) return false;
+        await new Promise(function (r) {
+          setTimeout(r, 280 * (attempt + 1));
+        });
+      }
     }
+    return false;
   },
   setChat: async function (code, msgs) {
     if (!db) return false;
@@ -467,10 +500,9 @@ function mayPlaySevenTrumpFourth(trickLen, hand, trump, card){
   return hand.some(function(h){ return h && h.v==='A' && h.s===trump; });
 }
 
-/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Se ainda tem o 7 na mão, tem de jogá-lo antes do Ás. */
+/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Nunca antes do 7 de corte — mesmo com uma só carta na mão. */
 function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card){
   if(!card || card.v!=='A' || card.s!==trump) return true;
-  if(!hand || hand.length<=1) return true;
   var s7 = trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
   if(trumpSevenOut || s7) return true;
   return false;
@@ -1583,7 +1615,8 @@ function HomeScreen(P){
   var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
 
   async function join(){
-    if(!nm.trim()){ setEr('Digite seu nome'); return; }
+    var nameOk = clampDisplayName(nm);
+    if(!nameOk){ setEr('Digite seu nome'); return; }
     if(cd.length!==4){ setEr('Código: 4 letras'); return; }
     if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
     setLd(true); setEr('');
@@ -1593,10 +1626,10 @@ function HomeScreen(P){
     var humanNJoin = r.players.filter(function(p){ return !p.isBot; }).length;
     if(humanNJoin>=4){ setLd(false); setEr('Sala cheia'); return; }
     var pid = uid();
-    r.players.push({id:pid,name:nm.trim(),seat:-1,team:null});
+    r.players.push({id:pid,name:nameOk,seat:-1,team:null});
     var ok = await RT.setRoom(cd.toUpperCase(), r);
     setLd(false);
-    if(ok) P.onJoin(pid,nm.trim(),cd.toUpperCase(),r); else setEr('Erro');
+    if(ok) P.onJoin(pid,nameOk,cd.toUpperCase(),r); else setEr('Erro');
   }
 
   var divider = function(t){
@@ -1616,17 +1649,32 @@ function HomeScreen(P){
       React.createElement('div',{style:{fontSize:12,letterSpacing:5,opacity:0.4,textTransform:'uppercase'}},'Jogo de Baralho \u00b7 Online')
     ),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
-      React.createElement('input',{value:nm,onChange:function(e){setNm(e.target.value);},placeholder:'Seu nome',style:Object.assign({},inp,{fontSize:17,padding:'14px 18px'})}),
+      React.createElement('input',{
+        value:nm,
+        maxLength:DISPLAY_NAME_MAX,
+        onChange:function(e){ setNm(clampDisplayName(e.target.value)); },
+        placeholder:'Seu nome',
+        autoComplete:'nickname',
+        style:Object.assign({},inp,{fontSize:17,padding:'14px 18px'})
+      }),
+      React.createElement('div',{style:{fontSize:11,opacity:0.45,textAlign:'center',marginTop:-6}},'Máximo '+DISPLAY_NAME_MAX+' caracteres'),
       er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
-      React.createElement('button',{onClick:function(){ if(!nm.trim()){setEr('Digite seu nome');return;} setEr(''); P.onSolo(nm.trim()); },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
+      React.createElement('button',{onClick:function(){
+        var sn = clampDisplayName(nm);
+        if(!sn){setEr('Digite seu nome');return;}
+        setEr('');
+        P.onSolo(sn);
+      },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
         homeIconRobot(),
         'Solo vs IA'
       ),
       divider('ou jogue com amigos'),
       React.createElement('button',{onClick:function(){
- if(!nm.trim()){ setEr('Digite seu nome'); return; }
+        var cn = clampDisplayName(nm);
+        if(!cn){ setEr('Digite seu nome'); return; }
         if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
-        setEr(''); P.onGoPickCreate(nm.trim());
+        setEr('');
+        P.onGoPickCreate(cn);
       },disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
         homeIconPeople(),
         'Criar Sala'
@@ -2455,7 +2503,7 @@ function GameScreen(props){
       if(!c) return null;
       if(!showCards) return React.createElement(React.Fragment,{key:c.id},rCard(null,null,true,false,false,false,mob,cbk));
       if(!isMe) return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,false,mob,cbk));
-      var ab = c.v==='A' && c.s===g.trump && hand.length>1 && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c);
+      var ab = c.v==='A' && c.s===g.trump && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c);
       var canClick = myTurn && !ab && (!partnerViewPause || partnerCount<=0);
       if (canClick) {
         var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
@@ -3076,7 +3124,7 @@ export default function App(){
         if(hid && gm && (gm.phase==='deal'||gm.phase==='end_trick'||gm.phase==='end_round'||gm.phase==='show_summary'||gm.phase==='cut') && gm.lastActor !== hid){
           gm = Object.assign({}, gm, { lastActor: hid });
         }
-        if(gm && gm.lastActor!==myIdRef.current) setOG(gm);
+        if(gm) setOG(gm);
       }
     });
     return function(){ unsub(); };
@@ -3110,10 +3158,7 @@ export default function App(){
 
   useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
-    setOG(function(prev){
-      if(prev!=null) return prev;
-      return normalizeGame(room.game);
-    });
+    setOG(normalizeGame(room.game));
   },[screen,room,room&&room.game]);
 
   function dismissResumeSession(){
@@ -3138,11 +3183,15 @@ export default function App(){
     }
     var me = playerInRoom(r, s.playerId);
     setMyId(me.id);
-    setMyName(me.name || s.playerName || "");
+    setMyName(clampDisplayName(me.name || s.playerName || "") || "Jogador");
     setRoomCode(s.code);
     setRoom(r);
     if(r.themeId) setLocId(r.themeId);
-    writeBfSession({ code: s.code, playerId: me.id, playerName: me.name || s.playerName || "" });
+    writeBfSession({
+      code: s.code,
+      playerId: me.id,
+      playerName: clampDisplayName(me.name || s.playerName || "") || "Jogador",
+    });
     setOG(null);
     setScreen(r.game ? "online" : "lobby");
     setResumeOffer(null);
