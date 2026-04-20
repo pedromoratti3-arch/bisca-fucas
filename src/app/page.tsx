@@ -892,7 +892,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder). */
   if(followOpts.length){
     if(followWinners.length){
-      pool = followWinners;
+      var loseFollow = followOpts.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
+      /* Parceiro já vai ganhar no naipe de abertura: não restringir ao Ás (ou outras que batem o 7 dele) — lixar trunfo mais baixo se houver. */
+      if(partnerWinning && loseFollow.length) pool = loseFollow;
+      else pool = followWinners;
     } else {
       var twCut = poolAll.filter(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
       function trickStillOurs(card){
@@ -933,12 +936,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     }
   }
 
-  // Réle: o jogador imediatamente a seguir ao 7 de trunfo na mesa deve pôr o Ás de trunfo se o tiver (pontos de réle).
+  // Réle: o Ás de trunfo a seguir ao 7 — mas se o 7 foi do parceiro e ele já ganha a vaza, não forçar o Ás (poupa o Ás para quando faça falta).
   if(trick.length>0){
     var lastTr = trick[trick.length-1];
     if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
-      var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
-      if(aceRele) return aceRele;
+      var skipReleAce = pTm(lastTr.player)===mt && partnerWinning;
+      if(!skipReleAce){
+        var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
+        if(aceRele) return aceRele;
+      }
     }
   }
 
