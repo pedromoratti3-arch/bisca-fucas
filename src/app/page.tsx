@@ -422,6 +422,170 @@ function getWin(tk,tr){
   return tk.reduce(function(b,c){ return beats(c.card,b.card,L,tr)?c:b; }, tk[0]);
 }
 
+/** Fecha a vaza (host). Extraído para o fluxo normal e para watchdog anti-travamento. */
+function bfResolveEndTrick(pv, roomHostId, isOnline) {
+  if (!pv || pv.phase !== "end_trick" || !Array.isArray(pv.trick) || pv.trick.length !== 4) return pv;
+  var trick = pv.trick;
+  var trump = pv.trump;
+  var w = getWin(trick, trump);
+  var wt = pTm(w.player);
+  var tp = trick.reduce(function (s, x) {
+    return s + cPts(x.card);
+  }, 0);
+  var tPn = pv.tPts.slice();
+  tPn[wt] += tp;
+  var events = pv.events.slice();
+  var sevenNow = trick.some(function (x) {
+    return x.card.v === "7" && x.card.s === trump;
+  });
+  var pNs = pv.playerNames || ["?", "?", "?", "?"];
+  for (var i = 0; i < trick.length - 1; i++) {
+    if (trick[i].card.s === trump && trick[i].card.v === "7" && trick[i + 1].card.s === trump && trick[i + 1].card.v === "A")
+      events.push({
+        tm: pTm(trick[i + 1].player),
+        lbl: "Rele! " + pNs[trick[i + 1].player] + " jogou As apos o 7",
+      });
+  }
+  var stDeal = parseSeat(pv.starter);
+  if (isNaN(stDeal)) stDeal = 2;
+  if (pv.trickN === 0 && trick[0].player === stDeal && trick[0].card.s === trump && trick[0].card.v === "7") {
+    var ot = 1 - pTm(trick[0].player);
+    if (!trick.some(function (x) {
+      return x.card.s === trump && x.card.v === "A" && pTm(x.player) === ot;
+    }))
+      events.push({ tm: pTm(trick[0].player), lbl: "7 de abertura (" + pNs[trick[0].player] + ")" });
+  }
+  var deck = pv.deck.filter(function (c) {
+    return !!c;
+  });
+  var hands = pv.hands.map(function (h) {
+    return h.slice();
+  });
+  var wi = TORD.indexOf(w.player);
+  for (var j = 0; j < 4; j++) {
+    var pl = TORD[(wi + j) % 4];
+    if (deck.length > 0) hands[pl].push(deck.shift());
+  }
+  var tN = pv.trickN + 1;
+  var over = hands.every(function (h) {
+    return h.length === 0;
+  });
+  var cs = false;
+  if (!over && pv.trickN <= 1 && pv.tc && pv.tc.v !== "2" && deck.some(function (c) {
+    return c && c.id === pv.tc.id;
+  })) {
+    for (var si = 0; si < 4; si++) {
+      if (hands[si].some(function (c) {
+        return c.s === trump && c.v === "2";
+      })) {
+        cs = si;
+        break;
+      }
+    }
+  }
+  var laEt = isOnline && roomHostId ? roomHostId : pv.lastActor;
+  return Object.assign({}, pv, {
+    trick: [],
+    tPts: tPn,
+    events: events,
+    hands: hands,
+    deck: deck,
+    trickN: tN,
+    trumpSevenOut: pv.trumpSevenOut || sevenNow,
+    curP: over ? -1 : w.player,
+    phase: over ? "end_round" : "playing",
+    lastW: w.player,
+    canSwap: cs,
+    aceReveal: null,
+    msg: pNs[w.player] + " venceu a mao! (+" + tp + " pts)",
+    lastActor: laEt || pv.lastActor,
+  });
+}
+
+/** Resumo da ronda na mesa (host). */
+function bfResolveEndRound(pv, roomHostId, isOnline) {
+  if (!pv || pv.phase !== "end_round") return pv;
+  var mPts = pv.mPts.slice();
+  var setWins = (pv.setWins || [0, 0]).slice();
+  var sum = [];
+  var win = pv.tPts[0] > pv.tPts[1] ? 0 : pv.tPts[1] > pv.tPts[0] ? 1 : -1;
+  var newTB = 0;
+  if (win >= 0) {
+    var l = 1 - win;
+    var basePts = pv.batido && pv.trump === "copas" ? 2 : 1;
+    var ponta61 = pv.tPts[win] === 61 && pv.tPts[l] === 59;
+    var pontaPts = ponta61 ? 1 : 0;
+    var totalPts = basePts + pv.tieBonus + pontaPts;
+    mPts[win] += totalPts;
+    sum.push("Dupla " + (win === 0 ? "A" : "B") + " venceu na mesa (" + pv.tPts[win] + " a " + pv.tPts[l] + " pts).");
+    var bits = [];
+    if (pv.batido && pv.trump === "copas") bits.push("Copas batido");
+    else bits.push("corte normal");
+    if (pv.tieBonus > 0) bits.push("+" + pv.tieBonus + " pt bónus 60–60");
+    if (ponta61) bits.push("ponta 61–59");
+    sum.push("Soma: +" + totalPts + " pt (" + bits.join(" · ") + ").");
+    if (pv.tPts[l] < 30) {
+      mPts[win]++;
+      sum.push("Capote! +1 extra");
+    }
+  } else {
+    newTB = pv.tieBonus + 1;
+    sum.push("Empate 60 a 60 na mesa — ninguém marca ponto nesta partida.");
+    sum.push(
+      "Na próxima partida, quem ganhar na mesa por pontos soma +1 pt extra por cada um destes empates 60-60 (acumulado neste momento: +" +
+        newTB +
+        " pt na próxima vitória por pontos)."
+    );
+    sum.push(
+      "Exemplos: corte normal → 1 + " +
+        newTB +
+        " = " +
+        (1 + newTB) +
+        " pts na partida; Copas batido → 2 + " +
+        newTB +
+        " = " +
+        (2 + newTB) +
+        " pts na partida."
+    );
+  }
+  pv.events.forEach(function (e) {
+    mPts[e.tm]++;
+    sum.push(e.lbl + " +1 dupla " + (e.tm === 0 ? "A" : "B"));
+  });
+  var m0 = mPts[0];
+  var m1 = mPts[1];
+  var bothAtOrPast4 = m0 >= 4 && m1 >= 4;
+  var go;
+  if (bothAtOrPast4) {
+    go = win >= 0 && m0 !== m1;
+    if (!go && win >= 0 && m0 === m1) sum.push("Partida empatada (" + m0 + "-" + m1 + "). Continua até desempatar na mesa.");
+  } else {
+    go = m0 >= 4 || m1 >= 4;
+  }
+  var summaryFinalMPts = null;
+  if (go) {
+    var matchWinner = m0 > m1 ? 0 : 1;
+    setWins[matchWinner] += 1;
+    sum.push("Dupla " + (matchWinner === 0 ? "A" : "B") + " fechou a partida de 4 pontos!");
+    summaryFinalMPts = mPts.slice();
+    mPts = [0, 0];
+    newTB = 0;
+  }
+  var stKeep = parseSeat(pv.starter);
+  if (isNaN(stKeep)) stKeep = 2;
+  var laEr = isOnline && roomHostId ? roomHostId : pv.lastActor;
+  return Object.assign({}, pv, {
+    mPts: mPts,
+    tieBonus: newTB,
+    setWins: setWins,
+    phase: "show_summary",
+    summary: sum,
+    starter: stKeep,
+    summaryFinalMPts: summaryFinalMPts,
+    lastActor: laEr || pv.lastActor,
+  });
+}
+
 /**
  * Índice de rotação do maço antes de revelar a 13.ª carta (trunfo).
  * O UI humano usa só duas faixas: metade de baixo (8–12) e metade de cima (16–20).
@@ -893,6 +1057,43 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   return lowestPreferNoBisca(pool) || lowest(pool);
 }
 
+/** Jogada do bot na mesa (host online ou solo). Usado pelo timer normal e pelo watchdog. */
+function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
+  if (!pv || pv.phase !== "playing" || pv.curP !== seat) return pv;
+  var isLT = pv.deck.length === 0 && pv.hands.every(function (h) {
+    return h.length <= 1;
+  });
+  var avL = isLT && pv.trick.length === 3;
+  var card = aiPick(pv.hands[seat], pv.trick, pv.trump, pTm(seat), pv.trumpSevenOut, avL, aiMemory, pv.tPts, pv.trickN, seat);
+  if (!card) return pv;
+  recordPlay(aiMemory, seat, card, pv.trick, pv.trump);
+  var hands = pv.hands.map(function (h) {
+    return h.filter(function (c) {
+      return c && c.id !== card.id;
+    });
+  });
+  var trick = pv.trick.concat([{ player: seat, card: card }]);
+  var done = trick.length === 4;
+  var revealAceTrump =
+    pv.trick.length === 3 && card.v === "7" && card.s === pv.trump && pv.hands[seat].some(function (c) {
+      return c && c.v === "A" && c.s === pv.trump;
+    });
+  var aceCardBot = revealAceTrump
+    ? pv.hands[seat].find(function (c) {
+        return c && c.v === "A" && c.s === pv.trump;
+      })
+    : null;
+  var pNs = playerNames || ["?", "?", "?", "?"];
+  var msg = pNs[seat] + " jogou " + card.v + SYM[card.s];
+  var upd = { hands: hands, trick: trick, curP: done ? -1 : nxt(seat), phase: done ? "end_trick" : "playing", msg: msg };
+  if (revealAceTrump && aceCardBot)
+    Object.assign(upd, {
+      aceReveal: { seat: seat, t: Date.now(), ace: { v: aceCardBot.v, s: aceCardBot.s, id: aceCardBot.id } },
+    });
+  if (forOnlineHost) Object.assign(upd, { lastActor: myPid });
+  return Object.assign({}, pv, upd);
+}
+
 /* ═══ GAME STATE ═══ */
 /** Nova rodada: repasse o starter da rodada que acabou; o próximo quem começa é nxt(disso). Quem embaralha = prv(starter), corta = prv(prv(starter)). */
 function mkGame(pm,ps,tb,names,actor,sw){
@@ -911,6 +1112,102 @@ function mkGame(pm,ps,tb,names,actor,sw){
     aceReveal: null,
     summaryFinalMPts: null
   };
+}
+
+/** Um passo da distribuição (deal). Usado pelo timer normal e pelo watchdog anti-travamento. */
+function advanceDealOneStep(prev) {
+  if (!prev || prev.phase !== "deal") return prev;
+  if (prev.batido) {
+    if (prev.dealStep >= 4) return prev;
+    var sb = prev.dealStep;
+    var pIdx = TORD[(TORD.indexOf(prev.starter) + sb) % 4];
+    var handsB = prev.hands.map(function (h) {
+      return h.slice();
+    });
+    var b0 = sb * 3;
+    if (!prev.fd[b0] || !prev.fd[b0 + 1] || !prev.fd[b0 + 2]) return prev;
+    handsB[pIdx].push(prev.fd[b0]);
+    handsB[pIdx].push(prev.fd[b0 + 1]);
+    handsB[pIdx].push(prev.fd[b0 + 2]);
+    return Object.assign({}, prev, { hands: handsB, dealStep: sb + 1 });
+  }
+  if (prev.dealStep >= 12) return prev;
+  var s = prev.dealStep;
+  var c = prev.fd[s];
+  if (!c) return prev;
+  var pl = TORD[(TORD.indexOf(prev.starter) + s) % 4];
+  var handsN = prev.hands.map(function (h) {
+    return h.slice();
+  });
+  handsN[pl].push(c);
+  return Object.assign({}, prev, { hands: handsN, dealStep: s + 1 });
+}
+
+/** Ordem de fases para o host nunca aceitar um snapshot “mais atrás” por causa de RTDB atrasado. */
+var BF_PHASE_RANK = {
+  shuffle: 0,
+  cut: 1,
+  deal: 2,
+  playing: 3,
+  end_trick: 4,
+  end_round: 5,
+  show_summary: 6,
+  end_game: 7,
+};
+function phaseRankBF(ph) {
+  var r = BF_PHASE_RANK[ph];
+  return typeof r === "number" ? r : -1;
+}
+
+function sumHandCards(g) {
+  if (!g || !Array.isArray(g.hands)) return 0;
+  return g.hands.reduce(function (s, h) {
+    return s + (Array.isArray(h) ? h.length : 0);
+  }, 0);
+}
+
+/**
+ * Multijogador: o host aplica jogadas/bots localmente e grava no RTDB; snapshots fora de ordem
+ * podem repor trick menor, dealStep menor ou fase anterior — cancela timers e trava a mesa.
+ * Só o host faz merge conservador; outros clientes seguem sempre o servidor.
+ */
+function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
+  if (!incoming) return prev;
+  if (!hostId || myPlayerId !== hostId || !prev) return incoming;
+
+  var pr = phaseRankBF(prev.phase);
+  var ir = phaseRankBF(incoming.phase);
+  if (ir < pr) return prev;
+  if (ir > pr) return incoming;
+
+  if (incoming.phase === "deal") {
+    var pd = typeof prev.dealStep === "number" ? prev.dealStep : 0;
+    var id = typeof incoming.dealStep === "number" ? incoming.dealStep : 0;
+    return pd > id ? prev : incoming;
+  }
+
+  if (incoming.phase === "playing") {
+    var ptn = typeof prev.trickN === "number" ? prev.trickN : 0;
+    var itn = typeof incoming.trickN === "number" ? incoming.trickN : 0;
+    if (ptn !== itn) return ptn > itn ? prev : incoming;
+    var pl = Array.isArray(prev.trick) ? prev.trick.length : 0;
+    var il = Array.isArray(incoming.trick) ? incoming.trick.length : 0;
+    if (pl !== il) return pl > il ? prev : incoming;
+    var ph = sumHandCards(prev);
+    var ih = sumHandCards(incoming);
+    if (ph !== ih) return ph < ih ? prev : incoming;
+    /* Mesma “forma” da mão: snapshot duplicado ou atrasado com curP errado — mantém o estado local do host. */
+    return prev;
+  }
+
+  if (incoming.phase === "end_trick") {
+    var pl2 = Array.isArray(prev.trick) ? prev.trick.length : 0;
+    var il2 = Array.isArray(incoming.trick) ? incoming.trick.length : 0;
+    if (pl2 !== il2) return pl2 > il2 ? prev : incoming;
+    return incoming;
+  }
+
+  return incoming;
 }
 
 /* ═══ CSS ═══ */
@@ -2089,15 +2386,7 @@ function GameScreen(props){
       }
       var t2=setTimeout(function(){
         sg(function(prev){
-          if(prev.phase!=='deal') return prev;
-          var s=prev.dealStep;
-          var playerIdx=TORD[(TORD.indexOf(prev.starter)+s)%4];
-          var hands=prev.hands.map(function(h){return h.slice();});
-          // Deal 3 cards at once to this player
-          hands[playerIdx].push(prev.fd[s*3]);
-          hands[playerIdx].push(prev.fd[s*3+1]);
-          hands[playerIdx].push(prev.fd[s*3+2]);
-          return Object.assign({},prev,{hands:hands,dealStep:s+1});
+          return advanceDealOneStep(prev);
         });
       },500);
       return function(){clearTimeout(t2);};
@@ -2120,16 +2409,26 @@ function GameScreen(props){
     }
     var t2 = setTimeout(function(){
       sg(function(prev){
-        if(prev.phase!=='deal') return prev;
-        var s=prev.dealStep, c=prev.fd[s];
-        var p=TORD[(TORD.indexOf(prev.starter)+s)%4];
-        var hands=prev.hands.map(function(h){ return h.slice(); });
-        hands[p].push(c);
-        return Object.assign({},prev,{hands:hands,dealStep:s+1});
+        return advanceDealOneStep(prev);
       });
     },340);
     return function(){ clearTimeout(t2); };
   },[g.phase,g.dealStep,isOnline,isRoomHost,myPid,roomHostId]);
+
+  // Host: se a distribuição parar (tab em segundo plano, perda de rede, race no RTDB), força um passo após timeout.
+  useEffect(function(){
+    if(!isOnline || !isRoomHost || g.phase!=='deal') return;
+    var w = setTimeout(function(){
+      sg(function(prev){
+        if(prev.phase!=='deal') return prev;
+        var next = advanceDealOneStep(prev);
+        if(next===prev) return prev;
+        if(roomHostId) next = Object.assign({}, next, { lastActor: roomHostId });
+        return next;
+      });
+    },3600);
+    return function(){ clearTimeout(w); };
+  },[g.phase,g.dealStep,isOnline,isRoomHost,roomHostId]);
 
   // Partner reveal — timer só em estado local (setPT/setOPT); o jogo em RT não inclui isto (evita “vazar” pausa entre clientes como dado partilhado).
   useEffect(function(){
@@ -2307,26 +2606,27 @@ function GameScreen(props){
     if(!hostPlaysBot && !soloAi) return;
     var t = setTimeout(function(){
       sg(function(pv){
-        if(pv.phase!=='playing' || pv.curP!==p) return pv;
-        var isLT = pv.deck.length===0 && pv.hands.every(function(h){ return h.length<=1; });
-        var avL = isLT && pv.trick.length===3;
-        var card = aiPick(pv.hands[p],pv.trick,pv.trump,pTm(p),pv.trumpSevenOut,avL,aiMemory,pv.tPts,pv.trickN,p);
-        if(!card) return pv;
-        recordPlay(aiMemory, p, card, pv.trick, pv.trump);
-        var hands=pv.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
-        var trick=pv.trick.concat([{player:p,card:card}]);
-        var done=trick.length===4;
-        var revealAceTrump = pv.trick.length===3 && card.v==='7' && card.s===pv.trump && pv.hands[p].some(function(c){ return c && c.v==='A' && c.s===pv.trump; });
-        var aceCardBot = revealAceTrump ? pv.hands[p].find(function(c){ return c && c.v==='A' && c.s===pv.trump; }) : null;
-        var msg = NAMES[p]+' jogou '+card.v+SYM[card.s];
-        var upd = {hands:hands,trick:trick,curP:done?-1:nxt(p),phase:done?'end_trick':'playing',msg:msg};
-        if(revealAceTrump && aceCardBot) Object.assign(upd,{aceReveal:{seat:p,t:Date.now(),ace:{v:aceCardBot.v,s:aceCardBot.s,id:aceCardBot.id}}});
-        if(hostPlaysBot) Object.assign(upd,{lastActor:myPid});
-        return Object.assign({},pv,upd);
+        return bfApplyBotSeatPlay(pv, p, myPid, NAMES, hostPlaysBot);
       });
     },BOT_PLAY_DELAY_MS);
     return function(){ clearTimeout(t); };
   },[g.curP,g.phase,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid]);
+
+  // Host: IA não jogou (timer perdido / race) — tenta de novo após margem extra.
+  useEffect(function(){
+    if(g.phase!=='playing') return;
+    if(partnerViewPause && partnerCount>0) return;
+    if(!isOnline || !isRoomHost) return;
+    var p=g.curP;
+    if(p<0||p>3) return;
+    if(!botSeats[p]) return;
+    var w = setTimeout(function(){
+      sg(function(pv){
+        return bfApplyBotSeatPlay(pv, p, myPid, NAMES, true);
+      });
+    },BOT_PLAY_DELAY_MS+4000);
+    return function(){ clearTimeout(w); };
+  },[g.curP,g.phase,g.trickN,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid]);
 
   // Segurança: limpa aceReveal se ficou preso (o fluxo normal limpa ao fechar a mão). Online: só o host — o jogador do 7 pode desligar.
   useEffect(function(){
@@ -2349,41 +2649,24 @@ function GameScreen(props){
     var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 4300 : 0);
     var t = setTimeout(function(){
       sg(function(pv){
-        if(pv.phase!=='end_trick') return pv;
-        var trick=pv.trick, trump=pv.trump;
-        var w=getWin(trick,trump), wt=pTm(w.player);
-        var tp=trick.reduce(function(s,x){ return s+cPts(x.card); },0);
-        var tPn=pv.tPts.slice(); tPn[wt]+=tp;
-        var events=pv.events.slice();
-        var sevenNow=trick.some(function(x){ return x.card.v==='7' && x.card.s===trump; });
-        for(var i=0;i<trick.length-1;i++){
-          if(trick[i].card.s===trump && trick[i].card.v==='7' && trick[i+1].card.s===trump && trick[i+1].card.v==='A')
-            events.push({tm:pTm(trick[i+1].player),lbl:'Rele! '+pv.playerNames[trick[i+1].player]+' jogou As apos o 7'});
-        }
-        /* 7 de abertura: em cada nova distribuição, só na 1.ª rodada, aberto pelo starter; anula se a dupla adversária jogar Ás de corte nesta rodada. Não vale na 1.ª carta da última mão (trickN>0). */
-        var stDeal = parseSeat(pv.starter);
-        if(isNaN(stDeal)) stDeal = 2;
-        if(pv.trickN===0 && trick[0].player===stDeal && trick[0].card.s===trump && trick[0].card.v==='7'){
-          var ot=1-pTm(trick[0].player);
-          if(!trick.some(function(x){ return x.card.s===trump && x.card.v==='A' && pTm(x.player)===ot; }))
-            events.push({tm:pTm(trick[0].player),lbl:'7 de abertura ('+pv.playerNames[trick[0].player]+')'});
-        }
-        var deck=pv.deck.filter(function(c){ return !!c; });
-        var hands=pv.hands.map(function(h){ return h.slice(); });
-        var wi=TORD.indexOf(w.player);
-        for(var j=0;j<4;j++){ var pl=TORD[(wi+j)%4]; if(deck.length>0) hands[pl].push(deck.shift()); }
-        var tN=pv.trickN+1, over=hands.every(function(h){ return h.length===0; });
-        var cs = false;
-        /* Corte alto: só até ao fim da 3.ª mão (trickN 0,1,2). Ao concluir a 3.ª mão pv.trickN===2 → já não oferece. */
-        if(!over && pv.trickN<=1 && pv.tc && pv.tc.v!=='2' && deck.some(function(c){ return c && c.id===pv.tc.id; })){
-          for(var si=0;si<4;si++){ if(hands[si].some(function(c){ return c.s===trump && c.v==='2'; })){ cs=si; break; } }
-        }
-        var laEt = isOnline && roomHostId ? roomHostId : pv.lastActor;
-        return Object.assign({},pv,{trick:[],tPts:tPn,events:events,hands:hands,deck:deck,trickN:tN,trumpSevenOut:pv.trumpSevenOut||sevenNow,curP:over?-1:w.player,phase:over?'end_round':'playing',lastW:w.player,canSwap:cs,aceReveal:null,msg:pv.playerNames[w.player]+' venceu a mao! (+'+tp+' pts)',lastActor:laEt||pv.lastActor});
+        return bfResolveEndTrick(pv, roomHostId, isOnline);
       });
     }, endTrickDelay);
     return function(){ clearTimeout(t); };
-  },[g.phase,g.aceReveal,isSolo,isOnline,isRoomHost,roomHostId]);
+  },[g.phase,g.aceReveal,g.trickN,isSolo,isOnline,isRoomHost,roomHostId]);
+
+  // Host: se end_trick ficar preso (timer cancelado / throttling), força fecho da vaza.
+  useEffect(function(){
+    if(g.phase!=='end_trick') return;
+    if(isOnline && !isRoomHost) return;
+    var endTrickDelay = (isSolo ? 1500 : 1250) + (g.aceReveal ? 4300 : 0);
+    var w = setTimeout(function(){
+      sg(function(pv){
+        return bfResolveEndTrick(pv, roomHostId, isOnline);
+      });
+    }, endTrickDelay + 4500);
+    return function(){ clearTimeout(w); };
+  },[g.phase,g.aceReveal,g.trickN,isSolo,isOnline,isRoomHost,roomHostId]);
 
   // End round — online: só o host (mesmo motivo que end_trick).
   useEffect(function(){
@@ -2391,57 +2674,21 @@ function GameScreen(props){
     if(isOnline && !isRoomHost) return;
     var t = setTimeout(function(){
       sg(function(pv){
-        if(pv.phase!=='end_round') return pv;
-        var mPts=pv.mPts.slice(), setWins=(pv.setWins||[0,0]).slice(), sum=[];
-        var win=pv.tPts[0]>pv.tPts[1]?0:pv.tPts[1]>pv.tPts[0]?1:-1, newTB=0;
-        if(win>=0){
-          var l=1-win, basePts=(pv.batido&&pv.trump==='copas')?2:1;
-          /* 61 a 59 na mesa: +1 na partida (como um rele), por cima dos pontos da vitória por ponto / batido. */
-          var ponta61 = pv.tPts[win]===61 && pv.tPts[l]===59;
-          var pontaPts = ponta61 ? 1 : 0;
-          var totalPts=basePts+pv.tieBonus+pontaPts;
-          mPts[win]+=totalPts;
-          sum.push('Dupla '+(win===0?'A':'B')+' venceu na mesa ('+pv.tPts[win]+' a '+pv.tPts[l]+' pts).');
-          var bits = [];
-          if(pv.batido&&pv.trump==='copas') bits.push('Copas batido');
-          else bits.push('corte normal');
-          if(pv.tieBonus>0) bits.push('+'+pv.tieBonus+' pt bónus 60–60');
-          if(ponta61) bits.push('ponta 61–59');
-          sum.push('Soma: +' + totalPts + ' pt (' + bits.join(' · ') + ').');
-          if(pv.tPts[l]<30){ mPts[win]++; sum.push('Capote! +1 extra'); }
-        } else {
-          newTB=pv.tieBonus+1;
-          sum.push('Empate 60 a 60 na mesa — ninguém marca ponto nesta partida.');
-          sum.push('Na próxima partida, quem ganhar na mesa por pontos soma +1 pt extra por cada um destes empates 60-60 (acumulado neste momento: +' + newTB + ' pt na próxima vitória por pontos).');
-          sum.push('Exemplos: corte normal → 1 + ' + newTB + ' = ' + (1 + newTB) + ' pts na partida; Copas batido → 2 + ' + newTB + ' = ' + (2 + newTB) + ' pts na partida.');
-        }
-        pv.events.forEach(function(e){ mPts[e.tm]++; sum.push(e.lbl+' +1 dupla '+(e.tm===0?'A':'B')); });
-        var m0 = mPts[0], m1 = mPts[1];
-        var bothAtOrPast4 = m0 >= 4 && m1 >= 4;
-        var go;
-        if (bothAtOrPast4) {
-          /* 4-4, 5-5, etc.: só fecha a partida quando há vencedor na mesa (não 60x60) e os pontos da partida ficam desiguais — “quem ganhar a próxima na mesa”. */
-          go = win >= 0 && m0 !== m1;
-          if (!go && win >= 0 && m0 === m1) sum.push('Partida empatada (' + m0 + '-' + m1 + '). Continua até desempatar na mesa.');
-        } else {
-          go = m0 >= 4 || m1 >= 4;
-        }
-        var summaryFinalMPts = null;
-        if (go) {
-          var matchWinner = m0 > m1 ? 0 : 1;
-          setWins[matchWinner] += 1;
-          sum.push('Dupla '+(matchWinner===0?'A':'B')+' fechou a partida de 4 pontos!');
-          summaryFinalMPts = mPts.slice();
-          mPts = [0,0];
-          newTB = 0;
-        }
-        var stKeep = parseSeat(pv.starter);
-        if(isNaN(stKeep)) stKeep = 2;
-        var laEr = isOnline && roomHostId ? roomHostId : pv.lastActor;
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep,summaryFinalMPts:summaryFinalMPts,lastActor:laEr||pv.lastActor});
+        return bfResolveEndRound(pv, roomHostId, isOnline);
       });
     },2000);
     return function(){ clearTimeout(t); };
+  },[g.phase,isOnline,isRoomHost,roomHostId]);
+
+  useEffect(function(){
+    if(g.phase!=='end_round') return;
+    if(isOnline && !isRoomHost) return;
+    var w = setTimeout(function(){
+      sg(function(pv){
+        return bfResolveEndRound(pv, roomHostId, isOnline);
+      });
+    },6500);
+    return function(){ clearTimeout(w); };
   },[g.phase,isOnline,isRoomHost,roomHostId]);
 
   function swap(){
@@ -2906,7 +3153,8 @@ function GameScreen(props){
       React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
         'Trunfo: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
-        ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+g.deck.length,
+        ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+
+        (g.phase==='deal'?(g.batido?Math.max(0,28-g.dealStep*3):Math.max(0,28-g.dealStep)):g.deck.length),
         g.trump && !g.trumpSevenOut && !g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; })
           ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' nao saiu')
           : null
@@ -3148,10 +3396,15 @@ export default function App(){
         var gm = normalizeGame(r.game);
         var hid = r.hostId || '';
         /* Host mudou (ou RT desatualizado): fases em que lastActor deve ser o host para não travar setGame / timers. */
-        if(hid && gm && (gm.phase==='deal'||gm.phase==='end_trick'||gm.phase==='end_round'||gm.phase==='show_summary'||gm.phase==='cut') && gm.lastActor !== hid){
+        if(hid && gm && (gm.phase==='shuffle'||gm.phase==='deal'||gm.phase==='end_trick'||gm.phase==='end_round'||gm.phase==='show_summary'||gm.phase==='cut') && gm.lastActor !== hid){
           gm = Object.assign({}, gm, { lastActor: hid });
         }
-        if(gm) setOG(gm);
+        if(gm){
+          var midSub = myIdRef.current;
+          setOG(function(prev){
+            return mergeOnlineGameState(prev, gm, hid, midSub);
+          });
+        }
       }
     });
     return function(){ unsub(); };
@@ -3185,8 +3438,16 @@ export default function App(){
 
   useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
-    setOG(normalizeGame(room.game));
-  },[screen,room,room&&room.game]);
+    var hidR = room.hostId || "";
+    var ngRaw = normalizeGame(room.game);
+    if(!ngRaw) return;
+    if(hidR && (ngRaw.phase==='shuffle'||ngRaw.phase==='deal'||ngRaw.phase==='end_trick'||ngRaw.phase==='end_round'||ngRaw.phase==='show_summary'||ngRaw.phase==='cut') && ngRaw.lastActor !== hidR){
+      ngRaw = Object.assign({}, ngRaw, { lastActor: hidR });
+    }
+    setOG(function(prev){
+      return mergeOnlineGameState(prev, ngRaw, hidR, myId);
+    });
+  },[screen,room,room&&room.game,myId,room&&room.hostId]);
 
   function dismissResumeSession(){
     clearBfSession();
