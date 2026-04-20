@@ -1806,7 +1806,20 @@ function rSlot(a,mob){
   return React.createElement('div',{style:{width:w,height:h,border:'1px dashed rgba(255,255,255,'+(a?'.45':'.1')+')',borderRadius:4,background:a?'rgba(255,255,255,.06)':'transparent',flexShrink:0}});
 }
 
-/** Ás de trunfo revelado: costas → face (3D), visível para todos. */
+/** Onde desenhar o flip do Ás: junto à área de mão do jogador que jogou o 7 (evita parecer “colado” à mão de quem vê de baixo). */
+function aceRevealFlipAnchorStyle(seat, mySeat, mob){
+  var dS = mySeat, dE = nxt(mySeat), dN = nxt(nxt(mySeat)), dW = nxt(nxt(nxt(mySeat)));
+  var side = mob ? 8 : 20;
+  var bottomPad = mob ? 'calc(118px + env(safe-area-inset-bottom, 0px))' : '124px';
+  var topPad = mob ? '128px' : '148px';
+  if(seat === dS) return { left: '50%', right: 'auto', top: 'auto', bottom: bottomPad, transform: 'translateX(-50%)' };
+  if(seat === dN) return { left: '50%', right: 'auto', bottom: 'auto', top: topPad, transform: 'translateX(-50%)' };
+  if(seat === dW) return { left: side, right: 'auto', top: '38%', bottom: 'auto', transform: 'translateY(-50%)' };
+  if(seat === dE) return { right: side, left: 'auto', top: '38%', bottom: 'auto', transform: 'translateY(-50%)' };
+  return { left: '50%', top: '36%', transform: 'translate(-50%, -50%)' };
+}
+
+/** Ás de trunfo revelado: costas → face (3D), como uma carta da mão a virar. */
 function aceRevealFlipVisual(ace, mob, cbk){
   if(!ace || !ace.v || !ace.s) return null;
   var face = rCard(ace, null, false, false, false, false, mob, cbk);
@@ -3229,7 +3242,7 @@ function GameScreen(props){
               SYM[g.trump] +
               ' (' +
               (g.trump || '') +
-              ') que tinha na mão. A carta fica à vista de todos.'
+              ') que tinha na mão.'
           )
         )
       : null;
@@ -3238,16 +3251,18 @@ function GameScreen(props){
       ? React.createElement(
           'div',
           {
-            style: {
-              position: 'fixed',
-              inset: 0,
-              zIndex: 125,
-              pointerEvents: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: mob ? 12 : 20,
-            },
+            style: Object.assign(
+              {
+                position: 'fixed',
+                zIndex: 125,
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: mob ? 4 : 6,
+              },
+              aceRevealFlipAnchorStyle(ar.seat, mySeat, mob)
+            ),
           },
           aceRevealFlipVisual(ar.ace, mob, cbk)
         )
