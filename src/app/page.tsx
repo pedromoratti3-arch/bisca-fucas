@@ -860,51 +860,13 @@ function mkGame(pm,ps,tb,names,actor,sw){
     hands:[[],[],[],[]], trick:[], curP:st, tPts:[0,0], mPts:m.slice(),
     trickN:0, canSwap:false, batido:false, trumpSevenOut:false, tieBonus:tb||0,
     setWins:Array.isArray(sw)?sw.slice():[0,0],
-    events:[], summary:null, summaryPtsDetail:null, lastW:null, deck:[], dealStep:0, msg:'',
+    events:[], summary:null, lastW:null, deck:[], dealStep:0, msg:'',
     playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
     lastActor: actor || '',
     swapToast: null,
     aceReveal: null,
     summaryFinalMPts: null
   };
-}
-
-/** Bloco compacto no modal de fim de rodada: total + linhas de composição. */
-function summaryPtsDetailBox(d, mob){
-  var items = [];
-  items.push({ label: d.baseKind==='batido' ? 'Copas batido' : 'Vitória na mesa', val: '+'+d.basePts+' pt' });
-  if(d.tieBonus>0) items.push({ label: 'Bónus empates 60–60', val: '+'+d.tieBonus+' pt' });
-  if(d.ponta61) items.push({ label: 'Ponta 61–59', val: '+1 pt' });
-  var rows = items.map(function(it, ix){
-    var isLast = ix===items.length-1;
-    return React.createElement('div',{
-      key:ix,
-      style:{
-        display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:12,
-        fontSize:mob?12:13, padding:'7px 0',
-        borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,.07)'
-      }
-    },
-      React.createElement('span',{style:{color:'rgba(255,255,255,.72)'}}, it.label),
-      React.createElement('span',{style:{fontWeight:700, fontVariantNumeric:'tabular-nums', color:'rgba(255,255,255,.95)'}}, it.val));
-  });
-  return React.createElement('div',{
-    style:{
-      margin:'10px 0 14px',
-      padding:mob?'12px 14px':'14px 18px',
-      borderRadius:14,
-      background:'linear-gradient(165deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.035) 100%)',
-      border:'1px solid rgba(255,255,255,.11)',
-      boxShadow:'inset 0 1px 0 rgba(255,255,255,.07)'
-    }
-  },
-    React.createElement('div',{style:{fontSize:mob?10:11, fontWeight:600, letterSpacing:0.06, textTransform:'uppercase', color:'rgba(255,255,255,.42)', marginBottom:6}}, 'Pontos na partida'),
-    React.createElement('div',{style:{display:'flex', alignItems:'baseline', gap:8, marginBottom:4}},
-      React.createElement('span',{style:{fontSize:mob?26:30, fontWeight:800, fontVariantNumeric:'tabular-nums', color:'#fff', lineHeight:1}}, '+'+d.total),
-      React.createElement('span',{style:{fontSize:13, opacity:0.5, fontWeight:600}}, 'pt')
-    ),
-    React.createElement('div',{style:{display:'flex', flexDirection:'column'}}, rows)
-  );
 }
 
 /* ═══ CSS ═══ */
@@ -2321,7 +2283,6 @@ function GameScreen(props){
         if(pv.phase!=='end_round') return pv;
         var mPts=pv.mPts.slice(), setWins=(pv.setWins||[0,0]).slice(), sum=[];
         var win=pv.tPts[0]>pv.tPts[1]?0:pv.tPts[1]>pv.tPts[0]?1:-1, newTB=0;
-        var summaryPtsDetail = null;
         if(win>=0){
           var l=1-win, basePts=(pv.batido&&pv.trump==='copas')?2:1;
           /* 61 a 59 na mesa: +1 na partida (como um rele), por cima dos pontos da vitória por ponto / batido. */
@@ -2330,13 +2291,12 @@ function GameScreen(props){
           var totalPts=basePts+pv.tieBonus+pontaPts;
           mPts[win]+=totalPts;
           sum.push('Dupla '+(win===0?'A':'B')+' venceu na mesa ('+pv.tPts[win]+' a '+pv.tPts[l]+' pts).');
-          summaryPtsDetail = {
-            total: totalPts,
-            basePts: basePts,
-            baseKind: (pv.batido&&pv.trump==='copas') ? 'batido' : 'normal',
-            tieBonus: pv.tieBonus,
-            ponta61: ponta61
-          };
+          var bits = [];
+          if(pv.batido&&pv.trump==='copas') bits.push('Copas batido');
+          else bits.push('corte normal');
+          if(pv.tieBonus>0) bits.push('+'+pv.tieBonus+' pt bónus 60–60');
+          if(ponta61) bits.push('ponta 61–59');
+          sum.push('Soma: +' + totalPts + ' pt (' + bits.join(' · ') + ').');
           if(pv.tPts[l]<30){ mPts[win]++; sum.push('Capote! +1 extra'); }
         } else {
           newTB=pv.tieBonus+1;
@@ -2366,7 +2326,7 @@ function GameScreen(props){
         }
         var stKeep = parseSeat(pv.starter);
         if(isNaN(stKeep)) stKeep = 2;
-        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,summaryPtsDetail:summaryPtsDetail,starter:stKeep,summaryFinalMPts:summaryFinalMPts});
+        return Object.assign({},pv,{mPts:mPts,tieBonus:newTB,setWins:setWins,phase:'show_summary',summary:sum,starter:stKeep,summaryFinalMPts:summaryFinalMPts});
       });
     },2000);
     return function(){ clearTimeout(t); };
@@ -2872,18 +2832,19 @@ function GameScreen(props){
           React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},'Resultado da rodada')
         ),
         React.createElement('div',{style:{marginBottom:14}},
-          g.summary ? (function(){
-            var lineStyle = { padding:'8px 0', fontSize:13, borderBottom:'1px solid rgba(255,255,255,.1)', color:'rgba(255,255,255,.92)', lineHeight:1.45 };
-            var out = [];
-            var firstStyle = g.summaryPtsDetail ? Object.assign({}, lineStyle, { borderBottom:'none', paddingBottom:4 }) : lineStyle;
-            out.push(React.createElement('div',{key:0, style:firstStyle}, g.summary[0]));
-            if(g.summaryPtsDetail) out.push(React.createElement('div',{key:'pts'}, summaryPtsDetailBox(g.summaryPtsDetail, mob)));
-            for(var si=1; si<g.summary.length; si++){
-              var last = si===g.summary.length-1;
-              out.push(React.createElement('div',{key:si, style:last ? Object.assign({}, lineStyle, { borderBottom:'none' }) : lineStyle}, g.summary[si]));
-            }
-            return out;
-          })() : null
+          g.summary ? g.summary.map(function(s,i){
+            var last = i===g.summary.length-1;
+            return React.createElement('div',{
+              key:i,
+              style:{
+                padding:'6px 0',
+                fontSize:13,
+                borderBottom: last ? 'none' : '1px solid rgba(255,255,255,.1)',
+                color:'rgba(255,255,255,.9)',
+                lineHeight:1.45
+              }
+            }, s);
+          }) : null
         ),
         React.createElement('div',{style:{display:'flex',justifyContent:'center',alignItems:'center',gap:mob?14:20,margin:'16px 0',fontSize:mob?18:22,fontWeight:'bold',fontVariantNumeric:'tabular-nums'}},
           (function(){
