@@ -1649,15 +1649,35 @@ function HomeScreen(P){
       React.createElement('div',{style:{fontSize:12,letterSpacing:5,opacity:0.4,textTransform:'uppercase'}},'Jogo de Baralho \u00b7 Online')
     ),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
-      React.createElement('input',{
-        value:nm,
-        maxLength:DISPLAY_NAME_MAX,
-        onChange:function(e){ setNm(clampDisplayName(e.target.value)); },
-        placeholder:'Seu nome',
-        autoComplete:'nickname',
-        style:Object.assign({},inp,{fontSize:17,padding:'14px 18px'})
-      }),
-      React.createElement('div',{style:{fontSize:11,opacity:0.45,textAlign:'center',marginTop:-6}},'Máximo '+DISPLAY_NAME_MAX+' caracteres'),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:4}},
+        React.createElement('input',{
+          value:nm,
+          maxLength:DISPLAY_NAME_MAX,
+          onChange:function(e){ setNm(clampDisplayName(e.target.value)); },
+          placeholder:'Seu nome',
+          autoComplete:'nickname',
+          'aria-description':nm.length>=DISPLAY_NAME_MAX?'Limite de caracteres atingido':undefined,
+          style:Object.assign({},inp,{
+            fontSize:17,
+            padding:'14px 18px',
+            transition:'border-color .2s ease, box-shadow .2s ease',
+            borderColor:nm.length>=DISPLAY_NAME_MAX?'rgba(212,168,67,.42)':'rgba(255,255,255,.15)',
+            boxShadow:nm.length>=DISPLAY_NAME_MAX?'0 0 0 1px rgba(212,168,67,.12)':'none'
+          })
+        }),
+        nm.length>=DISPLAY_NAME_MAX
+          ? React.createElement('div',{
+              role:'status',
+              style:{
+                fontSize:11,
+                lineHeight:1.3,
+                textAlign:'center',
+                color:'rgba(212,168,67,.55)',
+                letterSpacing:0.02
+              }
+            },'Limite atingido')
+          : null
+      ),
       er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
       React.createElement('button',{onClick:function(){
         var sn = clampDisplayName(nm);
