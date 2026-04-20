@@ -891,6 +891,20 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var followSuit = pool.filter(function(c){ return c.s===lead; });
   var anyBiscaTableGlobal = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
 
+  /* Evita “queimar” corte à toa: se o adversário já vai ganhando com trunfo e eu não consigo passar por cima,
+     descarto fora de trunfo sempre que possível. */
+  if(curWin.card.s===trump && pTm(curWin.player)!==mt){
+    var canOverTrump = pool.some(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
+    if(!canOverTrump){
+      var dumpNt0 = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)===0; });
+      if(dumpNt0.length) return lowest(dumpNt0);
+      var dumpNtSafe = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump); });
+      if(dumpNtSafe.length) return lowest(dumpNtSafe);
+      var dumpNtAny = pool.filter(function(c){ return c.s!==trump; });
+      if(dumpNtAny.length) return lowestPreferNoBisca(dumpNtAny) || lowest(dumpNtAny);
+    }
+  }
+
   // RELE: o jogador imediatamente a seguir ao 7 de trunfo na mesa deve pôr o Ás de trunfo se o tiver (pontos de rele).
   if(trick.length>0){
     var lastTr = trick[trick.length-1];
