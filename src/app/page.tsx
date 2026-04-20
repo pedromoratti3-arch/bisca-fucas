@@ -718,6 +718,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
+     Rele: logo após o 7 de trunfo na mesa, o próximo com o Ás de trunfo deve jogá-lo.
+     Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
+     Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
      Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
      Seguir: com a dupla a perder a vaza, nunca jogar bísca se houver lixo/outra carta — não se dá 10/11 à toa. */
   if(!hand.length) return null;
@@ -876,6 +879,16 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
   }
   var followSuit = pool.filter(function(c){ return c.s===lead; });
+  var anyBiscaTableGlobal = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
+
+  // RELE: o jogador imediatamente a seguir ao 7 de trunfo na mesa deve pôr o Ás de trunfo se o tiver (pontos de rele).
+  if(trick.length>0){
+    var lastTr = trick[trick.length-1];
+    if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
+      var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
+      if(aceRele) return aceRele;
+    }
+  }
 
   // ── PARTNER WINNING (dupla vai ganhando a rodada): maximizar pontos na vaza quando a mão é segura; nunca “corte morto” abaixo do corte do parceiro ──
   if(partnerWinning){
@@ -887,6 +900,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(!safePool.length) return lowest(pool);
 
     var mateWinsTrump = curWin.card.s===trump;
+    /* Bísca na mesa, parceiro vai ganhando com corte e ainda há quem jogar: subir ao máximo de trunfo para não deixarem roubar a vaza. */
+    if(anyBiscaTableGlobal && mateWinsTrump && !isLast){
+      var raiseTrump = pool.filter(function(c){
+        return c.s===trump && beats(c, curWin.card, lead, trump) && teamWinsWith(c);
+      });
+      if(raiseTrump.length){
+        return raiseTrump.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
+      }
+    }
     var winCard = curWin.card;
     var candidates = safePool;
     if(mateWinsTrump){
@@ -906,6 +928,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     else {
       var dumpLose = pool.filter(function(c){ return !teamWinsWith(c) && c.s !== trump && cPts(c) <= 2; });
       if(dumpLose.length) return lowest(dumpLose);
+    }
+    /* Último a jogar, bísca na mesa, parceiro já vai ganhando com corte: não “subir” o corte do parceiro — somar fora de trunfo se der. */
+    if(isLast && anyBiscaTableGlobal && mateWinsTrump && pTm(curWin.player)===mt){
+      var noTrumpOverMate = candidates.filter(function(c){
+        if(c.s!==trump) return true;
+        return !beats(c, curWin.card, lead, trump);
+      });
+      if(noTrumpOverMate.length) candidates = noTrumpOverMate;
     }
     // Parceiro já largou bísca (Ás/7 fora de trunfo): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
     var matePlayedBisca = trick.some(function(t){
@@ -943,6 +973,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
   var suitW = winners(followSuit, curWin.card, lead);
   if(suitW.length){
+    /* Com bísca na mesa e a dupla a perder a vaza: matar com a MAIOR carta do naipe (fixar pontos), não a mínima. */
+    if(anyBiscaTableGlobal && !partnerWinning && pTm(curWin.player)!==mt){
+      return suitW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
+    }
     var cw = suitW.slice().sort(byPtsAsc);
     // Vaza muito fraca: não gastar A/7 se houver carta intermédia que já ganha
     if(trickPts<=2){
@@ -962,6 +996,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(trumpW.length){
     var stakeHigh = trickNeedsStrongTrumpCut(trick, trump, trickPts);
     var anyBiscaOnTable = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
+    /* Bísca na mesa e adversários a ganhar: sempre o maior trunfo que ganha (não deixar escapar a vaza). */
+    if(anyBiscaOnTable && !partnerWinning && pTm(curWin.player)!==mt){
+      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
+    }
     function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
     /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
     function pickWinningTrumpPreferLow(){
