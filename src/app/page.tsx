@@ -172,6 +172,26 @@ function playerInRoom(r, playerId) {
   return null;
 }
 
+/**
+ * Assento 0–3 no online: usa `room.players[].seat` quando válido; senão tenta casar o nome
+ * com `game.playerNames` (corrige RT atrasado com seat -1 ou cliente que clampava tudo a 0).
+ */
+function resolveOnlineMySeat(room, myPlayerId, myDisplayName, gamePlayerNames) {
+  if (!room || !Array.isArray(room.players)) return 0;
+  var me = playerInRoom(room, myPlayerId);
+  var raw = me && me.seat != null && me.seat !== "" ? Number(me.seat) : NaN;
+  if (raw >= 0 && raw <= 3 && raw === Math.floor(raw)) return raw;
+  var myNm = clampDisplayName(typeof myDisplayName === "string" ? myDisplayName : "") || "";
+  var gpn = gamePlayerNames;
+  if (Array.isArray(gpn) && gpn.length >= 4) {
+    for (var si = 0; si < 4; si++) {
+      var pn = clampDisplayName(String(gpn[si] || "")) || "";
+      if (myNm && pn && pn === myNm) return si;
+    }
+  }
+  return 0;
+}
+
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
   isConfigured: function () {
@@ -2271,6 +2291,8 @@ function GameScreen(props){
   var dS=mySeat, dE=nxt(mySeat), dN=nxt(nxt(mySeat)), dW=nxt(nxt(nxt(mySeat)));
   var iAmCutter = cutter===mySeat;
   var botSeats = props.botSeats || {};
+  /** Boolean estável para deps de efeitos — `botSeats` é recriado no pai a cada render. */
+  var isBotCutter = !!(botSeats && botSeats[cutter]);
   var isRoomHost = !!props.isRoomHost;
   var cutSecSt = useState(null);
   var cutSec = cutSecSt[0], setCutSec = cutSecSt[1];
@@ -2371,13 +2393,22 @@ function GameScreen(props){
     if(g.phase!=='cut') return;
     var iChooseCut = isSolo ? cutter===0 : (isOnline && iAmCutter);
     if(iChooseCut) return;
-    var runAuto = !isOnline ? cutter!==0 : (isRoomHost && !!botSeats[cutter]);
+    var runAuto = !isOnline ? cutter!==0 : (isRoomHost && isBotCutter);
     if(!runAuto) return;
     var t = setTimeout(function(){
       performCut(null,true);
     },BOT_AUTO_CUT_DELAY_MS);
     return function(){ clearTimeout(t); };
-  },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter]);
+  },[g.phase,cutter,mySeat,isOnline,isRoomHost,iAmCutter,isBotCutter]);
+
+  // Online: host força corte aleatório se a fase “cortar” ficar presa (assento errado, AFK, falha de rede).
+  useEffect(function(){
+    if(!isOnline || !isRoomHost || g.phase!=='cut') return;
+    var w = setTimeout(function(){
+      performCut(null,false,true);
+    },22000);
+    return function(){ clearTimeout(w); };
+  },[g.phase,isOnline,isRoomHost,g.starter]);
 
   // Até 10s para quem escolhe o corte; depois corta automático (só quem é o cortador na mesa)
   useEffect(function(){
@@ -2486,8 +2517,9 @@ function GameScreen(props){
     dragSessionRef.current = null;
   }, [g.phase, g.trick.length, g.curP, mySeat]);
 
-  /** @param preferBat se true (só auto-corte do bot), tenta copas batido quando a dupla do cortador está 0–2 na partida e o adversário tem 3. */
-  function performCut(ci, preferBat = false){
+  /** @param preferBat se true (só auto-corte do bot), tenta copas batido quando a dupla do cortador está 0–2 na partida e o adversário tem 3.
+   *  @param forceByHostCut só online: o host aplica um corte aleatório para desbloquear a mesa (timeout de segurança). */
+  function performCut(ci, preferBat = false, forceByHostCut = false){
     setCutSec(null);
     sg(function(pv){
       if(pv.phase!=='cut') return pv;
@@ -2496,6 +2528,7 @@ function GameScreen(props){
         if(isNaN(stCut)) stCut = 2;
         var cutterSeat = prv(prv(stCut));
         var allowedCut = cutterSeat===mySeat || (isRoomHost && !!botSeats[cutterSeat]);
+        if(forceByHostCut) allowedCut = !!isRoomHost;
         if(!allowedCut) return pv;
       }
       if(preferBat && shouldBatDesvantagemPartida(pv.mPts, pTm(cutter))){
@@ -3493,6 +3526,22 @@ export default function App(){
     });
   },[screen,room,room&&room.game,myId,room&&room.hostId]);
 
+  // Parceiro / não-host: se `shuffle` ficar visível além do tempo normal (host ~2,4s + margem), repuxar a sala do RTDB.
+  // Evita “IA a embaralhar para sempre” quando um snapshot atrasado ou um tick falhou a atualizar o listener.
+  useEffect(function(){
+    if(screen!=="online"||!roomCode||!room||!room.game) return;
+    var ph = room.game.phase;
+    if(ph!=="shuffle") return;
+    var t = setTimeout(function(){
+      void RT.getRoom(roomCode).then(function(r){
+        if(!r) return;
+        var nr = normalizeRoom(r);
+        if(nr) setRoom(nr);
+      });
+    },5500);
+    return function(){ clearTimeout(t); };
+  },[screen,roomCode,room&&room.game&&room.game.phase]);
+
   function dismissResumeSession(){
     clearBfSession();
     setResumeOffer(null);
@@ -3691,9 +3740,7 @@ export default function App(){
   }
 
   if(screen==='online' && room && og){
-    var me = room.players.find(function(p){ return p.id===myId; });
-    var rawSeat = me && typeof me.seat === 'number' ? me.seat : 0;
-    var seatClamped = rawSeat >= 0 && rawSeat <= 3 ? rawSeat : 0;
+    var seatClamped = resolveOnlineMySeat(room, myId, myName, og.playerNames);
     var botSeatsMap = {};
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
