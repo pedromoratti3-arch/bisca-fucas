@@ -763,6 +763,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
   // ══ LEADING ══
   if(!trick.length){
+    /* Nunca abrir a vaza com bísca (Ás/7 fora de trunfo) se houver qualquer outra carta jogável — só bísca/trunfo na mão é exceção. */
+    var poolLead = pool.filter(function(c){ return !isBiscaCard(c, trump); });
+    if(poolLead.length) pool = poolLead;
+    trumpCards = pool.filter(function(c){ return c.s===trump; });
+    nonTrump = pool.filter(function(c){ return c.s!==trump; });
+    hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
+    strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
 
     // RULE 1: 7 de trunfo no início só se a dupla está mal (7 de trunfo não é bísca; evita abrir corte cedo à toa).
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
@@ -801,35 +808,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(el.length) return el[0];
     }
 
-    // Ás/7 de bísca como 1.ª da vaza: só com mesa avançada ou desvantagem forte (nunca “de começo” só por ter corte na mão).
-    var okOpenBiscaLead =
-      endGame ||
-      trickN >= 7 ||
-      hand.length <= 3 ||
-      (losing && trickN >= 5 && oppScore > myScore + 6) ||
-      (losing && trickN >= 3 && oppScore > myScore + 16 && strongTrumps.length >= 2 && hasTrumpBackup);
-
-    // RULE 4: Ás fora de trunfo (bísca) — sem okOpenBiscaLead não abrir; depois mantém cautela com “safe” e corte de reserva
-    var aces = nonTrump.filter(function(c){ return c.v==='A'; });
-    var losingOkForBisca = losing && (!earlyLead || trickN>=4 || hand.length<=5 || endGame);
-    if(aces.length && okOpenBiscaLead){
-      var safeAces = aces.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeAces.length && (!earlyLead || losingOkForBisca)) return safeAces[0];
-      if(!earlyLead || losingOkForBisca || hand.length<=5){
-        if(hasTrumpBackup) return aces[0];
-        if(hand.length<=4) return aces[0];
-      }
-    }
-
-    // RULE 5: 7 fora de trunfo (bísca) — igual ao Ás na abertura
-    var sevens = nonTrump.filter(function(c){ return c.v==='7'; });
-    if(sevens.length && okOpenBiscaLead){
-      var safeSevens = sevens.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeSevens.length && hasTrumpBackup && (!earlyLead || losingOkForBisca || hand.length<=5)) return safeSevens[0];
-      if(!earlyLead || losingOkForBisca || hand.length<=5){
-        if(hasTrumpBackup) return sevens[0];
-      }
-    }
+    /* Ás/7 de bísca na abertura: já filtrados por poolLead; o que resta abaixo só corre com mão sem outras saídas. */
 
     // RULE 6: If losing badly — K/J só quando a mesa já avançou (antes disso, RULE 7 lixo)
     if(losing && trickN>=3){
@@ -898,20 +877,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var ntLeadWin = safePool.filter(function(c){ return c.s!==trump; });
       if(ntLeadWin.length) candidates = ntLeadWin;
     }
-    // Parceiro já segura com corte: corte mais baixo que o dele não muda a mão — só gasta corte (ex.: Rei já ganha, não jogar Valete por baixo).
-    if(mateWinsTrump && winCard.s===trump){
-      function futileLowerTrump(c){
-        return c.s===trump && cRnk(c) < cRnk(winCard);
-      }
-      var notFutile = candidates.filter(function(c){ return !futileLowerTrump(c); });
-      if(notFutile.length) candidates = notFutile;
+    /* Quem ganha a vaza tem de continuar a ser o parceiro: não “roubar” com corte mais alto nem trocar o vencedor sem necessidade. */
+    function winnerSeatIfPlay(card){
+      return getWin(trick.concat([{ player: mySeat, card: card }]), trump).player;
     }
-
-    var trumpOnly = mateWinsTrump && candidates.length>0 && candidates.every(function(c){ return c.s===trump; });
-    if(trumpOnly){
-      var overs = candidates.filter(function(c){ return cRnk(c) > cRnk(winCard); });
-      if(overs.length) return overs.slice().sort(byRnkAsc)[0];
-      return candidates.slice().sort(byPtsAsc)[0];
+    var keepPartnerAsWinner = candidates.filter(function(c){ return winnerSeatIfPlay(c) === curWin.player; });
+    if(keepPartnerAsWinner.length) candidates = keepPartnerAsWinner;
+    else {
+      var dumpLose = pool.filter(function(c){ return !teamWinsWith(c) && c.s !== trump && cPts(c) <= 2; });
+      if(dumpLose.length) return lowest(dumpLose);
     }
     // Parceiro já largou bísca (Ás/7 fora de trunfo): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
     var matePlayedBisca = trick.some(function(t){
@@ -953,6 +927,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var trumpW = winners(trumpCards, curWin.card, lead);
   if(trumpW.length){
     var stakeHigh = trickNeedsStrongTrumpCut(trick, trump, trickPts);
+    var anyBiscaOnTable = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
     function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
     /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
     function pickWinningTrumpPreferLow(){
@@ -971,6 +946,20 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
     if(partnerPutBisca){
       return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
+    }
+    /* Adversário já vai ganhando com corte em vaza sem bísca e quase sem pontos: não gastar Dama/Rei/Valete só para isso — lixar se ainda der. */
+    if(
+      !stakeHigh &&
+      !anyBiscaOnTable &&
+      trickPts <= 4 &&
+      curWin.card.s === trump &&
+      pTm(curWin.player) !== mt
+    ){
+      var winTrumpNoFig = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
+      if(!winTrumpNoFig.length){
+        var lixoNt = nonTrump.filter(function(c){ return cPts(c) === 0; });
+        if(lixoNt.length && !isLast) return lowest(lixoNt);
+      }
     }
     if(endGame && !sevenOut && trickN < 9){
       var trumpSevenWin = trumpW.find(function(c){ return c.v==='7' && c.s===trump; });
