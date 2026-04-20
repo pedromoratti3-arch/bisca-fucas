@@ -3318,7 +3318,7 @@ function GameScreen(props){
         : isCB ? React.createElement('span',{style:{color:'#fca5a5',fontSize:14,fontWeight:'bold'}},'\u2665 copas batido')
         : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
             rCard(g.rawTc,null,false,false,true,false,mob,cbk),
-            React.createElement('span',{style:{color:'#fca5a5',fontSize:11}},'\u2192 trunfo: '+SYM[g.trump]+' '+g.trump),
+            React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:11}},'\u2192 trunfo: '+SYM[g.trump]+' '+g.trump),
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
         : g.trump ? React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:14,fontWeight:'bold'}},SYM[g.trump]+' '+g.trump) : null,
