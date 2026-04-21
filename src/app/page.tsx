@@ -757,6 +757,28 @@ function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
   return nLeft <= 1;
 }
 
+/**
+ * Parceiro jogou o 7 de trunfo nesta vaza — a mesma dupla não joga o Ás de trunfo nessa vaza (evita desperdício).
+ * Excepção: última mão da ronda (trickN===9), para o bot não ficar sem jogada legal / a travar a partida.
+ */
+function aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, card, trickN, mySeat) {
+  if (!card || card.v !== "A" || card.s !== trump) return true;
+  if (trickN === 9) return true;
+  if (!trump || !Array.isArray(trick) || mySeat == null || mySeat < 0) return true;
+  var partnerSevenHere = trick.some(function (t) {
+    return (
+      t &&
+      t.card &&
+      t.card.s === trump &&
+      t.card.v === "7" &&
+      pTm(t.player) === pTm(mySeat) &&
+      t.player !== mySeat
+    );
+  });
+  if (!partnerSevenHere) return true;
+  return false;
+}
+
 /** Bíscas = Ás e 7 nos naipes que não são o de trunfo. O Ás e o 7 de trunfo não são bíscas. */
 function isBiscaCard(card, trump){
   return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
@@ -778,7 +800,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
-     Réle: logo após o 7 de trunfo na mesa, o próximo com o Ás de trunfo deve jogá-lo.
+     Réle: após o 7 de trunfo na mesa o próximo pode jogar o Ás — excepto 7 do parceiro na mesma vaza (excepto última mão, trickN 9, para não travar).
      Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
      Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
      Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
@@ -790,12 +812,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var pool = hand.filter(function(c){
     if(!c) return false;
     if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
+    if(c.v==='A' && c.s===trump && !aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, c, trickN, mySeat)) return false;
     if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN)) return false;
     return true;
   });
   if(!pool.length){
     pool = hand.filter(function(c){ return !!c; }).filter(function(c){
       if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
+      if(c.v==='A' && c.s===trump && !aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, c, trickN, mySeat)) return false;
       return mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN);
     });
   }
@@ -1021,14 +1045,19 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(shedNtSoftLs.length) return lowest(shedNtSoftLs);
   }
 
-  // Réle: o Ás de trunfo a seguir ao 7 — mas se o 7 foi do parceiro e ele já ganha a vaza, não forçar o Ás (poupa o Ás para quando faça falta).
+  // Réle: Ás logo a seguir ao 7 de trunfo — não forçar se o parceiro já pôs o 7 nesta vaza, excepto na última mão (trickN 9) para não deixar o pool sem jogada útil.
   if(trick.length>0){
-    var lastTr = trick[trick.length-1];
-    if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
-      var skipReleAce = pTm(lastTr.player)===mt && partnerWinning;
-      if(!skipReleAce){
-        var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
-        if(aceRele) return aceRele;
+    var partnerPlayedSevenTrump = trick.some(function(t){
+      return t && t.card && t.card.s===trump && t.card.v==='7' && pTm(t.player)===mt && t.player!==mySeat;
+    });
+    if(!partnerPlayedSevenTrump || trickN===9){
+      var lastTr = trick[trick.length-1];
+      if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
+        var skipReleAce = trickN!==9 && pTm(lastTr.player)===mt && partnerWinning;
+        if(!skipReleAce){
+          var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
+          if(aceRele) return aceRele;
+        }
       }
     }
   }
