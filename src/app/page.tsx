@@ -1834,9 +1834,13 @@ function aceRevealFlipVisual(ace, mob, cbk){
   );
 }
 
-function deckPile(n,onClick,hi,mob,bk){
+function deckPile(n,onClick,hi,mob,bk,large){
   bk = bk || DEFAULT_CARD_BACK;
   var cw=mob?30:46, ch=mob?44:63, off=mob?1:2, boxW=mob?36:52, boxH=mob?52:70, fs=mob?10:11;
+  /* Pilhas “metade cima/baixo” no corte: maiores só no telemóvel; no desktop mantém o tamanho clássico. */
+  if(large && mob){
+    cw=44; ch=64; off=2; boxW=50; boxH=72; fs=12;
+  }
   var bdLay = hi ? bk.hi : bk.border;
   var layers = [2,1,0].map(function(i){
     return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:i*-off,width:cw,height:ch,background:bk.grad,border:'2px solid '+bdLay,borderRadius:5,boxShadow:'0 2px 6px #0005'}});
@@ -3142,14 +3146,18 @@ function GameScreen(props){
           React.createElement('span',{style:{display:'inline-block',minWidth:'1.35em',textAlign:'right',fontVariantNumeric:'tabular-nums',color:timerAccent,fontWeight:700}},cutSec),
           's — se acabar, corta automático.'
         ) : null,
-        React.createElement('div',{style:{display:'flex',gap:mob?12:24,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
-          React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim&&cutLift==='top'?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
-            deckPile(20,null,hovHalf==='top',mob,cbk),
-            React.createElement('div',{style:{fontSize:11,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?600:500}},'Metade de cima')
+        React.createElement('div',{style:{display:'flex',gap:mob?16:28,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
+          React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
+            React.createElement('div',{style:{transform:cutAnim&&cutLift==='top'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
+              deckPile(20,null,hovHalf==='top',mob,cbk,true)
+            ),
+            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?600:500}},'Metade de cima')
           ),
-          React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transform:cutAnim&&cutLift==='bottom'?'translateY(-32px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
-            deckPile(20,null,hovHalf==='bottom',mob,cbk),
-            React.createElement('div',{style:{fontSize:11,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?600:500}},'Metade de baixo')
+          React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
+            React.createElement('div',{style:{transform:cutAnim&&cutLift==='bottom'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
+              deckPile(20,null,hovHalf==='bottom',mob,cbk,true)
+            ),
+            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?600:500}},'Metade de baixo')
           )
         ),
         React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:6,marginTop:4}},
