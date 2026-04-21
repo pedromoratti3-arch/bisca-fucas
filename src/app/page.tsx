@@ -469,7 +469,7 @@ function makeReleToastIfAny(trick, trump) {
   var b = trick[trick.length - 1];
   if (!a || !b || !a.card || !b.card) return null;
   if (a.card.s === trump && a.card.v === "7" && b.card.s === trump && b.card.v === "A") {
-    return { title: "RÉLE!", body: "", ts: Date.now() };
+    return { title: "RÉLE!", ts: Date.now() };
   }
   return null;
 }
@@ -1488,7 +1488,11 @@ var ACSS = [
   '@keyframes bfVicGlowSpin{to{transform:rotate(360deg)}}',
   '@keyframes bfVicAura{0%,100%{opacity:.16;transform:scale(1)}50%{opacity:.3;transform:scale(1.02)}}',
   '@keyframes bfVicRim{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.07) inset,0 16px 48px rgba(0,0,0,.4),0 0 52px rgba(251,191,36,.11)}50%{box-shadow:0 0 0 1px rgba(253,224,130,.15) inset,0 18px 52px rgba(0,0,0,.42),0 0 78px rgba(251,191,36,.25)}}',
-  '@keyframes bfReleToastIn{from{opacity:0;filter:blur(5px);transform:translate(-50%,14px) scale(.96)}to{opacity:1;filter:blur(0);transform:translate(-50%,0) scale(1)}}',
+  '@keyframes bfReleImpactFlash{0%{opacity:0;transform:scale(.88)}8%{opacity:1}38%{opacity:.42}100%{opacity:0;transform:scale(1.08)}}',
+  '@keyframes bfReleShockRing{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}6%{opacity:.92}100%{opacity:0;transform:translate(-50%,-50%) scale(2.85)}}',
+  '@keyframes bfReleShockRing2{0%{opacity:0;transform:translate(-50%,-50%) scale(.18)}14%{opacity:.65}100%{opacity:0;transform:translate(-50%,-50%) scale(3.35)}}',
+  '@keyframes bfReleBeamsSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}',
+  '@keyframes bfReleCoreSlam{0%{opacity:0;transform:translate(-50%,-50%) scale(.35) translateY(14px);filter:blur(8px)}42%{opacity:1;transform:translate(-50%,-50%) scale(1.08) translateY(-4px);filter:blur(0)}68%{transform:translate(-50%,-50%) scale(.97) translateY(2px)}100%{opacity:1;transform:translate(-50%,-50%) scale(1) translateY(0);filter:blur(0)}}',
   '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
 ].join('');
 
@@ -1683,125 +1687,209 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       padding:mob?'18px 14px 20px':'24px 22px 26px',
       borderRadius:16,
       overflow:'hidden',
+      isolation:'isolate',
       background:'linear-gradient(155deg, rgba(251,191,36,.14) 0%, rgba(0,0,0,.4) 42%, rgba(15,10,8,.55) 100%)',
       border:'1px solid rgba(253,224,130,.32)',
       boxShadow:'0 0 0 1px rgba(255,255,255,.07) inset, 0 16px 48px rgba(0,0,0,.4), 0 0 60px rgba(251,191,36,.08)',
-      animation:'bfVicHeroEnter 0.7s cubic-bezier(.22,1,.36,1) both, bfVicRim 6.5s linear infinite 0.72s',
+      animation:'bfVicRim 5s ease-in-out infinite',
+    },
+  },
+    React.createElement('div',{style:{position:'absolute',inset:0,borderRadius:16,overflow:'hidden',pointerEvents:'none'}},
+      React.createElement('div',{style:{
+        position:'absolute',inset:'-35%',
+        background:'conic-gradient(from 200deg at 50% 42%, transparent 0deg, rgba(251,191,36,.05) 70deg, rgba(255,252,240,.07) 95deg, rgba(180,83,9,.04) 130deg, transparent 165deg, transparent 360deg)',
+        filter:'blur(22px)',
+        opacity:0.92,
+        animation:'bfVicGlowSpin 22s linear infinite',
+        pointerEvents:'none',
+      }}),
+      React.createElement('div',{style:{
+        position:'absolute',inset:0,
+        background:'radial-gradient(ellipse 92% 70% at 50% 28%, rgba(251,191,36,.2) 0%, transparent 58%), radial-gradient(ellipse 70% 45% at 80% 85%, rgba(180,83,9,.1) 0%, transparent 50%)',
+        animation:'bfVicAura 9s linear infinite',
+        pointerEvents:'none',
+      }}),
+      embers,
+      React.createElement('div',{style:{position:'absolute',inset:0,overflow:'hidden',borderRadius:16,pointerEvents:'none'}},
+        React.createElement('div',{style:{
+          position:'absolute',top:0,left:0,width:'200%',height:'100%',
+          backgroundImage:sheenStrip+','+sheenStrip,
+          backgroundSize:'50% 100%, 50% 100%',
+          backgroundPosition:'0 0, 50% 0',
+          backgroundRepeat:'no-repeat',
+          mixBlendMode:'screen',
+          opacity:0.72,
+          filter:'blur(3px)',
+          animation:'bfVicSheenMarquee 13s linear infinite',
+        }}),
+        React.createElement('div',{style:{
+          position:'absolute',top:0,left:0,width:'200%',height:'100%',
+          backgroundImage:'linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%), linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%)',
+          backgroundSize:'50% 100%, 50% 100%',
+          backgroundPosition:'0 0, 50% 0',
+          backgroundRepeat:'no-repeat',
+          mixBlendMode:'screen',
+          opacity:0.55,
+          filter:'blur(9px)',
+          animation:'bfVicSheenMarquee 19s linear infinite',
+          animationDelay:'-9.5s',
+        }}),
+      ),
+    ),
+    React.createElement('div',{style:{
+      position:'relative',
+      zIndex:1,
+      animation:'bfVicHeroEnter 0.58s cubic-bezier(.22,1,.36,1) both',
+    }},
+      React.createElement('div',{style:{
+        fontSize:10,
+        fontWeight:800,
+        letterSpacing:mob?0.26:0.3,
+        textTransform:'uppercase',
+        color:'rgba(253,224,130,.92)',
+        textAlign:'center',
+        marginBottom:10,
+      }}, 'Vitória na partida'),
+      React.createElement('div',{style:{
+        fontSize:mob?21:25,
+        fontWeight:900,
+        textAlign:'center',
+        lineHeight:1.12,
+        marginBottom:16,
+        letterSpacing:0.04,
+        background:'linear-gradient(100deg, #fde68a 0%, #fffef5 35%, #fcd34d 55%, #fde68a 80%)',
+        backgroundSize:'200% auto',
+        WebkitBackgroundClip:'text',
+        WebkitTextFillColor:'transparent',
+        backgroundClip:'text',
+        filter:'drop-shadow(0 2px 10px rgba(0,0,0,.55))',
+        animation:'bfVicRibbon 5.5s linear infinite',
+      }}, wTeam===0 ? 'Dupla A' : 'Dupla B'),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+        names.map(function(nm, i){
+          return React.createElement('div',{
+            key:i,
+            style:{
+              display:'flex',
+              alignItems:'center',
+              gap:12,
+              padding:'13px 16px',
+              borderRadius:12,
+              background:'linear-gradient(90deg, '+accentSoft+' 0%, rgba(0,0,0,.22) 55%)',
+              borderLeft:'4px solid '+accent,
+              boxShadow:'0 6px 20px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06)',
+              animation:'bfVicNameStagger 0.55s cubic-bezier(.22,1,.36,1) '+(0.14+0.15*i)+'s both',
+            },
+          },
+            React.createElement('span',{style:{
+              fontSize:11,
+              fontWeight:800,
+              opacity:0.45,
+              minWidth:22,
+              color:'rgba(255,255,255,.7)',
+            }}, String(i+1)),
+            React.createElement('span',{style:{
+              flex:1,
+              fontSize:mob?16:17,
+              fontWeight:700,
+              color:'#fff',
+              letterSpacing:0.015,
+              lineHeight:1.25,
+            }}, nm)
+          );
+        })
+      ),
+      React.createElement('div',{style:{
+        textAlign:'center',
+        marginTop:14,
+        fontSize:11,
+        fontWeight:600,
+        color:'rgba(255,255,255,.42)',
+        letterSpacing:0.08,
+      }}, (function(){
+        var winnerPts = wTeam===0 ? m0 : m1;
+        var winnerPtsForMatchText = Math.max(4, winnerPts);
+        return String(winnerPtsForMatchText) + ' pontos · campeões desta mesa';
+      })())
+    )
+  );
+}
+
+/** Impacto de RÉLE no centro da mesa: clarão, ondas e feixes visíveis no 1º frame. */
+function releTableImpactOverlay(mob, releSt, tableBorderRadius){
+  if(!releSt || !releSt.title) return null;
+  var br = tableBorderRadius === '50%' ? '50%' : (typeof tableBorderRadius === 'number' ? tableBorderRadius : 14);
+  return React.createElement('div',{
+    role:'status',
+    'aria-live':'assertive',
+    style:{
+      position:'absolute',
+      inset:0,
+      zIndex:42,
+      pointerEvents:'none',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      overflow:'visible',
     },
   },
     React.createElement('div',{style:{
-      position:'absolute',inset:'-35%',
-      background:'conic-gradient(from 200deg at 50% 42%, transparent 0deg, rgba(251,191,36,.05) 70deg, rgba(255,252,240,.07) 95deg, rgba(180,83,9,.04) 130deg, transparent 165deg, transparent 360deg)',
-      filter:'blur(26px)',
-      opacity:0.92,
-      animation:'bfVicGlowSpin 22s linear infinite',
+      position:'absolute',
+      inset:'-12%',
+      borderRadius:br,
+      background:'radial-gradient(circle at 50% 50%, rgba(255,252,240,.5) 0%, rgba(251,191,36,.28) 22%, transparent 62%)',
+      opacity:0,
+      animation:'bfReleImpactFlash 0.52s cubic-bezier(.15,.85,.2,1) both',
+    }}),
+    React.createElement('div',{style:{
+      position:'absolute',left:'50%',top:'50%',width:mob?110:130,height:mob?110:130,
+      transform:'translate(-50%,-50%)',
+      background:'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,250,235,.14) 10deg, transparent 20deg, transparent 42deg, rgba(251,191,36,.12) 52deg, transparent 62deg, transparent 85deg, rgba(255,255,255,.1) 94deg, transparent 104deg, transparent 125deg, rgba(253,224,130,.12) 135deg, transparent 145deg, transparent 168deg, rgba(251,191,36,.1) 178deg, transparent 188deg, transparent 210deg, rgba(255,252,245,.11) 220deg, transparent 230deg, transparent 252deg, rgba(253,224,130,.1) 262deg, transparent 272deg, transparent 295deg, rgba(255,243,200,.12) 305deg, transparent 315deg)',
+      opacity:0.96,
+      animation:'bfReleBeamsSpin 3.2s linear infinite',
       pointerEvents:'none',
     }}),
     React.createElement('div',{style:{
-      position:'absolute',inset:0,
-      background:'radial-gradient(ellipse 92% 70% at 50% 28%, rgba(251,191,36,.14) 0%, transparent 58%), radial-gradient(ellipse 70% 45% at 80% 85%, rgba(180,83,9,.08) 0%, transparent 50%)',
-      animation:'bfVicAura 9s linear infinite',
+      position:'absolute',left:'50%',top:'50%',width:56,height:56,
+      borderRadius:'50%',
+      border:'2px solid rgba(253,224,130,.88)',
+      boxShadow:'0 0 22px rgba(251,191,36,.55), inset 0 0 18px rgba(255,255,255,.2)',
+      animation:'bfReleShockRing 0.72s cubic-bezier(.08,.75,.12,1) both',
       pointerEvents:'none',
     }}),
-    embers,
-    React.createElement('div',{style:{position:'absolute',inset:0,overflow:'hidden',borderRadius:16,pointerEvents:'none'}},
+    React.createElement('div',{style:{
+      position:'absolute',left:'50%',top:'50%',width:44,height:44,
+      borderRadius:'50%',
+      border:'1px solid rgba(255,252,240,.55)',
+      animation:'bfReleShockRing2 0.88s cubic-bezier(.1,.72,.15,1) both',
+      pointerEvents:'none',
+    }}),
+    React.createElement('div',{style:{
+      position:'absolute',left:'50%',top:'50%',
+      transform:'translate(-50%,-50%)',
+      minWidth:mob?92:102,
+      maxWidth:'calc(100% - 8px)',
+      padding:mob?'10px 14px':'11px 18px',
+      borderRadius:14,
+      textAlign:'center',
+      background:'linear-gradient(165deg, rgba(28,22,10,.94) 0%, rgba(8,6,4,.97) 100%)',
+      border:'1px solid rgba(253,211,131,.55)',
+      boxShadow:'0 0 0 1px rgba(0,0,0,.35) inset, 0 18px 40px rgba(0,0,0,.65), 0 0 48px rgba(251,191,36,.35)',
+      animation:'bfReleCoreSlam 0.62s cubic-bezier(.2,.85,.15,1) both, bfReleGlow 2.2s ease-in-out 0.62s infinite',
+    }},
       React.createElement('div',{style:{
-        position:'absolute',top:0,left:0,width:'200%',height:'100%',
-        backgroundImage:sheenStrip+','+sheenStrip,
-        backgroundSize:'50% 100%, 50% 100%',
-        backgroundPosition:'0 0, 50% 0',
-        backgroundRepeat:'no-repeat',
-        mixBlendMode:'screen',
-        opacity:0.72,
-        filter:'blur(3px)',
-        animation:'bfVicSheenMarquee 13s linear infinite',
-      }}),
-      React.createElement('div',{style:{
-        position:'absolute',top:'-8%',left:'-5%',width:'200%',height:'116%',
-        backgroundImage:'linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%), linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%)',
-        backgroundSize:'50% 100%, 50% 100%',
-        backgroundPosition:'0 0, 50% 0',
-        backgroundRepeat:'no-repeat',
-        mixBlendMode:'screen',
-        opacity:0.55,
-        filter:'blur(9px)',
-        animation:'bfVicSheenMarquee 19s linear infinite',
-        animationDelay:'-9.5s',
-      }}),
-    ),
-    React.createElement('div',{style:{
-      fontSize:10,
-      fontWeight:800,
-      letterSpacing:mob?0.26:0.3,
-      textTransform:'uppercase',
-      color:'rgba(253,224,130,.92)',
-      textAlign:'center',
-      marginBottom:10,
-      animation:'bfVicKicker 0.75s cubic-bezier(.2,.85,.25,1) 0.08s both',
-    }}, 'Vitória na partida'),
-    React.createElement('div',{style:{
-      fontSize:mob?21:25,
-      fontWeight:900,
-      textAlign:'center',
-      lineHeight:1.12,
-      marginBottom:16,
-      letterSpacing:0.04,
-      background:'linear-gradient(100deg, #fde68a 0%, #fffef5 35%, #fcd34d 55%, #fde68a 80%)',
-      backgroundSize:'200% auto',
-      WebkitBackgroundClip:'text',
-      WebkitTextFillColor:'transparent',
-      backgroundClip:'text',
-      filter:'drop-shadow(0 2px 10px rgba(0,0,0,.55))',
-      animation:'bfVicRibbon 5.5s linear infinite',
-    }}, wTeam===0 ? 'Dupla A' : 'Dupla B'),
-    React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10,position:'relative',zIndex:1}},
-      names.map(function(nm, i){
-        return React.createElement('div',{
-          key:i,
-          style:{
-            display:'flex',
-            alignItems:'center',
-            gap:12,
-            padding:'13px 16px',
-            borderRadius:12,
-            background:'linear-gradient(90deg, '+accentSoft+' 0%, rgba(0,0,0,.22) 55%)',
-            borderLeft:'4px solid '+accent,
-            boxShadow:'0 6px 20px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06)',
-            animation:'bfVicNameStagger 0.55s cubic-bezier(.22,1,.36,1) '+(0.14+0.15*i)+'s both',
-          },
-        },
-          React.createElement('span',{style:{
-            fontSize:11,
-            fontWeight:800,
-            opacity:0.45,
-            minWidth:22,
-            color:'rgba(255,255,255,.7)',
-          }}, String(i+1)),
-          React.createElement('span',{style:{
-            flex:1,
-            fontSize:mob?16:17,
-            fontWeight:700,
-            color:'#fff',
-            letterSpacing:0.015,
-            lineHeight:1.25,
-          }}, nm)
-        );
-      })
-    ),
-    React.createElement('div',{style:{
-      textAlign:'center',
-      marginTop:14,
-      fontSize:11,
-      fontWeight:600,
-      color:'rgba(255,255,255,.42)',
-      letterSpacing:0.08,
-      position:'relative',
-      zIndex:1,
-    }}, (function(){
-      var winnerPts = wTeam===0 ? m0 : m1;
-      var winnerPtsForMatchText = Math.max(4, winnerPts);
-      return String(winnerPtsForMatchText) + ' pontos · campeões desta mesa';
-    })())
+        fontSize:mob?17:19,
+        fontWeight:900,
+        letterSpacing:mob?0.12:0.2,
+        background:'linear-gradient(100deg,#fde68a,#fffef8,#fbbf24,#fde68a)',
+        backgroundSize:'180% auto',
+        WebkitBackgroundClip:'text',
+        WebkitTextFillColor:'transparent',
+        backgroundClip:'text',
+        filter:'drop-shadow(0 2px 8px rgba(0,0,0,.55))',
+        lineHeight:1.05,
+      }}, releSt.title)
+    )
   );
 }
 
@@ -3630,13 +3718,7 @@ function GameScreen(props){
   var toastStackGap = mob ? 76 : 72;
   var toastBasePx = mob ? 92 : 24;
   var swapBottomStr = mob ? 'calc(' + toastBasePx + 'px + env(safe-area-inset-bottom, 0px))' : toastBasePx + 'px';
-  /* Réle: mesma âncora vertical que o toast da troca do 2; se os dois estiverem visíveis, Réle sobe uma faixa. */
-  var releBottomStr = swapVisible
-    ? mob
-      ? 'calc(' + (toastBasePx + toastStackGap) + 'px + env(safe-area-inset-bottom, 0px))'
-      : toastBasePx + toastStackGap + 'px'
-    : swapBottomStr;
-  var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0) + (releVisible ? toastStackGap : 0);
+  var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0);
   var aceToastBottomStr = mob ? 'calc(' + aceToastOffset + 'px + env(safe-area-inset-bottom, 0px))' : aceToastOffset + 'px';
   var swapToastEl =
     swapVisible
@@ -3665,52 +3747,6 @@ function GameScreen(props){
           },
           React.createElement('div', { style: { fontSize: mob ? 13 : 14, fontWeight: 800, letterSpacing: 0.35, color: '#fde68a', marginBottom: 5 } }, swapSt.title),
           React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } }, swapSt.body)
-        )
-      : null;
-  var releToastMaxW = mob ? 'min(360px, calc(100vw - 28px))' : 'min(420px, calc(100vw - 48px))';
-  var releToastEl =
-    releVisible
-      ? React.createElement(
-          'div',
-          {
-            role: 'status',
-            'aria-live': 'assertive',
-            style: {
-              position: 'fixed',
-              left: '50%',
-              bottom: releBottomStr,
-              zIndex: 97,
-              maxWidth: releToastMaxW,
-              width: 'fit-content',
-              boxSizing: 'border-box',
-              padding: mob ? '12px 14px' : '14px 20px',
-              borderRadius: 14,
-              background: 'linear-gradient(165deg, rgba(62,48,14,.95) 0%, rgba(16,12,6,.97) 100%)',
-              border: '1px solid rgba(253,211,131,.4)',
-              boxShadow: '0 16px 48px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.1)',
-              backdropFilter: 'saturate(1.18) blur(16px)',
-              WebkitBackdropFilter: 'saturate(1.18) blur(16px)',
-              pointerEvents: 'none',
-              textAlign: 'center',
-              animation: 'bfReleToastIn 0.34s cubic-bezier(.22,1,.36,1) both',
-            },
-          },
-          React.createElement('div', {
-            style: {
-              fontSize: mob ? 15 : 17,
-              fontWeight: 900,
-              letterSpacing: mob ? 0.2 : 0.28,
-              background: 'linear-gradient(100deg,#fde68a,#fffbeb,#fbbf24)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              marginBottom: releSt.body ? 6 : 0,
-              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.45))',
-            },
-          }, releSt.title),
-          releSt.body
-            ? React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.93)', maxWidth: '100%', wordWrap: 'break-word' } }, releSt.body)
-            : null
         )
       : null;
   var ar = g.aceReveal;
@@ -3786,7 +3822,6 @@ function GameScreen(props){
     gameBackdropLayer(th),
     React.createElement('style',null,ACSS),
     swapToastEl,
-    releToastEl,
     aceRevealFlipEl,
     aceRevealToastEl,
     React.createElement('div',{style:{position:'relative',zIndex:2}},
@@ -3916,12 +3951,13 @@ function GameScreen(props){
         ),
         React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
-      React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
+      React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'visible'}},
         th.decor ? th.decor() : null,
         React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
         React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dE)),
         React.createElement('div',{style:{position:'absolute',bottom:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dS)),
+        releVisible && g.phase==='playing' ? releTableImpactOverlay(mob, releSt, th.id==='terrafe'?'50%':14) : null,
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
       React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
