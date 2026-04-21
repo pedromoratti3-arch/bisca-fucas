@@ -462,6 +462,26 @@ function getWin(tk,tr){
   return tk.reduce(function(b,c){ return beats(c.card,b.card,L,tr)?c:b; }, tk[0]);
 }
 
+/** Réle na mesa: 7 de trunfo seguido do Ás de trunfo na ordem da vaza — toast imediato ao jogar o Ás. */
+function makeReleToastIfAny(trick, trump, playerNames) {
+  if (!Array.isArray(trick) || trick.length < 2 || !trump) return null;
+  var pNs = playerNames || ["?", "?", "?", "?"];
+  for (var i = 0; i < trick.length - 1; i++) {
+    var a = trick[i],
+      b = trick[i + 1];
+    if (!a || !b || !a.card || !b.card) continue;
+    if (a.card.s === trump && a.card.v === "7" && b.card.s === trump && b.card.v === "A") {
+      var symT = SYM[trump] || "";
+      return {
+        title: "Réle!",
+        body: pNs[b.player] + " — Ás " + symT + " após o 7 de " + pNs[a.player] + ". +1 pt na partida.",
+        ts: Date.now(),
+      };
+    }
+  }
+  return null;
+}
+
 /** Fecha a vaza (host). Extraído para o fluxo normal e para watchdog anti-travamento. */
 function bfResolveEndTrick(pv, roomHostId, isOnline) {
   if (!pv || pv.phase !== "end_trick" || !Array.isArray(pv.trick) || pv.trick.length !== 4) return pv;
@@ -480,11 +500,13 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
   });
   var pNs = pv.playerNames || ["?", "?", "?", "?"];
   for (var i = 0; i < trick.length - 1; i++) {
-    if (trick[i].card.s === trump && trick[i].card.v === "7" && trick[i + 1].card.s === trump && trick[i + 1].card.v === "A")
+    if (trick[i].card.s === trump && trick[i].card.v === "7" && trick[i + 1].card.s === trump && trick[i + 1].card.v === "A") {
+      var acePl = trick[i + 1].player;
       events.push({
-        tm: pTm(trick[i + 1].player),
-        lbl: "Réle! " + pNs[trick[i + 1].player] + " jogou o Ás após o 7",
+        tm: pTm(acePl),
+        lbl: "Réle! " + pNs[acePl] + " jogou o Ás após o 7",
       });
+    }
   }
   var stDeal = parseSeat(pv.starter);
   if (isNaN(stDeal)) stDeal = 2;
@@ -1299,6 +1321,8 @@ function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
     Object.assign(upd, {
       aceReveal: { seat: seat, t: Date.now(), ace: { v: aceCardBot.v, s: aceCardBot.s, id: aceCardBot.id } },
     });
+  var releT = makeReleToastIfAny(trick, pv.trump, pNs);
+  if (releT) Object.assign(upd, { releToast: releT });
   if (forOnlineHost) Object.assign(upd, { lastActor: myPid });
   return Object.assign({}, pv, upd);
 }
@@ -1318,6 +1342,7 @@ function mkGame(pm,ps,tb,names,actor,sw){
     playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
     lastActor: actor || '',
     swapToast: null,
+    releToast: null,
     aceReveal: null,
     summaryFinalMPts: null
   };
@@ -1442,7 +1467,9 @@ var ACSS = [
   '@keyframes bfVicNameStagger{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}',
   '@keyframes bfVicRibbon{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.14) saturate(1.08)}}',
   '@keyframes bfVicSpark{0%,100%{opacity:0;transform:scale(.35)}18%{opacity:.85;transform:scale(1)}45%{opacity:.35;transform:scale(.88)}}',
-  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:200% 50%}}'
+  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:200% 50%}}',
+  '@keyframes bfReleToastIn{from{opacity:0;filter:blur(8px);transform:translateY(12px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}',
+  '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
 ].join('');
 
 /* ═══ RENDER HELPERS ═══ */
@@ -2582,6 +2609,8 @@ function GameScreen(props){
   var SWAP_TOAST_VISIBLE_MS = 5400;
   var SWAP_TOAST_TICK_MS = SWAP_TOAST_VISIBLE_MS + 800;
   var ACE_REVEAL_TOAST_MS = 5200;
+  var RELE_TOAST_VISIBLE_MS = 2000;
+  var RELE_TOAST_TICK_MS = RELE_TOAST_VISIBLE_MS + 400;
 
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
@@ -2653,8 +2682,11 @@ function GameScreen(props){
     function () {
       var hasSwap = g.swapToast && typeof g.swapToast.ts === "number";
       var hasAce = g.aceReveal && typeof g.aceReveal.t === "number";
-      if (!hasSwap && !hasAce) return;
-      var tickMs = hasAce ? Math.max(SWAP_TOAST_TICK_MS, ACE_REVEAL_TOAST_MS + 1200) : SWAP_TOAST_TICK_MS;
+      var hasRele = g.releToast && typeof g.releToast.ts === "number";
+      if (!hasSwap && !hasAce && !hasRele) return;
+      var tickMs = SWAP_TOAST_TICK_MS;
+      if (hasAce) tickMs = Math.max(tickMs, ACE_REVEAL_TOAST_MS + 1200);
+      if (hasRele) tickMs = Math.max(tickMs, RELE_TOAST_TICK_MS);
       var id = setInterval(function () {
         setSwapToastTick(function (x) {
           return x + 1;
@@ -2668,7 +2700,28 @@ function GameScreen(props){
         clearTimeout(maxT);
       };
     },
-    [g.swapToast, g.aceReveal]
+    [g.swapToast, g.aceReveal, g.releToast]
+  );
+
+  var releVibrateRef = useRef(0);
+  useEffect(
+    function () {
+      var rt = g.releToast;
+      if (!rt || typeof rt.ts !== "number") return;
+      if (releVibrateRef.current === rt.ts) return;
+      releVibrateRef.current = rt.ts;
+      var reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          if (reduceMotion) navigator.vibrate(25);
+          else navigator.vibrate([22, 38, 28, 55]);
+        }
+      } catch (e) {}
+    },
+    [g.releToast]
   );
 
   useEffect(
@@ -3064,6 +3117,8 @@ function GameScreen(props){
       var msg = NAMES[seat]+' jogou '+card.v+SYM[card.s];
       var upd = {hands:hands,trick:trick,curP:done?-1:nxt(seat),phase:done?'end_trick':'playing',msg:msg};
       if(revealAceTrump && aceCardReveal) Object.assign(upd,{aceReveal:{seat:seat,t:Date.now(),ace:{v:aceCardReveal.v,s:aceCardReveal.s,id:aceCardReveal.id}}});
+      var releT2 = makeReleToastIfAny(trick, p.trump, p.playerNames || NAMES);
+      if(releT2) Object.assign(upd,{releToast:releT2});
       if(isOnline) Object.assign(upd,{lastActor:myPid});
       return Object.assign({},p,upd);
     });
@@ -3502,9 +3557,22 @@ function GameScreen(props){
   var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   var swapSt = g.swapToast;
+  var releSt = g.releToast;
   void swapToastTick;
+  var swapVisible =
+    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS;
+  var releVisible =
+    releSt && releSt.title && releSt.body && typeof releSt.ts === 'number' && Date.now() - releSt.ts < RELE_TOAST_VISIBLE_MS;
+  var toastStackGap = mob ? 76 : 72;
+  var toastBasePx = mob ? 92 : 24;
+  var swapBottomStr = mob ? 'calc(' + toastBasePx + 'px + env(safe-area-inset-bottom, 0px))' : toastBasePx + 'px';
+  var releBottomStr = mob
+    ? 'calc(' + (toastBasePx + (swapVisible ? toastStackGap : 0)) + 'px + env(safe-area-inset-bottom, 0px))'
+    : toastBasePx + (swapVisible ? toastStackGap : 0) + 'px';
+  var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0) + (releVisible ? toastStackGap : 0);
+  var aceToastBottomStr = mob ? 'calc(' + aceToastOffset + 'px + env(safe-area-inset-bottom, 0px))' : aceToastOffset + 'px';
   var swapToastEl =
-    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS
+    swapVisible
       ? React.createElement(
           'div',
           {
@@ -3513,7 +3581,7 @@ function GameScreen(props){
             style: {
               position: 'fixed',
               left: '50%',
-              bottom: mob ? 'calc(92px + env(safe-area-inset-bottom, 0px))' : '24px',
+              bottom: swapBottomStr,
               transform: 'translateX(-50%)',
               zIndex: 95,
               maxWidth: 'min(440px, 94vw)',
@@ -3532,9 +3600,50 @@ function GameScreen(props){
           React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } }, swapSt.body)
         )
       : null;
+  var releToastEl =
+    releVisible
+      ? React.createElement(
+          'div',
+          {
+            role: 'status',
+            'aria-live': 'assertive',
+            style: {
+              position: 'fixed',
+              left: '50%',
+              bottom: releBottomStr,
+              transform: 'translateX(-50%)',
+              zIndex: 97,
+              maxWidth: 'min(440px, 94vw)',
+              padding: mob ? '13px 16px' : '15px 22px',
+              borderRadius: 16,
+              background: 'linear-gradient(165deg, rgba(62,48,14,.95) 0%, rgba(16,12,6,.97) 100%)',
+              border: '1px solid rgba(253,211,131,.4)',
+              boxShadow: '0 16px 48px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.1)',
+              backdropFilter: 'saturate(1.18) blur(16px)',
+              WebkitBackdropFilter: 'saturate(1.18) blur(16px)',
+              pointerEvents: 'none',
+              textAlign: 'center',
+              animation: 'bfReleToastIn 0.32s cubic-bezier(.22,1,.36,1) both',
+            },
+          },
+          React.createElement('div', {
+            style: {
+              fontSize: mob ? 14 : 16,
+              fontWeight: 900,
+              letterSpacing: 0.45,
+              textTransform: 'uppercase',
+              background: 'linear-gradient(100deg,#fde68a,#fffbeb,#fbbf24)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              marginBottom: 7,
+              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.45))',
+            },
+          }, releSt.title),
+          React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.5, color: 'rgba(255,255,255,.93)' } }, releSt.body)
+        )
+      : null;
   var ar = g.aceReveal;
-  var swapVisible =
-    swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS;
   var aceRevealToastEl =
     ar && ar.ace && ar.ace.v && typeof ar.t === 'number' && typeof ar.seat === 'number' && Date.now() - ar.t < ACE_REVEAL_TOAST_MS
       ? React.createElement(
@@ -3545,13 +3654,9 @@ function GameScreen(props){
             style: {
               position: 'fixed',
               left: '50%',
-              bottom: mob
-                ? 'calc(' + (swapVisible ? 168 : 92) + 'px + env(safe-area-inset-bottom, 0px))'
-                : swapVisible
-                  ? 100
-                  : 24,
+              bottom: aceToastBottomStr,
               transform: 'translateX(-50%)',
-              zIndex: 96,
+              zIndex: 98,
               maxWidth: 'min(440px, 94vw)',
               padding: mob ? '12px 14px' : '14px 20px',
               borderRadius: 14,
@@ -3609,8 +3714,9 @@ function GameScreen(props){
       : null;
   return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
-    React.createElement('style',null,'@keyframes pls{0%,100%{opacity:1}50%{opacity:.4}}'),
+    React.createElement('style',null,ACSS),
     swapToastEl,
+    releToastEl,
     aceRevealFlipEl,
     aceRevealToastEl,
     React.createElement('div',{style:{position:'relative',zIndex:2}},
