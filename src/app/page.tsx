@@ -192,6 +192,26 @@ function playerInRoom(r, playerId) {
   return null;
 }
 
+/** Quem saiu era o `lastActor` do jogo online — o próximo host precisa poder gravar no RT (senão a mesa trava). */
+function roomEnsureGameLastActorForPlayers(room) {
+  if (!room || !room.game || typeof room.game !== "object") return room;
+  var ids = [];
+  if (Array.isArray(room.players)) {
+    for (var i = 0; i < room.players.length; i++) {
+      if (room.players[i] && room.players[i].id) ids.push(room.players[i].id);
+    }
+  }
+  var hid = room.hostId || "";
+  var la = room.game.lastActor;
+  if (!la || ids.indexOf(la) < 0) {
+    var nextLa = hid || ids[0] || "";
+    return Object.assign({}, room, {
+      game: Object.assign({}, room.game, { lastActor: nextLa }),
+    });
+  }
+  return room;
+}
+
 /**
  * Assento 0–3 no online: usa `room.players[].seat` quando válido; senão tenta casar o nome
  * com `game.playerNames` (corrige RT atrasado com seat -1 ou cliente que clampava tudo a 0).
@@ -326,7 +346,8 @@ var RT = {
       if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
         hostId = humans[0].id;
       }
-      await RT.setRoom(code, Object.assign({}, r, { players: players, hostId: hostId }));
+      var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
+      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
     }
@@ -393,7 +414,7 @@ var RT = {
           return p.id === r.hostId;
         });
         if (!hostOk) {
-          var fixedHost = Object.assign({}, r, { hostId: humans[0].id });
+          var fixedHost = roomEnsureGameLastActorForPlayers(Object.assign({}, r, { hostId: humans[0].id }));
           try {
             await RT.setRoom(code, fixedHost);
             cb(fixedHost);
@@ -2739,7 +2760,34 @@ function LobbyScreen(P){
       isHost
         ? React.createElement(React.Fragment,null,
             React.createElement('div',{style:{fontSize:11,opacity:0.45,marginBottom:8,lineHeight:1.4}},'Escolha Dupla A ou B (max. 2 por lado). Pode iniciar sozinho ou com 2–3 pessoas — a IA completa a mesa.'),
-            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},primaryButtonStyle(lobbyTh),{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →')
+            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},primaryButtonStyle(lobbyTh),{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →'),
+            typeof P.onHostDestroyRoom === 'function'
+              ? React.createElement('button',{
+                  type: 'button',
+                  onClick: function () {
+                    if (
+                      typeof window !== 'undefined' &&
+                      window.confirm &&
+                      !window.confirm('Apagar esta mesa no servidor para todos? Ninguém poderá retomar.')
+                    ) {
+                      return;
+                    }
+                    void P.onHostDestroyRoom();
+                  },
+                  style: {
+                    marginTop: 12,
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(248,113,113,.55)',
+                    background: 'rgba(69,10,10,.5)',
+                    color: '#fecaca',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  },
+                }, 'Apagar sala no servidor (todos saem; não dá para retomar)')
+              : null
           )
         : React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.5,animation:'pls 2s infinite'}},'Aguardando o host iniciar...')
     )
@@ -4323,18 +4371,69 @@ export default function App(){
     })();
   }
 
+  /** Anfitrião: apaga a sala no Firebase; todos perdem a mesa e o convite «retomar» some. */
+  function hostDestroyRoomFromApp() {
+    void (async function () {
+      var code = roomCodeRef.current;
+      var mid = myIdRef.current;
+      if (!code || !mid) return;
+      var rCheck = await RT.getRoom(code);
+      if (!rCheck || rCheck.hostId !== mid) return;
+      setOPT(0);
+      try {
+        await RT.deleteRoom(code);
+      } catch (e) {
+        void e;
+      }
+      try {
+        await RT.detachRoomPresence();
+      } catch (e) {
+        void e;
+      }
+      clearBfSession();
+      setResumeOffer(null);
+      setShowExit(false);
+      setScreen('home');
+      setRoom(null);
+      setRoomCode('');
+      sg(null);
+      setOG(null);
+    })();
+  }
+
   var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
 
+  var exitHostIsRoomHost = (screen === 'online' || screen === 'lobby') && room && myId && room.hostId === myId;
   var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
-    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:340,width:'90%',textAlign:'center'})},
+    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:exitHostIsRoomHost ? 380 : 340,width:'90%',textAlign:'center'})},
       React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
-      React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20}},
+      React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20,lineHeight:1.45}},
         screen==='online'||screen==='lobby'
-          ? 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
+          ? exitHostIsRoomHost
+            ? 'Como anfitrião: «Sim, sair» passa o anfitrião a outro jogador e a mesa continua. «Apagar sala no servidor» apaga a mesa para todos e remove o «Retomar esta mesa».'
+            : 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
           : 'O progresso será perdido.'
       ),
       React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
         React.createElement('button',{onClick:goHome,style:primaryButtonStyle(theme)},'Sim, sair'),
+        exitHostIsRoomHost
+          ? React.createElement('button',{
+              type: 'button',
+              onClick: function () {
+                void hostDestroyRoomFromApp();
+              },
+              style: {
+                background: '#7f1d1d',
+                color: '#fecaca',
+                border: '1px solid rgba(248,113,113,.55)',
+                borderRadius: 8,
+                padding: '10px 16px',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: 13,
+              },
+            }, 'Apagar sala no servidor')
+          : null,
         React.createElement('button',{onClick:function(){setShowExit(false);},style:themeGhostButtonStyle(theme)},'Continuar')
       )
     )
@@ -4460,7 +4559,14 @@ export default function App(){
   }
 
   if(screen==='lobby' && room){
-    return React.createElement(LobbyScreen,{room:room,myId:myId,presenceByPlayer:presenceByPlayer,onLeave:goHome,serverConnected:rtdbConnected});
+    return React.createElement(LobbyScreen,{
+      room: room,
+      myId: myId,
+      presenceByPlayer: presenceByPlayer,
+      onLeave: goHome,
+      onHostDestroyRoom: hostDestroyRoomFromApp,
+      serverConnected: rtdbConnected,
+    });
   }
 
   if(screen==='online' && room && og){
