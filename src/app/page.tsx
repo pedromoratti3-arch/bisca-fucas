@@ -1482,9 +1482,12 @@ var ACSS = [
   '@keyframes bfVicHeroEnter{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
   '@keyframes bfVicKicker{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}',
   '@keyframes bfVicNameStagger{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}',
-  '@keyframes bfVicRibbon{0%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.16) saturate(1.1)}100%{filter:brightness(1) saturate(1)}}',
-  '@keyframes bfVicSpark{0%{opacity:.2;transform:scale(.72)}50%{opacity:.82;transform:scale(1)}100%{opacity:.2;transform:scale(.72)}}',
-  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:100% 50%}}',
+  '@keyframes bfVicRibbon{0%,100%{filter:brightness(1) saturate(1) drop-shadow(0 2px 10px rgba(0,0,0,.55))}50%{filter:brightness(1.1) saturate(1.07) drop-shadow(0 2px 14px rgba(251,191,36,.32))}}',
+  '@keyframes bfVicEmberDrift{0%{transform:translate(0,0) scale(1);opacity:.12}22%{opacity:.45}45%{transform:translate(7px,-18px) scale(1.1);opacity:.28}68%{opacity:.5}100%{transform:translate(0,0) scale(1);opacity:.12}}',
+  '@keyframes bfVicSheenMarquee{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(-50%,0,0)}}',
+  '@keyframes bfVicGlowSpin{to{transform:rotate(360deg)}}',
+  '@keyframes bfVicAura{0%,100%{opacity:.16;transform:scale(1)}50%{opacity:.3;transform:scale(1.02)}}',
+  '@keyframes bfVicRim{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.07) inset,0 16px 48px rgba(0,0,0,.4),0 0 52px rgba(251,191,36,.11)}50%{box-shadow:0 0 0 1px rgba(253,224,130,.15) inset,0 18px 52px rgba(0,0,0,.42),0 0 78px rgba(251,191,36,.25)}}',
   '@keyframes bfReleToastIn{from{opacity:0;filter:blur(5px);transform:translate(-50%,14px) scale(.96)}to{opacity:1;filter:blur(0);transform:translate(-50%,0) scale(1)}}',
   '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
 ].join('');
@@ -1650,19 +1653,27 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
   var names = wTeam===0 ? [NAMES[0], NAMES[2]] : [NAMES[1], NAMES[3]];
   var accent = wTeam===0 ? '#4ade80' : '#f87171';
   var accentSoft = wTeam===0 ? 'rgba(74,222,128,.22)' : 'rgba(248,113,113,.22)';
-  var sparks = [0,1,2,3,4,5].map(function(i){
-    return React.createElement('span',{key:'vicsp'+i,style:{
+  var emberPts = [
+    [11,10],[26,8],[41,14],[58,9],[74,12],[88,16],[17,38],[33,44],[50,36],[67,42],[83,38],
+    [14,62],[29,70],[46,66],[63,72],[78,64],[92,58],[6,48],[52,24],[72,26],[38,78]
+  ];
+  var embers = emberPts.map(function(pt,i){
+    var sz = i % 4 === 0 ? 3 : i % 3 === 0 ? 2 : 2;
+    return React.createElement('span',{key:'vicemb'+i,style:{
       position:'absolute',
-      left:(8+i*16)%92+'%',
-      top:(10+(i%3)*22)+'%',
-      width:i%2?5:4,
-      height:i%2?5:4,
+      left:pt[0]+'%',
+      top:pt[1]+'%',
+      width:sz,
+      height:sz,
       borderRadius:'50%',
-      background:i%3?'rgba(253,224,130,.9)':'rgba(255,255,255,.55)',
+      background:i%2?'rgba(255,252,240,.9)':'rgba(251,191,36,.95)',
+      boxShadow:'0 0 5px rgba(253,224,130,.4),0 0 12px rgba(251,191,36,.2)',
       pointerEvents:'none',
-      animation:'bfVicSpark '+(2.2+i*0.1)+'s linear '+(-i*0.21)+'s infinite',
+      animation:'bfVicEmberDrift '+(4.2+(i%7)*0.35)+'s linear '+(-(i*0.41))+'s infinite',
     }});
   });
+  var sheenStrip =
+    'linear-gradient(100deg, transparent 12%, rgba(255,253,245,.06) 22%, rgba(255,255,255,.13) 25%, rgba(255,253,245,.06) 28%, transparent 38%)';
   return React.createElement('div',{
     role:'status',
     'aria-live':'polite',
@@ -1675,17 +1686,49 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       background:'linear-gradient(155deg, rgba(251,191,36,.14) 0%, rgba(0,0,0,.4) 42%, rgba(15,10,8,.55) 100%)',
       border:'1px solid rgba(253,224,130,.32)',
       boxShadow:'0 0 0 1px rgba(255,255,255,.07) inset, 0 16px 48px rgba(0,0,0,.4), 0 0 60px rgba(251,191,36,.08)',
-      animation:'bfVicHeroEnter 0.7s cubic-bezier(.22,1,.36,1) both',
+      animation:'bfVicHeroEnter 0.7s cubic-bezier(.22,1,.36,1) both, bfVicRim 6.5s linear infinite 0.72s',
     },
   },
-    sparks,
     React.createElement('div',{style:{
-      position:'absolute',inset:0,
-      background:'linear-gradient(110deg, transparent 0%, rgba(255,255,255,.06) 45%, transparent 55%)',
-      backgroundSize:'200% 100%',
-      animation:'bfVicScan 2.4s linear infinite',
+      position:'absolute',inset:'-35%',
+      background:'conic-gradient(from 200deg at 50% 42%, transparent 0deg, rgba(251,191,36,.05) 70deg, rgba(255,252,240,.07) 95deg, rgba(180,83,9,.04) 130deg, transparent 165deg, transparent 360deg)',
+      filter:'blur(26px)',
+      opacity:0.92,
+      animation:'bfVicGlowSpin 22s linear infinite',
       pointerEvents:'none',
     }}),
+    React.createElement('div',{style:{
+      position:'absolute',inset:0,
+      background:'radial-gradient(ellipse 92% 70% at 50% 28%, rgba(251,191,36,.14) 0%, transparent 58%), radial-gradient(ellipse 70% 45% at 80% 85%, rgba(180,83,9,.08) 0%, transparent 50%)',
+      animation:'bfVicAura 9s linear infinite',
+      pointerEvents:'none',
+    }}),
+    embers,
+    React.createElement('div',{style:{position:'absolute',inset:0,overflow:'hidden',borderRadius:16,pointerEvents:'none'}},
+      React.createElement('div',{style:{
+        position:'absolute',top:0,left:0,width:'200%',height:'100%',
+        backgroundImage:sheenStrip+','+sheenStrip,
+        backgroundSize:'50% 100%, 50% 100%',
+        backgroundPosition:'0 0, 50% 0',
+        backgroundRepeat:'no-repeat',
+        mixBlendMode:'screen',
+        opacity:0.72,
+        filter:'blur(3px)',
+        animation:'bfVicSheenMarquee 13s linear infinite',
+      }}),
+      React.createElement('div',{style:{
+        position:'absolute',top:'-8%',left:'-5%',width:'200%',height:'116%',
+        backgroundImage:'linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%), linear-gradient(100deg, transparent 30%, rgba(253,224,130,.07) 48%, rgba(253,224,130,.12) 50%, rgba(253,224,130,.07) 52%, transparent 70%)',
+        backgroundSize:'50% 100%, 50% 100%',
+        backgroundPosition:'0 0, 50% 0',
+        backgroundRepeat:'no-repeat',
+        mixBlendMode:'screen',
+        opacity:0.55,
+        filter:'blur(9px)',
+        animation:'bfVicSheenMarquee 19s linear infinite',
+        animationDelay:'-9.5s',
+      }}),
+    ),
     React.createElement('div',{style:{
       fontSize:10,
       fontWeight:800,
@@ -1709,7 +1752,7 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       WebkitTextFillColor:'transparent',
       backgroundClip:'text',
       filter:'drop-shadow(0 2px 10px rgba(0,0,0,.55))',
-      animation:'bfVicRibbon 2.2s linear infinite',
+      animation:'bfVicRibbon 5.5s linear infinite',
     }}, wTeam===0 ? 'Dupla A' : 'Dupla B'),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10,position:'relative',zIndex:1}},
       names.map(function(nm, i){
