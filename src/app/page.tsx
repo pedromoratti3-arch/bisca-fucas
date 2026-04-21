@@ -3565,10 +3565,11 @@ function GameScreen(props){
     releSt && releSt.title && releSt.body && typeof releSt.ts === 'number' && Date.now() - releSt.ts < RELE_TOAST_VISIBLE_MS;
   var toastStackGap = mob ? 76 : 72;
   var toastBasePx = mob ? 92 : 24;
+  var releToastBasePx = mob ? 152 : 34;
   var swapBottomStr = mob ? 'calc(' + toastBasePx + 'px + env(safe-area-inset-bottom, 0px))' : toastBasePx + 'px';
   var releBottomStr = mob
-    ? 'calc(' + (toastBasePx + (swapVisible ? toastStackGap : 0)) + 'px + env(safe-area-inset-bottom, 0px))'
-    : toastBasePx + (swapVisible ? toastStackGap : 0) + 'px';
+    ? 'calc(' + (releToastBasePx + (swapVisible ? toastStackGap : 0)) + 'px + env(safe-area-inset-bottom, 0px))'
+    : releToastBasePx + (swapVisible ? toastStackGap : 0) + 'px';
   var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0) + (releVisible ? toastStackGap : 0);
   var aceToastBottomStr = mob ? 'calc(' + aceToastOffset + 'px + env(safe-area-inset-bottom, 0px))' : aceToastOffset + 'px';
   var swapToastEl =
@@ -3610,9 +3611,11 @@ function GameScreen(props){
             style: {
               position: 'fixed',
               left: '50%',
+              right: 'auto',
               bottom: releBottomStr,
               transform: 'translateX(-50%)',
               zIndex: 97,
+              width: 'min(440px, calc(100vw - 24px))',
               maxWidth: 'min(440px, 94vw)',
               padding: mob ? '13px 16px' : '15px 22px',
               borderRadius: 16,
