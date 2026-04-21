@@ -628,7 +628,16 @@ function bfResolveEndRound(pv, roomHostId, isOnline) {
   if (go) {
     var matchWinner = m0 > m1 ? 0 : 1;
     setWins[matchWinner] += 1;
-    sum.push("Dupla " + (matchWinner === 0 ? "A" : "B") + " fechou a partida de 4 pontos!");
+    var winnerPts = mPts[matchWinner];
+    var winnerPtsForMatchText = Math.max(4, winnerPts);
+    sum.push(
+      "Dupla " +
+        (matchWinner === 0 ? "A" : "B") +
+        " fechou a partida com " +
+        winnerPtsForMatchText +
+        " pontos" +
+        "!"
+    );
     summaryFinalMPts = mPts.slice();
     mPts = [0, 0];
     newTB = 0;
@@ -1465,9 +1474,9 @@ var ACSS = [
   '@keyframes bfVicHeroEnter{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
   '@keyframes bfVicKicker{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}',
   '@keyframes bfVicNameStagger{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}',
-  '@keyframes bfVicRibbon{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.14) saturate(1.08)}}',
-  '@keyframes bfVicSpark{0%,100%{opacity:0;transform:scale(.35)}18%{opacity:.85;transform:scale(1)}45%{opacity:.35;transform:scale(.88)}}',
-  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:200% 50%}}',
+  '@keyframes bfVicRibbon{0%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.16) saturate(1.1)}100%{filter:brightness(1) saturate(1)}}',
+  '@keyframes bfVicSpark{0%{opacity:.2;transform:scale(.72)}50%{opacity:.82;transform:scale(1)}100%{opacity:.2;transform:scale(.72)}}',
+  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:100% 50%}}',
   '@keyframes bfReleToastIn{from{opacity:0;filter:blur(8px);transform:translateY(12px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}',
   '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
 ].join('');
@@ -1643,7 +1652,7 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       borderRadius:'50%',
       background:i%3?'rgba(253,224,130,.9)':'rgba(255,255,255,.55)',
       pointerEvents:'none',
-      animation:'bfVicSpark '+(2.4+i*0.12)+'s ease-in-out '+(i*0.07)+'s infinite',
+      animation:'bfVicSpark '+(2.2+i*0.1)+'s linear '+(-i*0.21)+'s infinite',
     }});
   });
   return React.createElement('div',{
@@ -1665,8 +1674,8 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
     React.createElement('div',{style:{
       position:'absolute',inset:0,
       background:'linear-gradient(110deg, transparent 0%, rgba(255,255,255,.06) 45%, transparent 55%)',
-      backgroundSize:'220% 100%',
-      animation:'bfVicScan 3.2s ease-in-out infinite',
+      backgroundSize:'200% 100%',
+      animation:'bfVicScan 2.4s linear infinite',
       pointerEvents:'none',
     }}),
     React.createElement('div',{style:{
@@ -1692,7 +1701,7 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       WebkitTextFillColor:'transparent',
       backgroundClip:'text',
       filter:'drop-shadow(0 2px 10px rgba(0,0,0,.55))',
-      animation:'bfVicRibbon 2.8s ease-in-out infinite',
+      animation:'bfVicRibbon 2.2s linear infinite',
     }}, wTeam===0 ? 'Dupla A' : 'Dupla B'),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10,position:'relative',zIndex:1}},
       names.map(function(nm, i){
@@ -1737,7 +1746,11 @@ function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
       letterSpacing:0.08,
       position:'relative',
       zIndex:1,
-    }}, '4 pontos · campeões desta mesa')
+    }}, (function(){
+      var winnerPts = wTeam===0 ? m0 : m1;
+      var winnerPtsForMatchText = Math.max(4, winnerPts);
+      return String(winnerPtsForMatchText) + ' pontos · campeões desta mesa';
+    })())
   );
 }
 
