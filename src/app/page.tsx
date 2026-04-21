@@ -4030,7 +4030,23 @@ function GameScreen(props){
           'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
         ),
         React.createElement('div',{style:{textAlign:'center'}},
-          React.createElement('button',{onClick:function(){sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));},style:primaryButtonStyle(th)},'Próxima rodada')
+          isOnline && !isRoomHost
+            ? React.createElement('div',{
+                style:{
+                  fontSize:mob?12:13,
+                  opacity:0.78,
+                  padding:'14px 10px',
+                  lineHeight:1.5,
+                  maxWidth:340,
+                  margin:'0 auto',
+                },
+              },'Apenas o host da sala pode iniciar a próxima partida. Aguarde…')
+            : React.createElement('button',{
+                onClick:function(){
+                  sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));
+                },
+                style:primaryButtonStyle(th),
+              },'Próxima rodada')
         )
       )
     ) : null
