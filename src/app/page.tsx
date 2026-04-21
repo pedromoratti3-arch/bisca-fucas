@@ -895,7 +895,16 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var loseFollow = followOpts.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
       /* Parceiro já vai ganhar no naipe de abertura: não restringir ao Ás (ou outras que batem o 7 dele) — lixar trunfo mais baixo se houver. */
       if(partnerWinning && loseFollow.length) pool = loseFollow;
-      else pool = followWinners;
+      else if(
+        partnerWinning &&
+        curWin.card.v==='7' &&
+        curWin.card.s===trump &&
+        pTm(curWin.player)===mt
+      ){
+        /* Só o Ás de trunfo ganha por cima do 7: nunca roubar a vaza ao parceiro com o Ás se houver outra carta do naipe de saída. */
+        var noAceOverMate7 = followOpts.filter(function(c){ return !(c.v==='A' && c.s===trump); });
+        pool = noAceOverMate7.length ? noAceOverMate7 : followWinners;
+      } else pool = followWinners;
     } else {
       var twCut = poolAll.filter(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
       function trickStillOurs(card){
@@ -961,7 +970,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     /* Bísca na mesa, parceiro vai ganhando com corte e ainda há quem jogar: subir ao máximo de trunfo para não deixarem roubar a vaza. */
     if(anyBiscaTableGlobal && mateWinsTrump && !isLast){
       var raiseTrump = pool.filter(function(c){
-        return c.s===trump && beats(c, curWin.card, lead, trump) && teamWinsWith(c);
+        if(!(c.s===trump && beats(c, curWin.card, lead, trump) && teamWinsWith(c))) return false;
+        if(curWin.card.v==='7' && curWin.card.s===trump && pTm(curWin.player)===mt && c.v==='A' && c.s===trump) return false;
+        return true;
       });
       if(raiseTrump.length){
         return raiseTrump.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
@@ -1002,6 +1013,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(matePlayedBisca){
       var cheapWin = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
       if(cheapWin.length) return cheapWin.slice().sort(byPtsAsc)[0];
+    }
+    if(curWin.card.v==='7' && curWin.card.s===trump && pTm(curWin.player)===mt){
+      var sansAceOverMate7 = candidates.filter(function(c){ return !(c.v==='A' && c.s===trump); });
+      if(sansAceOverMate7.length) candidates = sansAceOverMate7;
     }
     // Parceiro com corte (ou tu só podes somar no naipe): somar o máximo de pontos possível na vaza.
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
