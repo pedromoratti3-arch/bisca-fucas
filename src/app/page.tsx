@@ -590,17 +590,6 @@ function bfResolveEndRound(pv, roomHostId, isOnline) {
         newTB +
         " pt na próxima vitória por pontos)."
     );
-    sum.push(
-      "Exemplos: corte normal → 1 + " +
-        newTB +
-        " = " +
-        (1 + newTB) +
-        " pts na partida; Copas batido → 2 + " +
-        newTB +
-        " = " +
-        (2 + newTB) +
-        " pts na partida."
-    );
   }
   pv.events.forEach(function (e) {
     mPts[e.tm]++;
@@ -3609,7 +3598,7 @@ function GameScreen(props){
       ),
       React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' começa',
-        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Próxima vitória por pontos na mesa: 1+'+g.tieBonus+' (normal) ou 2+'+g.tieBonus+' (Copas batido), por empate(s) 60-60 anterior(es).'},'Na mesa: 1+'+g.tieBonus+' ou 2+'+g.tieBonus+' pts') : null
+        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Próxima vitória por pontos na mesa: 1+'+g.tieBonus+' (normal) ou 2+'+g.tieBonus+' (Copas batido), por empate(s) 60-60 anterior(es).'},'60 - 60') : null
       ),
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
@@ -3848,7 +3837,7 @@ function GameScreen(props){
                   React.createElement('div', { style: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                   React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                     React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
-                    g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
+                    g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, '60 - 60') : null,
                     venueNameChip(th, 9)
                   )
                 )
@@ -3886,7 +3875,7 @@ function GameScreen(props){
                 React.createElement('div', { style: { fontSize: 18, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                 React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                   React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
-                  g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, 'empate 60-60: 1+' + g.tieBonus + ' ou 2+' + g.tieBonus + ' pts') : null,
+                  g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Próxima vitória por pontos: 1+' + g.tieBonus + ' (normal) ou 2+' + g.tieBonus + ' (Copas batido) por empate(s) 60-60.' }, '60 - 60') : null,
                   venueNameChip(th, 9)
                 )
               )
