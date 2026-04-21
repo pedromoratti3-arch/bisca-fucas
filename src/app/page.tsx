@@ -2789,34 +2789,7 @@ function LobbyScreen(P){
       isHost
         ? React.createElement(React.Fragment,null,
             React.createElement('div',{style:{fontSize:11,opacity:0.45,marginBottom:8,lineHeight:1.4}},'Escolha Dupla A ou B (max. 2 por lado). Pode iniciar sozinho ou com 2–3 pessoas — a IA completa a mesa.'),
-            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},primaryButtonStyle(lobbyTh),{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →'),
-            typeof P.onHostDestroyRoom === 'function'
-              ? React.createElement('button',{
-                  type: 'button',
-                  onClick: function () {
-                    if (
-                      typeof window !== 'undefined' &&
-                      window.confirm &&
-                      !window.confirm('Apagar esta mesa no servidor para todos? Ninguém poderá retomar.')
-                    ) {
-                      return;
-                    }
-                    void P.onHostDestroyRoom();
-                  },
-                  style: {
-                    marginTop: 12,
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: '1px solid rgba(248,113,113,.55)',
-                    background: 'rgba(69,10,10,.5)',
-                    color: '#fecaca',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: 600,
-                  },
-                }, 'Apagar sala no servidor (todos saem; não dá para retomar)')
-              : null
+            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},primaryButtonStyle(lobbyTh),{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →')
           )
         : React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.5,animation:'pls 2s infinite'}},'Aguardando o host iniciar...')
     )
@@ -4593,7 +4566,6 @@ export default function App(){
       myId: myId,
       presenceByPlayer: presenceByPlayer,
       onLeave: goHome,
-      onHostDestroyRoom: hostDestroyRoomFromApp,
       serverConnected: rtdbConnected,
     });
   }
