@@ -3187,7 +3187,7 @@ function GameScreen(props){
         if(!allowedCut) return pv;
       }
       if(preferBat && shouldBatDesvantagemPartida(pv.mPts, pTm(cutter))){
-        return stateBatidoFromCut(pv, isOnline ? (roomHostId || myPid) : pv.lastActor);
+        return stateBatidoFromCut(pv, isOnline ? myPid : pv.lastActor);
       }
       if(!Array.isArray(pv.fd) || pv.fd.length<20) return pv;
       var useCi = ci!=null && typeof ci==='number' && !isNaN(ci) ? ci : aiPickCutRotateIndex(pv.fd);
@@ -3198,7 +3198,10 @@ function GameScreen(props){
       else{ trump=rawTc.s; tc=rawTc; }
       var msg = tc ? ('Trunfo: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - trunfo: '+SYM[trump]+' '+trump+'!');
       if(isOnline){
-        return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:roomHostId||myPid});
+        /* lastActor = quem gravou esta transição: tem de ser myPid para RT.setGame correr aqui.
+           O cortador humano raramente é o host; com lastActor só no host o corte nunca ia para o RT
+           e a mesa ficava em “cortando…” até o timeout do host (corte aleatório errado). */
+        return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg,lastActor:myPid});
       }
       return Object.assign({},pv,{phase:'deal',fd:newFd,tc:tc,trump:trump,rawTc:tc?null:rawTc,batido:false,hands:[[],[],[],[]],dealStep:0,msg:msg});
     });
@@ -3219,7 +3222,7 @@ function GameScreen(props){
     if(isOnline && !iAmCutter) return;
     setCutSec(null);
     sg(function(pv){
-      return stateBatidoFromCut(pv, isOnline ? (roomHostId || myPid) : pv.lastActor);
+      return stateBatidoFromCut(pv, isOnline ? myPid : pv.lastActor);
     });
   }
 
