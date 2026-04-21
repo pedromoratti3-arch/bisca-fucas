@@ -3675,9 +3675,9 @@ function GameScreen(props){
         ),
         shScore
       ),
-      React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.65}},
+      React.createElement('div',{style:{textAlign:'center',fontSize:11,opacity:0.58,fontWeight:400,lineHeight:1.45}},
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' começa',
-        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +'+g.tieBonus+' pt.'},'60 - 60') : null
+        g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:10},title:'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +'+g.tieBonus+' pt.'},'60 - 60') : null
       ),
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
@@ -3687,24 +3687,24 @@ function GameScreen(props){
         )
       ) : null,
       showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}},
-        React.createElement('div',{style:{fontSize:14,opacity:0.85,fontWeight:'500'}},'Escolha como cortar:'),
-        cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:13,fontWeight:600,textAlign:'center',padding:'0 12px',fontVariantNumeric:'tabular-nums',color:'rgba(255,255,255,.88)'}},
-          'Tempo: ',
+        React.createElement('div',{style:{fontSize:13,opacity:0.72,fontWeight:500}},'escolha como cortar:'),
+        cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:12,fontWeight:500,textAlign:'center',padding:'0 12px',fontVariantNumeric:'tabular-nums',color:'rgba(255,255,255,.72)'}},
+          'tempo: ',
           React.createElement('span',{style:{display:'inline-block',minWidth:'1.35em',textAlign:'right',fontVariantNumeric:'tabular-nums',color:timerAccent,fontWeight:700}},cutSec),
-          's — se acabar, corta automático.'
+          's \u00b7 se acabar, corta automático.'
         ) : null,
         React.createElement('div',{style:{display:'flex',gap:mob?16:28,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
           React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
             React.createElement('div',{style:{transform:cutAnim&&cutLift==='top'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
               deckPile(20,null,hovHalf==='top',mob,cbk,true)
             ),
-            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?600:500}},'Metade de cima')
+            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?600:500}},'metade de cima')
           ),
           React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
             React.createElement('div',{style:{transform:cutAnim&&cutLift==='bottom'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
               deckPile(20,null,hovHalf==='bottom',mob,cbk,true)
             ),
-            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?600:500}},'Metade de baixo')
+            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?600:500}},'metade de baixo')
           )
         ),
         React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:6,marginTop:4}},
@@ -3730,12 +3730,15 @@ function GameScreen(props){
           React.createElement('div',{style:{fontSize:10,opacity:0.45}},'Bater = trunfo e copas, vencer vale 2 pts')
         )
       ) : null,
-      aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16}},
-        React.createElement('div',{style:{fontSize:15,animation:'pls 1s ease-in-out infinite'}},NAMES[cutter]+' cortando...')
+      aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
+        React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},NAMES[cutter]),
+          React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a cortar…')
+        )
       ) : null,
       g.phase==='deal' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:6}},
-        React.createElement('div',{style:{textAlign:'center',fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
-          React.createElement('span',null,'Trunfo:'),
+        React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.72,display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
+          React.createElement('span',null,'trunfo:'),
           React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:15}},SYM[g.trump]+' '+g.trump),
           isCB ? React.createElement('span',{style:{background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11}},'BATIDO') : null
         ),
@@ -3761,10 +3764,10 @@ function GameScreen(props){
             React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dS])
           )
         ),
-        React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.6,animation:'pls 1s infinite'}},
+        React.createElement('div',{style:{textAlign:'center',fontSize:11,opacity:0.58,fontWeight:400,lineHeight:1.45,animation:'pls 1s infinite'}},
           g.batido
-            ? (g.dealStep<4 ? NAMES[TORD[(TORD.indexOf(gStart)+g.dealStep)%4]]+' recebe 3 cartas... ('+(g.dealStep+1)+'/4)' : 'Preparando...')
-            : (g.dealStep<12 ? 'Distribuindo '+(g.dealStep+1)+'/12...' : 'Preparando...')
+            ? (g.dealStep<4 ? NAMES[TORD[(TORD.indexOf(gStart)+g.dealStep)%4]]+' a receber 3 cartas… ('+(g.dealStep+1)+'/4)' : 'preparando…')
+            : (g.dealStep<12 ? 'distribuindo '+(g.dealStep+1)+'/12…' : 'preparando…')
         )
       ) : null
     );
@@ -3983,20 +3986,20 @@ function GameScreen(props){
     React.createElement('div',{style:{height:mob?2:4}}),
     React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
       React.createElement('span',{style:playDenied?{color:'#fb923c',fontWeight:600}:undefined},playDenied!=null?playDenied:g.msg),
-      React.createElement('span',{style:{opacity:0.7,fontSize:mob?9:11,lineHeight:1.35}},
-        'Trunfo: ',
-        React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd'}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
-        ' | Mão '+Math.min(g.trickN + 1, 10)+'/10 | Deck:'+
+      React.createElement('span',{style:{opacity:0.58,fontSize:mob?9:11,lineHeight:1.45,fontWeight:400}},
+        'trunfo: ',
+        React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontWeight:600}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
+        ' \u00b7 m\u00e3o '+Math.min(g.trickN + 1, 10)+'/10 \u00b7 deck: '+
         (g.phase==='deal'?(g.batido?Math.max(0,28-g.dealStep*3):Math.max(0,28-g.dealStep)):g.deck.length),
         g.trump && !g.trumpSevenOut && !g.trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===g.trump; })
-          ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},'7'+SYM[g.trump]+' não saiu')
+          ? React.createElement('span',{style:{color:'#fbbf24',marginLeft:4,fontSize:10}},' \u00b7 7'+SYM[g.trump]+' não saiu')
           : null
       )
     ),
     partnerViewPause&&partnerCount>0 ? React.createElement('div',{style:{background:'rgba(134,239,172,.2)',border:'1px solid #86efac',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center'}},'Veja as cartas do parceiro! '+partnerCount+'s...') : null,
     isLastHand && g.trickN===7 && partnerCount>0 ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'\u00daltima m\u00e3o!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
-      React.createElement('span',{style:{fontSize:11,opacity:0.6}},'Corte:'),
+      React.createElement('span',{style:{fontSize:11,opacity:0.58}},'corte:'),
       g.tc ? rCard(g.tc,null,false,false,true,false,mob,cbk)
         : isCB ? React.createElement('span',{style:{color:'#fca5a5',fontSize:14,fontWeight:'bold'}},'\u2665 copas batido')
         : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
