@@ -3811,7 +3811,7 @@ export default function App(){
       React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
       React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20}},
         screen==='online'||screen==='lobby'
-          ? 'Você será removido da sala no servidor. Com partida em curso, o botão Entrar com o código não volta a colocá-lo na mesa — só o cartão "Continuar na mesa" no início, se a sessão ainda for válida.'
+          ? 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
           : 'O progresso será perdido.'
       ),
       React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
@@ -3828,7 +3828,7 @@ export default function App(){
           "div",
           {
             role: "dialog",
-            "aria-label": "Continuar na mesa",
+            "aria-label": "Retomar esta mesa",
             style: {
               position: "fixed",
               top: "max(10px, env(safe-area-inset-top))",
@@ -3846,14 +3846,14 @@ export default function App(){
               pointerEvents: "auto",
             },
           },
-          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#f0d078", marginBottom: 6 } }, "Continuar na mesa"),
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#f0d078", marginBottom: 6 } }, "Retomar esta mesa"),
           React.createElement("div", { style: { fontSize: 16, fontWeight: 800, letterSpacing: 3, color: "#fff", marginBottom: 4 } }, resumeOffer.code),
           React.createElement("div", { style: { fontSize: 12, opacity: 0.75, marginBottom: 8 } }, resumeOffer.name),
           React.createElement(
             "div",
             { style: { fontSize: 11, opacity: 0.75, lineHeight: 1.5, marginBottom: 12, maxWidth: "100%" } },
             resumeOffer.inGame
-              ? "A partida já começou. Reconecte para voltar ao mesmo lugar (internet, crash ou fecho acidental do separador)."
+              ? "A partida já começou. Reconecte para voltar ao mesmo lugar."
               : "Você ainda está na sala no servidor — volte ao lobby se fechou o site sem sair por \"Voltar\"."
           ),
           React.createElement(
