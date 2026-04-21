@@ -930,6 +930,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   }
   var followSuit = pool.filter(function(c){ return c.s===lead; });
   var anyBiscaTableGlobal = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
+  var lowStakeOppTrumpWins =
+    !anyBiscaTableGlobal &&
+    !partnerWinning &&
+    curWin.card.s===trump &&
+    pTm(curWin.player)!==mt &&
+    !trickNeedsStrongTrumpCut(trick, trump, trickPts) &&
+    !trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
 
   /* Evita “queimar” corte à toa: se o adversário já vai ganhando com trunfo e eu não consigo passar por cima,
      descarto fora de trunfo sempre que possível. */
@@ -943,6 +950,18 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var dumpNtAny = pool.filter(function(c){ return c.s!==trump; });
       if(dumpNtAny.length) return lowestPreferNoBisca(dumpNtAny) || lowest(dumpNtAny);
     }
+  }
+
+  /* Adversário já ganha só com corte, sem bísca nem vaza pesada, e não há 7 de trunfo em jogo: não “subir” corte (encartar trunfo) — perder com o menor trunfo / lixo possível. */
+  if(lowStakeOppTrumpWins){
+    var shedNt0Ls = pool.filter(function(c){ return c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump); });
+    if(shedNt0Ls.length) return lowest(shedNt0Ls);
+    var loseFollowLs = pool.filter(function(c){ return c.s===lead && !beats(c, curWin.card, lead, trump); });
+    if(loseFollowLs.length) return lowest(loseFollowLs);
+    var loseTrumpLs = pool.filter(function(c){ return c.s===trump && !beats(c, curWin.card, lead, trump); });
+    if(loseTrumpLs.length) return lowest(loseTrumpLs);
+    var shedNtSoftLs = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)<=4; });
+    if(shedNtSoftLs.length) return lowest(shedNtSoftLs);
   }
 
   // Réle: o Ás de trunfo a seguir ao 7 — mas se o 7 foi do parceiro e ele já ganha a vaza, não forçar o Ás (poupa o Ás para quando faça falta).
