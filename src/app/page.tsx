@@ -4156,6 +4156,8 @@ export default function App(){
   var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
+  var rClosedSt=useState(/** @type {string | null} */ (null));
+  var roomClosedNotice=rClosedSt[0], setRoomClosedNotice=rClosedSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
@@ -4165,6 +4167,7 @@ export default function App(){
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
   var roomCodeRef=useRef(roomCode);
+  var hostClosedRoomRef=useRef(false);
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
@@ -4225,7 +4228,12 @@ export default function App(){
         setRoomCode('');
         setOG(null);
         var scr0=screenRef.current;
-        if(scr0==='lobby'||scr0==='online') setScreen('home');
+        if(scr0==='lobby'||scr0==='online'){
+          if(!hostClosedRoomRef.current){
+            setRoomClosedNotice('O anfitrião encerrou a sala. Todos voltaram ao menu inicial.');
+          }
+          setScreen('home');
+        }
         return;
       }
       var mid = myIdRef.current;
@@ -4359,7 +4367,17 @@ export default function App(){
       var code=roomCodeRef.current, id=myIdRef.current, scr=screenRef.current;
       try{
         if(code && id && (scr==='lobby' || scr==='online')){
-          await RT.removeSelfFromRoom(code, id);
+          var rLive = await RT.getRoom(code);
+          if(!rLive){
+            try{ await RT.detachRoomPresence(); }catch(e){ void e; }
+          } else if(rLive.hostId === id){
+            hostClosedRoomRef.current = true;
+            try{ await RT.deleteRoom(code); }catch(e){ void e; }
+            try{ await RT.detachRoomPresence(); }catch(e){ void e; }
+            setTimeout(function(){ hostClosedRoomRef.current = false; }, 3500);
+          } else {
+            await RT.removeSelfFromRoom(code, id);
+          }
         }
       }catch(e){ void e; }
       clearBfSession();
@@ -4373,69 +4391,18 @@ export default function App(){
     })();
   }
 
-  /** Anfitrião: apaga a sala no Firebase; todos perdem a mesa e o convite «retomar» some. */
-  function hostDestroyRoomFromApp() {
-    void (async function () {
-      var code = roomCodeRef.current;
-      var mid = myIdRef.current;
-      if (!code || !mid) return;
-      var rCheck = await RT.getRoom(code);
-      if (!rCheck || rCheck.hostId !== mid) return;
-      setOPT(0);
-      try {
-        await RT.deleteRoom(code);
-      } catch (e) {
-        void e;
-      }
-      try {
-        await RT.detachRoomPresence();
-      } catch (e) {
-        void e;
-      }
-      clearBfSession();
-      setResumeOffer(null);
-      setShowExit(false);
-      setScreen('home');
-      setRoom(null);
-      setRoomCode('');
-      sg(null);
-      setOG(null);
-    })();
-  }
-
   var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
 
-  var exitHostIsRoomHost = (screen === 'online' || screen === 'lobby') && room && myId && room.hostId === myId;
   var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
-    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:exitHostIsRoomHost ? 380 : 340,width:'90%',textAlign:'center'})},
+    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:340,width:'90%',textAlign:'center'})},
       React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
       React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20,lineHeight:1.45}},
         screen==='online'||screen==='lobby'
-          ? exitHostIsRoomHost
-            ? 'Como anfitrião: «Sim, sair» passa o anfitrião a outro jogador e a mesa continua. «Apagar sala no servidor» apaga a mesa para todos e remove o «Retomar esta mesa».'
-            : 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
+          ? 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
           : 'O progresso será perdido.'
       ),
       React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
         React.createElement('button',{onClick:goHome,style:primaryButtonStyle(theme)},'Sim, sair'),
-        exitHostIsRoomHost
-          ? React.createElement('button',{
-              type: 'button',
-              onClick: function () {
-                void hostDestroyRoomFromApp();
-              },
-              style: {
-                background: '#7f1d1d',
-                color: '#fecaca',
-                border: '1px solid rgba(248,113,113,.55)',
-                borderRadius: 8,
-                padding: '10px 16px',
-                cursor: 'pointer',
-                fontWeight: 700,
-                fontSize: 13,
-              },
-            }, 'Apagar sala no servidor')
-          : null,
         React.createElement('button',{onClick:function(){setShowExit(false);},style:themeGhostButtonStyle(theme)},'Continuar')
       )
     )
@@ -4505,11 +4472,57 @@ export default function App(){
         )
       : null;
 
+  var roomClosedTh = THEMES.sala;
+  var roomClosedBanner =
+    roomClosedNotice
+      ? React.createElement(
+          "div",
+          {
+            role: "alert",
+            "aria-live": "polite",
+            style: {
+              position: "fixed",
+              top: resumeOffer ? "max(168px, calc(158px + env(safe-area-inset-top)))" : "max(10px, env(safe-area-inset-top))",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(360px, calc(100vw - 24px))",
+              padding: "14px 16px",
+              borderRadius: 14,
+              background: "linear-gradient(165deg, #1a2438 0%, #0f1420 55%, #0a0e14 100%)",
+              border: "1px solid rgba(96,165,250,.45)",
+              boxSizing: "border-box",
+              boxShadow: "0 12px 40px rgba(0,0,0,.55)",
+              zIndex: 4999,
+              isolation: "isolate",
+              pointerEvents: "auto",
+            },
+          },
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#93c5fd", marginBottom: 8, textAlign: "center" } }, "Mesa encerrada"),
+          React.createElement("div", { style: { fontSize: 13, opacity: 0.95, lineHeight: 1.45, textAlign: "center", color: "#e2e8f0" } }, roomClosedNotice),
+          React.createElement(
+            "div",
+            { style: { display: "flex", justifyContent: "center", marginTop: 12 } },
+            React.createElement(
+              "button",
+              {
+                type: "button",
+                onClick: function () {
+                  setRoomClosedNotice(null);
+                },
+                style: Object.assign({}, primaryButtonStyle(roomClosedTh), { minWidth: 120 }),
+              },
+              "OK"
+            )
+          )
+        )
+      : null;
+
   if(screen==='home'){
     var resumePad = resumeOffer ? 168 : 0;
+    var homeTopPad = resumePad + (roomClosedNotice ? 118 : 0);
     return React.createElement(React.Fragment,null,
       React.createElement(HomeScreen,{
-        resumeTopPad: resumePad,
+        resumeTopPad: homeTopPad,
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
         onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
@@ -4517,7 +4530,8 @@ export default function App(){
           setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
         }
       }),
-      resumeBanner
+      resumeBanner,
+      roomClosedBanner
     );
   }
 
@@ -4598,8 +4612,9 @@ export default function App(){
   }
 
   return React.createElement(React.Fragment,null,
-    React.createElement(HomeScreen,{resumeTopPad: resumeOffer ? 168 : 0, onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}}),
-    resumeBanner
+    React.createElement(HomeScreen,{resumeTopPad: (resumeOffer ? 168 : 0) + (roomClosedNotice ? 118 : 0), onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}}),
+    resumeBanner,
+    roomClosedBanner
   );
 }
 
