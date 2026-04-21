@@ -462,22 +462,14 @@ function getWin(tk,tr){
   return tk.reduce(function(b,c){ return beats(c.card,b.card,L,tr)?c:b; }, tk[0]);
 }
 
-/** Réle na mesa: 7 de trunfo seguido do Ás de trunfo na ordem da vaza — toast imediato ao jogar o Ás. */
-function makeReleToastIfAny(trick, trump, playerNames) {
+/** RÉLE: 7 de trunfo imediatamente seguido do Ás de trunfo — só quando o Ás acaba de entrar (últimas 2 da vaza). */
+function makeReleToastIfAny(trick, trump) {
   if (!Array.isArray(trick) || trick.length < 2 || !trump) return null;
-  var pNs = playerNames || ["?", "?", "?", "?"];
-  for (var i = 0; i < trick.length - 1; i++) {
-    var a = trick[i],
-      b = trick[i + 1];
-    if (!a || !b || !a.card || !b.card) continue;
-    if (a.card.s === trump && a.card.v === "7" && b.card.s === trump && b.card.v === "A") {
-      var symT = SYM[trump] || "";
-      return {
-        title: "Réle!",
-        body: pNs[b.player] + " — Ás " + symT + " após o 7 de " + pNs[a.player] + ". +1 pt na partida.",
-        ts: Date.now(),
-      };
-    }
+  var a = trick[trick.length - 2];
+  var b = trick[trick.length - 1];
+  if (!a || !b || !a.card || !b.card) return null;
+  if (a.card.s === trump && a.card.v === "7" && b.card.s === trump && b.card.v === "A") {
+    return { title: "RÉLE!", body: "", ts: Date.now() };
   }
   return null;
 }
@@ -1346,7 +1338,7 @@ function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
     Object.assign(upd, {
       aceReveal: { seat: seat, t: Date.now(), ace: { v: aceCardBot.v, s: aceCardBot.s, id: aceCardBot.id } },
     });
-  var releT = makeReleToastIfAny(trick, pv.trump, pNs);
+  var releT = makeReleToastIfAny(trick, pv.trump);
   if (releT) Object.assign(upd, { releToast: releT });
   if (forOnlineHost) Object.assign(upd, { lastActor: myPid });
   return Object.assign({}, pv, upd);
@@ -1493,7 +1485,7 @@ var ACSS = [
   '@keyframes bfVicRibbon{0%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.16) saturate(1.1)}100%{filter:brightness(1) saturate(1)}}',
   '@keyframes bfVicSpark{0%{opacity:.2;transform:scale(.72)}50%{opacity:.82;transform:scale(1)}100%{opacity:.2;transform:scale(.72)}}',
   '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:100% 50%}}',
-  '@keyframes bfReleToastIn{from{opacity:0;filter:blur(6px);transform:translate(-50%,calc(-50% + 18px)) scale(.93)}to{opacity:1;filter:blur(0);transform:translate(-50%,-50%) scale(1)}}',
+  '@keyframes bfReleToastIn{from{opacity:0;filter:blur(5px);transform:translate(-50%,14px) scale(.96)}to{opacity:1;filter:blur(0);transform:translate(-50%,0) scale(1)}}',
   '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
 ].join('');
 
@@ -3146,7 +3138,7 @@ function GameScreen(props){
       var msg = NAMES[seat]+' jogou '+card.v+SYM[card.s];
       var upd = {hands:hands,trick:trick,curP:done?-1:nxt(seat),phase:done?'end_trick':'playing',msg:msg};
       if(revealAceTrump && aceCardReveal) Object.assign(upd,{aceReveal:{seat:seat,t:Date.now(),ace:{v:aceCardReveal.v,s:aceCardReveal.s,id:aceCardReveal.id}}});
-      var releT2 = makeReleToastIfAny(trick, p.trump, p.playerNames || NAMES);
+      var releT2 = makeReleToastIfAny(trick, p.trump);
       if(releT2) Object.assign(upd,{releToast:releT2});
       if(isOnline) Object.assign(upd,{lastActor:myPid});
       return Object.assign({},p,upd);
@@ -3591,12 +3583,17 @@ function GameScreen(props){
   var swapVisible =
     swapSt && swapSt.title && swapSt.body && typeof swapSt.ts === 'number' && Date.now() - swapSt.ts < SWAP_TOAST_VISIBLE_MS;
   var releVisible =
-    releSt && releSt.title && releSt.body && typeof releSt.ts === 'number' && Date.now() - releSt.ts < RELE_TOAST_VISIBLE_MS;
+    releSt && releSt.title && typeof releSt.ts === 'number' && Date.now() - releSt.ts < RELE_TOAST_VISIBLE_MS;
   var toastStackGap = mob ? 76 : 72;
   var toastBasePx = mob ? 92 : 24;
   var swapBottomStr = mob ? 'calc(' + toastBasePx + 'px + env(safe-area-inset-bottom, 0px))' : toastBasePx + 'px';
-  /* Réle fica centrado na viewport (não empilha com toasts de baixo). */
-  var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0);
+  /* Réle: mesma âncora vertical que o toast da troca do 2; se os dois estiverem visíveis, Réle sobe uma faixa. */
+  var releBottomStr = swapVisible
+    ? mob
+      ? 'calc(' + (toastBasePx + toastStackGap) + 'px + env(safe-area-inset-bottom, 0px))'
+      : toastBasePx + toastStackGap + 'px'
+    : swapBottomStr;
+  var aceToastOffset = toastBasePx + (swapVisible ? toastStackGap : 0) + (releVisible ? toastStackGap : 0);
   var aceToastBottomStr = mob ? 'calc(' + aceToastOffset + 'px + env(safe-area-inset-bottom, 0px))' : aceToastOffset + 'px';
   var swapToastEl =
     swapVisible
@@ -3638,12 +3635,12 @@ function GameScreen(props){
             style: {
               position: 'fixed',
               left: '50%',
-              top: mob ? '42%' : '44%',
+              bottom: releBottomStr,
               zIndex: 97,
               maxWidth: releToastMaxW,
               width: 'fit-content',
               boxSizing: 'border-box',
-              padding: mob ? '12px 16px' : '14px 22px',
+              padding: mob ? '12px 14px' : '14px 20px',
               borderRadius: 14,
               background: 'linear-gradient(165deg, rgba(62,48,14,.95) 0%, rgba(16,12,6,.97) 100%)',
               border: '1px solid rgba(253,211,131,.4)',
@@ -3652,24 +3649,25 @@ function GameScreen(props){
               WebkitBackdropFilter: 'saturate(1.18) blur(16px)',
               pointerEvents: 'none',
               textAlign: 'center',
-              animation: 'bfReleToastIn 0.36s cubic-bezier(.22,1,.36,1) both',
+              animation: 'bfReleToastIn 0.34s cubic-bezier(.22,1,.36,1) both',
             },
           },
           React.createElement('div', {
             style: {
-              fontSize: mob ? 13 : 15,
+              fontSize: mob ? 15 : 17,
               fontWeight: 900,
-              letterSpacing: mob ? 0.28 : 0.4,
-              textTransform: 'uppercase',
+              letterSpacing: mob ? 0.2 : 0.28,
               background: 'linear-gradient(100deg,#fde68a,#fffbeb,#fbbf24)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              marginBottom: 6,
+              marginBottom: releSt.body ? 6 : 0,
               filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.45))',
             },
           }, releSt.title),
-          React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.93)', maxWidth: '100%', wordWrap: 'break-word' } }, releSt.body)
+          releSt.body
+            ? React.createElement('div', { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.93)', maxWidth: '100%', wordWrap: 'break-word' } }, releSt.body)
+            : null
         )
       : null;
   var ar = g.aceReveal;
