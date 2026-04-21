@@ -1249,6 +1249,18 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     // Endgame (last 3 tricks): trump more aggressively
     if(endGame && trickPts>=3) return pickWinningTrumpChosen();
 
+    /* Sem o naipe de saída: se não há lixo 0 pts fora de bísca para descartar, cortar com o menor
+       trunfo que ganha — senão a heurística “não vale cortar” deixa a IA “chutar” Ás/7 (bísca) na vaza
+       perdida (ex.: 7♦ com K♣ a ganhar e 3♥ na mão). */
+    if(voidLead && !partnerPutBisca){
+      var cheapDumpVoid = nonTrump.filter(function(c){
+        return !isBiscaCard(c, trump) && cPts(c)===0;
+      });
+      if(!cheapDumpVoid.length){
+        return pickWinningTrumpPreferLow();
+      }
+    }
+
     // Not worth trumping — mínimo de perda; nunca bísca fora de trunfo se houver outra carta
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
