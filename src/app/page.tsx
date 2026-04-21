@@ -1433,6 +1433,14 @@ function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
   if (!incoming) return prev;
   if (!hostId || myPlayerId !== hostId || !prev) return incoming;
 
+  /* Nova rodada já no RT: não deixar o resumo anterior “ganhar” ao shuffle pela ordem de rank da fase. */
+  if (
+    (incoming.phase === "shuffle" || incoming.phase === "cut" || incoming.phase === "deal") &&
+    (prev.phase === "show_summary" || prev.phase === "end_game")
+  ) {
+    return incoming;
+  }
+
   var pr = phaseRankBF(prev.phase);
   var ir = phaseRankBF(incoming.phase);
   if (ir < pr) return prev;
@@ -3621,9 +3629,12 @@ function GameScreen(props){
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' começa',
         g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +'+g.tieBonus+' pt.'},'60 - 60') : null
       ),
-      g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
+      g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
-        React.createElement('div',{style:{fontSize:15,animation:'pls 1s ease-in-out infinite'}},NAMES[dealer]+' embaralhando...')
+        React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},NAMES[dealer]),
+          React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a embaralhar…')
+        )
       ) : null,
       showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}},
         React.createElement('div',{style:{fontSize:14,opacity:0.85,fontWeight:'500'}},'Escolha como cortar:'),
