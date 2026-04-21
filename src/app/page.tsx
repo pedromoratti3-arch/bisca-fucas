@@ -91,6 +91,7 @@ function normalizeGame(g) {
     setWins: Array.isArray(g.setWins) ? g.setWins : [0, 0],
     playerNames: names,
     starter: isNaN(stRaw) ? 2 : stRaw,
+    roundEpoch: typeof g.roundEpoch === "number" ? g.roundEpoch : 0,
   });
 }
 
@@ -1335,22 +1336,43 @@ function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
 
 /* ═══ GAME STATE ═══ */
 /** Nova rodada: repasse o starter da rodada que acabou; o próximo quem começa é nxt(disso). Quem embaralha = prv(starter), corta = prv(prv(starter)). */
-function mkGame(pm,ps,tb,names,actor,sw){
-  var m = pm || [0,0];
+function mkGame(pm, ps, tb, names, actor, sw, prevRoundEpoch) {
+  var m = pm || [0, 0];
   var prev = parseSeat(ps);
   var st = !isNaN(prev) ? nxt(prev) : 2;
+  var re = typeof prevRoundEpoch === "number" ? prevRoundEpoch : 0;
   return {
-    phase:'shuffle', starter:st, fd:shf(mkDk()), tc:null, trump:null, rawTc:null,
-    hands:[[],[],[],[]], trick:[], curP:st, tPts:[0,0], mPts:m.slice(),
-    trickN:0, canSwap:false, batido:false, trumpSevenOut:false, tieBonus:tb||0,
-    setWins:Array.isArray(sw)?sw.slice():[0,0],
-    events:[], summary:null, lastW:null, deck:[], dealStep:0, msg:'',
-    playerNames: names || ['Você','Adv. Esq.','Parceiro','Adv. Dir.'],
-    lastActor: actor || '',
+    phase: "shuffle",
+    starter: st,
+    fd: shf(mkDk()),
+    tc: null,
+    trump: null,
+    rawTc: null,
+    hands: [[], [], [], []],
+    trick: [],
+    curP: st,
+    tPts: [0, 0],
+    mPts: m.slice(),
+    trickN: 0,
+    canSwap: false,
+    batido: false,
+    trumpSevenOut: false,
+    tieBonus: tb || 0,
+    setWins: Array.isArray(sw) ? sw.slice() : [0, 0],
+    events: [],
+    summary: null,
+    lastW: null,
+    deck: [],
+    dealStep: 0,
+    msg: "",
+    playerNames: names || ["Você", "Adv. Esq.", "Parceiro", "Adv. Dir."],
+    lastActor: actor || "",
     swapToast: null,
     releToast: null,
     aceReveal: null,
-    summaryFinalMPts: null
+    summaryFinalMPts: null,
+    /** Só para merge no host: nova rodada incrementa; snapshot antigo de `show_summary` não pode “ganhar” a um `shuffle` mais recente pela ordem de fase. */
+    roundEpoch: re + 1,
   };
 }
 
@@ -1414,6 +1436,20 @@ function sumHandCards(g) {
 function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
   if (!incoming) return prev;
   if (!hostId || myPlayerId !== hostId || !prev) return incoming;
+
+  var pe = typeof prev.roundEpoch === "number" ? prev.roundEpoch : 0;
+  var ie = typeof incoming.roundEpoch === "number" ? incoming.roundEpoch : 0;
+  if (ie !== pe) {
+    return ie > pe ? incoming : prev;
+  }
+
+  /* Mesma epoch (ex.: 0 em dados antigos): o RT nunca deve ficar preso no resumo se o servidor já passou a embaralhar/cortar/distribuir. */
+  if (
+    (incoming.phase === "shuffle" || incoming.phase === "cut" || incoming.phase === "deal") &&
+    (prev.phase === "show_summary" || prev.phase === "end_game")
+  ) {
+    return incoming;
+  }
 
   var pr = phaseRankBF(prev.phase);
   var ir = phaseRankBF(incoming.phase);
@@ -2657,7 +2693,7 @@ function LobbyScreen(P){
     var nm=['','','',''];
     nm[0]=aFull[0].name; nm[2]=aFull[1].name;
     nm[1]=bFull[0].name; nm[3]=bFull[1].name;
-    r.game = mkGame(null,undefined,0,nm,r.hostId,undefined);
+    r.game = mkGame(null, undefined, 0, nm, r.hostId, undefined, undefined);
     await RT.setRoom(r.code, r);
   }
 
@@ -3603,9 +3639,12 @@ function GameScreen(props){
         NAMES[dealer]+' embaralha \u00b7 '+NAMES[cutter]+' corta \u00b7 '+NAMES[gStart]+' começa',
         g.tieBonus>0 ? React.createElement('span',{style:{marginLeft:8,background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11},title:'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +'+g.tieBonus+' pt.'},'60 - 60') : null
       ),
-      g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:28}},
+      g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:22,padding:'0 12px'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
-        React.createElement('div',{style:{fontSize:15,animation:'pls 1s ease-in-out infinite'}},NAMES[dealer]+' embaralhando...')
+        React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:420}},
+          React.createElement('div',{style:{fontSize:mob?22:26,fontWeight:800,lineHeight:1.25,letterSpacing:0.2,textShadow:'0 2px 18px rgba(0,0,0,.45)'}},NAMES[dealer]),
+          React.createElement('div',{style:{fontSize:mob?15:17,opacity:0.92,marginTop:6,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a embaralhar…')
+        )
       ) : null,
       showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}},
         React.createElement('div',{style:{fontSize:14,opacity:0.85,fontWeight:'500'}},'Escolha como cortar:'),
@@ -4031,19 +4070,26 @@ function GameScreen(props){
         ),
         React.createElement('div',{style:{textAlign:'center'}},
           isOnline && !isRoomHost
-            ? React.createElement('div',{
-                style:{
-                  fontSize:mob?12:13,
-                  opacity:0.78,
-                  padding:'14px 10px',
-                  lineHeight:1.5,
-                  maxWidth:340,
-                  margin:'0 auto',
+            ? (function(){
+                var gs0 = parseSeat(g.starter);
+                if (isNaN(gs0)) gs0 = 2;
+                var nextShufflerSeat = prv(nxt(gs0));
+                var whoShuffles = NAMES[nextShufflerSeat] || 'Jogador';
+                return React.createElement('div',{
+                  style:{
+                    padding:'14px 10px',
+                    lineHeight:1.5,
+                    maxWidth:360,
+                    margin:'0 auto',
+                  },
                 },
-              },'Apenas o host da sala pode iniciar a próxima partida. Aguarde…')
+                  React.createElement('div',{style:{fontSize:mob?15:16,fontWeight:700,color:'#fff',marginBottom:8}},whoShuffles+' embaralha na próxima ronda.'),
+                  React.createElement('div',{style:{fontSize:mob?12:13,opacity:0.75}},'Aguarda que a mesa avance («Próxima rodada»).')
+                );
+              })()
             : React.createElement('button',{
                 onClick:function(){
-                  sg(mkGame(g.mPts,gStart,g.tieBonus,g.playerNames,isOnline?myPid:g.lastActor,g.setWins));
+                  sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins, g.roundEpoch));
                 },
                 style:primaryButtonStyle(th),
               },'Próxima rodada')
@@ -4426,7 +4472,7 @@ export default function App(){
   if(screen==='pickLoc'){
     return React.createElement(LocationScreen,{
       onBack:function(){ setScreen('home'); },
-      onSelect:function(loc){ setLocId(loc); sg(mkGame(null,undefined,0,[myName,'Adv. Esq.','Parceiro','Adv. Dir.'],undefined,undefined)); setScreen('solo'); }
+      onSelect:function(loc){ setLocId(loc); sg(mkGame(null,undefined,0,[myName,'Adv. Esq.','Parceiro','Adv. Dir.'],undefined,undefined,undefined)); setScreen('solo'); }
     });
   }
 
