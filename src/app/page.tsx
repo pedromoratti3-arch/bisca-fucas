@@ -27,6 +27,26 @@ function presenceRoomRef(code) {
   return ref(db, RTP + "/" + code);
 }
 
+function bfVictoryFxKey(sfm, setWins) {
+  var sw = setWins && Array.isArray(setWins) ? setWins.join(",") : "";
+  return sw + "|" + (sfm && typeof sfm.join === "function" ? sfm.join(",") : "");
+}
+
+/** Evita burst duplo no React Strict Mode (~remount imediato); vitórias reais têm chave diferente ou >1s. */
+function bfVictoryFxDebounceKey(k) {
+  try {
+    if (typeof sessionStorage === "undefined") return true;
+    var now = Date.now();
+    var sk = "bf_vicfx_" + k;
+    var prev = sessionStorage.getItem(sk);
+    if (prev && now - Number(prev) < 850) return false;
+    sessionStorage.setItem(sk, String(now));
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
+
 /** onDisconnect da chave de presença atual (cancelar antes de sair ou trocar de sala). */
 var activePresenceOnDisconnect = /** @type {import("firebase/database").OnDisconnect | null} */ (null);
 var activePresencePlayerRef = /** @type {import("firebase/database").DatabaseReference | null} */ (null);
@@ -1416,7 +1436,13 @@ var ACSS = [
   '@keyframes float3{0%,100%{transform:translateY(-5px) rotate(2deg)}50%{transform:translateY(-22px) rotate(-6deg)}}',
   '@keyframes glow{0%,100%{text-shadow:0 0 20px rgba(196,18,48,.4)}50%{text-shadow:0 0 40px rgba(196,18,48,.7),0 0 60px rgba(212,168,67,.3)}}',
   '@keyframes spin{to{transform:rotate(360deg)}}',
-  '@keyframes bfConnPulse{0%,100%{opacity:.45}50%{opacity:1}}'
+  '@keyframes bfConnPulse{0%,100%{opacity:.45}50%{opacity:1}}',
+  '@keyframes bfVicHeroEnter{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  '@keyframes bfVicKicker{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}',
+  '@keyframes bfVicNameStagger{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}',
+  '@keyframes bfVicRibbon{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.14) saturate(1.08)}}',
+  '@keyframes bfVicSpark{0%,100%{opacity:0;transform:scale(.35)}18%{opacity:.85;transform:scale(1)}45%{opacity:.35;transform:scale(.88)}}',
+  '@keyframes bfVicScan{0%{background-position:0% 50%}100%{background-position:200% 50%}}'
 ].join('');
 
 /* ═══ RENDER HELPERS ═══ */
@@ -1568,6 +1594,124 @@ function themeGhostButtonStyle(th){
     fontSize: 14,
     fontWeight: 600,
   };
+}
+
+/** Faixa de vitória ao fechar a partida a 4 pontos: nomes da dupla vencedora + animação alinhada ao resto da mesa. */
+function matchVictoryBanner(mob, playerNames, summaryFinalMPts){
+  if(!summaryFinalMPts || summaryFinalMPts.length<2) return null;
+  var m0 = summaryFinalMPts[0], m1 = summaryFinalMPts[1];
+  if(m0===m1) return null;
+  var wTeam = m0 > m1 ? 0 : 1;
+  var NAMES = playerNames || ['?','?','?','?'];
+  var names = wTeam===0 ? [NAMES[0], NAMES[2]] : [NAMES[1], NAMES[3]];
+  var accent = wTeam===0 ? '#4ade80' : '#f87171';
+  var accentSoft = wTeam===0 ? 'rgba(74,222,128,.22)' : 'rgba(248,113,113,.22)';
+  var sparks = [0,1,2,3,4,5].map(function(i){
+    return React.createElement('span',{key:'vicsp'+i,style:{
+      position:'absolute',
+      left:(8+i*16)%92+'%',
+      top:(10+(i%3)*22)+'%',
+      width:i%2?5:4,
+      height:i%2?5:4,
+      borderRadius:'50%',
+      background:i%3?'rgba(253,224,130,.9)':'rgba(255,255,255,.55)',
+      pointerEvents:'none',
+      animation:'bfVicSpark '+(2.4+i*0.12)+'s ease-in-out '+(i*0.07)+'s infinite',
+    }});
+  });
+  return React.createElement('div',{
+    role:'status',
+    'aria-live':'polite',
+    style:{
+      position:'relative',
+      marginBottom:22,
+      padding:mob?'18px 14px 20px':'24px 22px 26px',
+      borderRadius:16,
+      overflow:'hidden',
+      background:'linear-gradient(155deg, rgba(251,191,36,.14) 0%, rgba(0,0,0,.4) 42%, rgba(15,10,8,.55) 100%)',
+      border:'1px solid rgba(253,224,130,.32)',
+      boxShadow:'0 0 0 1px rgba(255,255,255,.07) inset, 0 16px 48px rgba(0,0,0,.4), 0 0 60px rgba(251,191,36,.08)',
+      animation:'bfVicHeroEnter 0.7s cubic-bezier(.22,1,.36,1) both',
+    },
+  },
+    sparks,
+    React.createElement('div',{style:{
+      position:'absolute',inset:0,
+      background:'linear-gradient(110deg, transparent 0%, rgba(255,255,255,.06) 45%, transparent 55%)',
+      backgroundSize:'220% 100%',
+      animation:'bfVicScan 3.2s ease-in-out infinite',
+      pointerEvents:'none',
+    }}),
+    React.createElement('div',{style:{
+      fontSize:10,
+      fontWeight:800,
+      letterSpacing:mob?0.26:0.3,
+      textTransform:'uppercase',
+      color:'rgba(253,224,130,.92)',
+      textAlign:'center',
+      marginBottom:10,
+      animation:'bfVicKicker 0.75s cubic-bezier(.2,.85,.25,1) 0.08s both',
+    }}, 'Vitória na partida'),
+    React.createElement('div',{style:{
+      fontSize:mob?21:25,
+      fontWeight:900,
+      textAlign:'center',
+      lineHeight:1.12,
+      marginBottom:16,
+      letterSpacing:0.04,
+      background:'linear-gradient(100deg, #fde68a 0%, #fffef5 35%, #fcd34d 55%, #fde68a 80%)',
+      backgroundSize:'200% auto',
+      WebkitBackgroundClip:'text',
+      WebkitTextFillColor:'transparent',
+      backgroundClip:'text',
+      filter:'drop-shadow(0 2px 10px rgba(0,0,0,.55))',
+      animation:'bfVicRibbon 2.8s ease-in-out infinite',
+    }}, wTeam===0 ? 'Dupla A' : 'Dupla B'),
+    React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:10,position:'relative',zIndex:1}},
+      names.map(function(nm, i){
+        return React.createElement('div',{
+          key:i,
+          style:{
+            display:'flex',
+            alignItems:'center',
+            gap:12,
+            padding:'13px 16px',
+            borderRadius:12,
+            background:'linear-gradient(90deg, '+accentSoft+' 0%, rgba(0,0,0,.22) 55%)',
+            borderLeft:'4px solid '+accent,
+            boxShadow:'0 6px 20px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06)',
+            animation:'bfVicNameStagger 0.55s cubic-bezier(.22,1,.36,1) '+(0.14+0.15*i)+'s both',
+          },
+        },
+          React.createElement('span',{style:{
+            fontSize:11,
+            fontWeight:800,
+            opacity:0.45,
+            minWidth:22,
+            color:'rgba(255,255,255,.7)',
+          }}, String(i+1)),
+          React.createElement('span',{style:{
+            flex:1,
+            fontSize:mob?16:17,
+            fontWeight:700,
+            color:'#fff',
+            letterSpacing:0.015,
+            lineHeight:1.25,
+          }}, nm)
+        );
+      })
+    ),
+    React.createElement('div',{style:{
+      textAlign:'center',
+      marginTop:14,
+      fontSize:11,
+      fontWeight:600,
+      color:'rgba(255,255,255,.42)',
+      letterSpacing:0.08,
+      position:'relative',
+      zIndex:1,
+    }}, '4 pontos · campeões desta mesa')
+  );
 }
 
 var DEFAULT_CARD_BACK = { grad: 'linear-gradient(160deg,#7B1010,#3A0606)', border: '#C41230', hi: '#FFD700', label: 'rgba(255,255,255,.35)' };
@@ -2525,6 +2669,97 @@ function GameScreen(props){
       };
     },
     [g.swapToast, g.aceReveal]
+  );
+
+  useEffect(
+    function () {
+      var sfm = g.summaryFinalMPts;
+      if (!sfm || sfm.length < 2 || sfm[0] === sfm[1]) return;
+      var k = bfVictoryFxKey(sfm, g.setWins);
+      if (!bfVictoryFxDebounceKey(k)) return;
+      var reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          if (reduceMotion) navigator.vibrate(55);
+          else navigator.vibrate([40, 55, 35, 75, 45, 95, 55, 130, 45, 180]);
+        }
+      } catch (e) {}
+      if (reduceMotion) return;
+      var cancelled = false;
+      var tickRef = { id: /** @type {number|undefined} */ (undefined) };
+      void import("canvas-confetti")
+        .then(function (mod) {
+          if (cancelled) return;
+          var confetti = mod.default;
+          var palette = ["#fde68a", "#facc15", "#fffbeb", "#fef08a", "#22c55e", "#86efac", "#f87171", "#fb7185", "#C41230"];
+          var base = { zIndex: 260, disableForReducedMotion: true };
+          confetti(
+            Object.assign({}, base, {
+              particleCount: 170,
+              spread: 94,
+              startVelocity: 56,
+              origin: { y: 0.51, x: 0.5 },
+              colors: palette,
+              gravity: 0.88,
+              scalar: 1.08,
+              ticks: 420,
+              drift: 0.14,
+            })
+          );
+          var endAt = Date.now() + 2600;
+          tickRef.id = window.setInterval(function () {
+            if (cancelled) {
+              if (tickRef.id) window.clearInterval(tickRef.id);
+              return;
+            }
+            confetti(
+              Object.assign({}, base, {
+                particleCount: 5,
+                angle: 62,
+                spread: 56,
+                origin: { x: 0, y: 0.32 },
+                colors: palette,
+                startVelocity: 36,
+              })
+            );
+            confetti(
+              Object.assign({}, base, {
+                particleCount: 5,
+                angle: 118,
+                spread: 56,
+                origin: { x: 1, y: 0.32 },
+                colors: palette,
+                startVelocity: 36,
+              })
+            );
+            if (Date.now() >= endAt && tickRef.id) window.clearInterval(tickRef.id);
+          }, 265);
+          window.setTimeout(function () {
+            if (cancelled) return;
+            confetti(
+              Object.assign({}, base, {
+                particleCount: 110,
+                spread: 72,
+                origin: { y: 0.58, x: 0.5 },
+                startVelocity: 44,
+                colors: palette,
+                shapes: ["circle", "square", "star"],
+                scalar: 1,
+                ticks: 360,
+              })
+            );
+          }, 480);
+        })
+        .catch(function () {});
+      return function () {
+        cancelled = true;
+        if (tickRef.id) window.clearInterval(tickRef.id);
+      };
+    },
+    [g.summaryFinalMPts, g.setWins]
   );
 
   useLayoutEffect(
@@ -3550,10 +3785,11 @@ function GameScreen(props){
     ),
     ),
     modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100dvh'}},
-      React.createElement('div',{style:Object.assign({},themeDialogChrome(th),{padding:28,maxWidth:400,width:'90%'})},
+      React.createElement('div',{style:Object.assign({},themeDialogChrome(th),{padding:28,maxWidth:g.summaryFinalMPts?460:400,width:'90%'})},
+        matchVictoryBanner(mob, NAMES, g.summaryFinalMPts),
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
           rLogo(34,th),
-          React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},'Resultado da rodada')
+          React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},g.summaryFinalMPts?'Última mão · detalhes':'Resultado da rodada')
         ),
         React.createElement('div',{style:{marginBottom:14}},
           g.summary ? g.summary.map(function(s,i){
