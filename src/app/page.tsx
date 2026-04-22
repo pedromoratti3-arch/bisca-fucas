@@ -463,6 +463,10 @@ function parseSeat(p){
 function cPts(c){ return PTS[c.v]||0; }
 function cRnk(c){ return RNK[c.v]; }
 function pTm(p){ return p%2; }
+/** Na Bisca Fucas: só és obrigado a seguir o naipe de saída quando esse naipe não é o trunfo. Se abriram trunfo, podes jogar qualquer carta. */
+function mustFollowLeadSuit(leadSuit, trumpSuit){
+  return !!leadSuit && !!trumpSuit && leadSuit !== trumpSuit;
+}
 function mkDk(){ return SUITS.flatMap(function(s){ return VALS.map(function(v){ return {s:s,v:v,id:v+'_'+s}; }); }); }
 function shf(d){ var a=d.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=a[i]; a[i]=a[j]; a[j]=tmp; } return a; }
 function uid(){ return Math.random().toString(36).slice(2,10); }
@@ -700,13 +704,12 @@ var aiMemory = makeMemory();
 
 function recordPlay(mem, player, card, trick, trump){
   mem.played.push({player:player, card:card});
-  // If player didn't follow lead suit AND didn't play trump, they're void in lead suit
-  if(trick.length>0){
+  /* Só inferir “falta de naipe” quando a saída não é trunfo — se a saída é trunfo, jogar outro naipe não implica falta de trunfo. */
+  if(trick.length>0 && mustFollowLeadSuit(trick[0].card.s, trump)){
     var leadSuit = trick[0].card.s;
     if(card.s !== leadSuit && card.s !== trump){
       if(mem.voids[player].indexOf(leadSuit)===-1) mem.voids[player].push(leadSuit);
     }
-    // If they didn't follow lead and played trump instead of a non-trump, also void
     if(card.s !== leadSuit && card.s === trump){
       if(mem.voids[player].indexOf(leadSuit)===-1) mem.voids[player].push(leadSuit);
     }
@@ -804,7 +807,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
      Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
      Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
      Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
-     Seguir: encartar no naipe de abertura quando dá para ganhar; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do trunfo) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
+     Seguir: com saída que não é trunfo, tens de jogar no naipe se tiveres; com saída no naipe de trunfo, podes lixar/cortar sem ser obrigado a pôr trunfo.
+     Encarte no naipe de abertura quando dá; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do trunfo) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -961,7 +965,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var is2nd = trick.length===1;
   var is3rd = trick.length===2;
   var poolAll = pool.slice();
-  var followOpts = poolAll.filter(function(c){ return c.s===lead; });
+  var followOpts = mustFollowLeadSuit(lead, trump) ? poolAll.filter(function(c){ return c.s===lead; }) : [];
   var voidLead = followOpts.length===0;
   var followWinners = winners(followOpts, curWin.card, lead);
   /* Com cartas do naipe de abertura: se alguma ganha → só encarte (esse naipe). Se nenhuma ganha →
@@ -1001,7 +1005,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
         var dm = poolAll.filter(function(c){ return dumpZeroSafe(c) && trickStillOurs(c); });
         if(teammateTrumpWinning) pool = poolAll;
         else if(dm.length) pool = dm;
-        else pool = followOpts;
+        else pool = followOpts.length ? followOpts : poolAll;
       }
     }
     trumpCards = pool.filter(function(c){ return c.s===trump; });
@@ -3321,6 +3325,13 @@ function GameScreen(props){
       var m7 = 'O 7 de trunfo não pode ser a 4.ª carta sem o Ás de trunfo na mão ou já na mesa!';
       if(isOnline) showPlayDeniedLocal(m7);
       else sg(function(p){ return Object.assign({},p,{msg:m7}); });
+      return;
+    }
+    var lead0 = g.trick.length && g.trick[0] && g.trick[0].card ? g.trick[0].card.s : null;
+    if(lead0 && mustFollowLeadSuit(lead0, g.trump) && hand.some(function(c){ return c && c.s===lead0; }) && card.s!==lead0){
+      var msgFollow = 'Tens de jogar no naipe de saída ('+SYM[lead0]+' '+lead0+').';
+      if(isOnline) showPlayDeniedLocal(msgFollow);
+      else sg(function(p){ return Object.assign({},p,{msg:msgFollow}); });
       return;
     }
     if(playDeniedTimerRef.current){
