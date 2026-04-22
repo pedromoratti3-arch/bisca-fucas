@@ -2945,6 +2945,8 @@ function GameScreen(props){
     function () {
       var sfm = g.summaryFinalMPts;
       if (!sfm || sfm.length < 2 || sfm[0] === sfm[1]) return;
+      var winTeam = sfm[0] > sfm[1] ? 0 : 1;
+      if (typeof mySeat !== "number" || mySeat < 0 || mySeat > 3 || pTm(mySeat) !== winTeam) return;
       var k = bfVictoryFxKey(sfm, g.setWins);
       if (!bfVictoryFxDebounceKey(k)) return;
       var reduceMotion =
@@ -3029,7 +3031,7 @@ function GameScreen(props){
         if (tickRef.id) window.clearInterval(tickRef.id);
       };
     },
-    [g.summaryFinalMPts, g.setWins]
+    [g.summaryFinalMPts, g.setWins, mySeat]
   );
 
   useLayoutEffect(
