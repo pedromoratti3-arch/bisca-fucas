@@ -4343,8 +4343,22 @@ export default function App(){
   },[screen,roomCode,room&&room.game&&room.game.phase]);
 
   function dismissResumeSession(){
-    clearBfSession();
-    setResumeOffer(null);
+    void (async function(){
+      var s = readBfSession();
+      if(s && RT.isConfigured()){
+        try{
+          var r = await RT.getRoom(s.code);
+          if(r && r.hostId === s.playerId){
+            hostClosedRoomRef.current = true;
+            try{ await RT.deleteRoom(s.code); }catch(e){ void e; }
+            setTimeout(function(){ hostClosedRoomRef.current = false; }, 3500);
+          }
+        }catch(e){ void e; }
+      }
+      try{ await RT.detachRoomPresence(); }catch(e){ void e; }
+      clearBfSession();
+      setResumeOffer(null);
+    })();
   }
 
   async function resumeIntoRoom(){
