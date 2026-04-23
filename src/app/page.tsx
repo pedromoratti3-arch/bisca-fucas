@@ -2159,12 +2159,12 @@ function terrafeCoffeeSteamSvg(mob) {
         {
           className: 'bfTfSteamSvgAnim',
           cx: 50,
-          cy: 69.5,
-          rx: 5,
-          ry: 2.4,
+          cy: 61.8,
+          rx: 4.8,
+          ry: 2.2,
           fill: 'rgba(255,248,242,0.42)',
           style: {
-            transformOrigin: '50px 69.5px',
+            transformOrigin: '50px 61.8px',
             animation: 'bfTfSteamSvgPuff ' + puff + ' ease-out infinite',
           },
         }
@@ -2175,11 +2175,11 @@ function terrafeCoffeeSteamSvg(mob) {
           className: 'bfTfSteamSvgAnim',
           stroke: 'rgba(255,252,248,0.88)',
           style: {
-            transformOrigin: '50px 68px',
+            transformOrigin: '50px 61.5px',
             animation: 'bfTfSteamSvgA ' + dA + ' ' + ease + ' infinite',
           },
         },
-        React.createElement('path', Object.assign({}, stem, { d: 'M47 69 Q45 58 48.5 47 Q51.5 37 47.5 26' }))
+        React.createElement('path', Object.assign({}, stem, { d: 'M48 62 Q46 51 49 40 Q51.5 30 48 20' }))
       ),
       React.createElement(
         'g',
@@ -2187,12 +2187,12 @@ function terrafeCoffeeSteamSvg(mob) {
           className: 'bfTfSteamSvgAnim',
           stroke: 'rgba(250,245,238,0.78)',
           style: {
-            transformOrigin: '50px 68px',
+            transformOrigin: '50px 61.5px',
             animation: 'bfTfSteamSvgB ' + dB + ' ' + ease + ' infinite',
             animationDelay: '-1.15s',
           },
         },
-        React.createElement('path', Object.assign({}, stem2, { d: 'M52.5 69 Q55 59 50 48 Q46.5 38 52.5 27' }))
+        React.createElement('path', Object.assign({}, stem2, { d: 'M53 62 Q55 52 50.5 41 Q47 31 51.5 21' }))
       ),
       React.createElement(
         'g',
@@ -2200,12 +2200,12 @@ function terrafeCoffeeSteamSvg(mob) {
           className: 'bfTfSteamSvgAnim',
           stroke: 'rgba(255,250,245,0.68)',
           style: {
-            transformOrigin: '50px 68px',
+            transformOrigin: '50px 61.5px',
             animation: 'bfTfSteamSvgC ' + dC + ' ' + ease + ' infinite',
             animationDelay: '-2.35s',
           },
         },
-        React.createElement('path', Object.assign({}, stem2, { d: 'M50 68.5 Q49 55 51 43 Q53 32 49 23' }))
+        React.createElement('path', Object.assign({}, stem2, { d: 'M50 61.5 Q49 48 51.5 37 Q53 26 49 17' }))
       ),
       React.createElement(
         'g',
@@ -2213,24 +2213,22 @@ function terrafeCoffeeSteamSvg(mob) {
           className: 'bfTfSteamSvgAnim',
           stroke: 'rgba(248,242,235,0.58)',
           style: {
-            transformOrigin: '50px 68px',
+            transformOrigin: '50px 61.5px',
             animation: 'bfTfSteamSvgD ' + dD + ' ' + ease + ' infinite',
             animationDelay: '-0.6s',
           },
         },
-        React.createElement('path', Object.assign({}, stemThin, { d: 'M49.2 69 Q50.8 60 48 50 Q45.5 40 50.5 30' }))
+        React.createElement('path', Object.assign({}, stemThin, { d: 'M49.5 62 Q51 53 48.5 43 Q46 33 50 22' }))
       )
     )
   );
 }
 
-/** Chávena Terrafé: canto inferior direito. Com overflow:hidden + border-radius 50%, os cantos do
- *  retângulo ficam FORA da elipse — right/bottom baixos cortavam quase tudo; estes valores
- *  mantêm chávena+prato dentro do círculo visível. */
+/** Chávena Terrafé: entre sul e sueste (~6h30), mais perto das cartas do jogador de baixo. */
 function terrafeCoffeeTableLayout(mob) {
   return {
-    right: mob ? '14%' : '15%',
-    bottom: mob ? '16%' : '17%',
+    right: mob ? '18%' : '17%',
+    bottom: mob ? '12%' : '13%',
     wPct: mob ? 16 : 17,
     maxW: mob ? 26 : 30,
   };
@@ -2254,12 +2252,16 @@ function tableDecorTerrafe(mob) {
           aspectRatio: '1',
           pointerEvents: 'none',
           opacity: 0.97,
+          isolation: 'isolate',
+          WebkitTransform: mob ? 'translateZ(0)' : undefined,
+          transform: mob ? 'translateZ(0)' : undefined,
         },
       },
       React.createElement('img', {
         src: '/assets/terrafe/coffee-cup.png?v=3',
         alt: '',
         draggable: false,
+        decoding: 'async',
         style: {
           position: 'relative',
           zIndex: 1,
@@ -2269,7 +2271,10 @@ function tableDecorTerrafe(mob) {
           objectPosition: 'center bottom',
           display: 'block',
           userSelect: 'none',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          /* drop-shadow + overflow:hidden na mesa causava quina preta em alguns frames no WebKit móvel */
+          filter: mob ? 'none' : 'drop-shadow(0 2px 4px rgba(0,0,0,.35))',
         },
       }),
       terrafeCoffeeSteamSvg(mob)
