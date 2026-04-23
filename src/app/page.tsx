@@ -1571,7 +1571,15 @@ var ACSS = [
   '@keyframes bfReleShockRing2{0%{opacity:0;transform:translate(-50%,-50%) scale(.18)}14%{opacity:.65}100%{opacity:0;transform:translate(-50%,-50%) scale(3.35)}}',
   '@keyframes bfReleBeamsSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}',
   '@keyframes bfReleCoreSlam{0%{opacity:0;transform:translate(-50%,-50%) scale(.35) translateY(14px);filter:blur(8px)}42%{opacity:1;transform:translate(-50%,-50%) scale(1.08) translateY(-4px);filter:blur(0)}68%{transform:translate(-50%,-50%) scale(.97) translateY(2px)}100%{opacity:1;transform:translate(-50%,-50%) scale(1) translateY(0);filter:blur(0)}}',
-  '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}'
+  '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}',
+  /* Vapor Terrafé: várias curvas independentes, só opacity + transform (GPU), sem animar blur. */
+  '@keyframes bfTfSteam1{0%{opacity:0;transform:translate3d(0,5px,0) scale(.88)}9%{opacity:.14}28%{opacity:.2;transform:translate3d(7px,-20px,0) scale(1.06)}52%{opacity:.16;transform:translate3d(-4px,-44px,0) scale(1.22)}76%{opacity:.1;transform:translate3d(5px,-66px,0) scale(1.34)}100%{opacity:0;transform:translate3d(-1px,-90px,0) scale(1.42)}}',
+  '@keyframes bfTfSteam2{0%{opacity:0;transform:translate3d(0,6px,0) scale(.9)}11%{opacity:.12}33%{opacity:.19;transform:translate3d(-8px,-24px,0) scale(1.08)}58%{opacity:.14;transform:translate3d(4px,-50px,0) scale(1.26)}82%{opacity:.08;transform:translate3d(-6px,-74px,0) scale(1.38)}100%{opacity:0;transform:translate3d(2px,-92px,0) scale(1.45)}}',
+  '@keyframes bfTfSteam3{0%{opacity:0;transform:translate3d(0,4px,0) scale(.92)}14%{opacity:.11}40%{opacity:.18;transform:translate3d(3px,-32px,0) scale(1.12)}65%{opacity:.13;transform:translate3d(-5px,-58px,0) scale(1.3)}90%{opacity:.06;transform:translate3d(4px,-82px,0) scale(1.4)}100%{opacity:0;transform:translate3d(0,-96px,0) scale(1.44)}}',
+  '@keyframes bfTfSteam4{0%{opacity:0;transform:translate3d(0,7px,0) scale(.86)}7%{opacity:.13}26%{opacity:.2;transform:translate3d(-5px,-16px,0) scale(1.04)}48%{opacity:.17;transform:translate3d(8px,-38px,0) scale(1.18)}71%{opacity:.11;transform:translate3d(-3px,-62px,0) scale(1.32)}100%{opacity:0;transform:translate3d(3px,-88px,0) scale(1.48)}}',
+  '@keyframes bfTfSteam5{0%{opacity:0;transform:translate3d(0,3px,0) scale(.94)}12%{opacity:.1}38%{opacity:.17;transform:translate3d(6px,-28px,0) scale(1.1)}63%{opacity:.12;transform:translate3d(-7px,-54px,0) scale(1.28)}88%{opacity:.06;transform:translate3d(2px,-78px,0) scale(1.36)}100%{opacity:0;transform:translate3d(-2px,-94px,0) scale(1.41)}}',
+  '@keyframes bfTfSteamAmb{0%,100%{opacity:.08;transform:translate3d(0,0,0) scale(1)}50%{opacity:.12;transform:translate3d(-3px,-8px,0) scale(1.04)}}',
+  '@media (prefers-reduced-motion:reduce){.bfTfSteamRoot .bfTfSteamWisp,.bfTfSteamRoot .bfTfSteamAmb{animation:none!important;opacity:0!important}}'
 ].join('');
 
 /* ═══ RENDER HELPERS ═══ */
@@ -1613,7 +1621,9 @@ var THEMES = {
       timer: '#fcd34d', cutLabelMuted: 'rgba(253,230,138,.5)', cutLabelActive: '#fde68a',
       accentBadge: '#78350f',
     },
-    decor: function(){ return []; }
+    decor: function (mob) {
+      return tableDecorTerrafe(!!mob);
+    }
   },
   hub: {
     id: 'hub', name: 'HUB Fucape', icon: '',
@@ -1636,7 +1646,10 @@ var THEMES = {
       timer: '#93c5fd', cutLabelMuted: 'rgba(147,197,253,.55)', cutLabelActive: '#e0f2fe',
       accentBadge: '#1d4ed8',
     },
-    decor: function(){ return tableDecorHub(); }
+    decor: function (mob) {
+      void mob;
+      return tableDecorHub();
+    }
   },
   floresta: {
     id: 'floresta', name: 'Floresta', icon: '',
@@ -2089,6 +2102,132 @@ function tableDecorHub() {
         { style: { width: 200, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'scale(0.4)' } },
         HubMark(96)
       )
+    ),
+  ];
+}
+
+/** Camadas de vapor — alpha normal (sem mix-blend: backdrop-filter do painel quebra screen em alguns browsers). */
+function terrafeCoffeeSteamWisps(mob) {
+  var b = mob ? 5 : 7;
+  var b2 = mob ? 7 : 10;
+  var ease = 'cubic-bezier(0.42,0.02,0.28,1)';
+  var base = {
+    position: 'absolute',
+    left: '50%',
+    pointerEvents: 'none',
+    borderRadius: '50%',
+    willChange: 'transform,opacity',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
+  var g1 =
+    'radial-gradient(ellipse 85% 100% at 50% 85%,rgba(255,253,248,.72) 0%,rgba(238,230,220,.28) 32%,rgba(200,190,180,.12) 52%,transparent 74%)';
+  var g2 =
+    'radial-gradient(ellipse 90% 95% at 48% 88%,rgba(252,248,242,.62) 0%,rgba(230,220,210,.22) 38%,transparent 72%)';
+  var g3 =
+    'radial-gradient(ellipse 78% 100% at 52% 82%,rgba(255,255,252,.58) 0%,rgba(220,215,208,.18) 45%,transparent 70%)';
+  var gThin =
+    'radial-gradient(ellipse 70% 100% at 50% 90%,rgba(255,252,248,.65) 0%,rgba(235,228,220,.2) 40%,transparent 68%)';
+  var rows = [
+    { w: '24%', h: '11%', bottom: '56%', ml: '-12%', grad: g1, anim: 'bfTfSteam1', dur: '12.8s', del: '-1.2s', blur: b2 },
+    { w: '18%', h: '9%', bottom: '58%', ml: '-9%', grad: g2, anim: 'bfTfSteam2', dur: '10.4s', del: '-4.7s', blur: b },
+    { w: '20%', h: '10%', bottom: '57%', ml: '-10%', grad: g3, anim: 'bfTfSteam3', dur: '14.6s', del: '-7.1s', blur: b2 },
+    { w: '26%', h: '12%', bottom: '55%', ml: '-13%', grad: g1, anim: 'bfTfSteam4', dur: '11.2s', del: '-2.9s', blur: b },
+    { w: '14%', h: '7%', bottom: '59%', ml: '-7%', grad: gThin, anim: 'bfTfSteam5', dur: '9.1s', del: '-5.3s', blur: b },
+  ];
+  return rows.map(function (r, i) {
+    return React.createElement('div', {
+      key: 'st' + i,
+      className: 'bfTfSteamWisp',
+      style: Object.assign({}, base, {
+        width: r.w,
+        height: r.h,
+        bottom: r.bottom,
+        marginLeft: r.ml,
+        background: r.grad,
+        filter: 'blur(' + r.blur + 'px)',
+        animation: r.anim + ' ' + r.dur + ' ' + ease + ' infinite',
+        animationDelay: r.del,
+      }),
+    });
+  }).concat([
+    React.createElement('div', {
+      key: 'st-amb',
+      className: 'bfTfSteamAmb',
+      style: Object.assign({}, base, {
+        width: '38%',
+        height: '16%',
+        bottom: '52%',
+        marginLeft: '-19%',
+        background:
+          'radial-gradient(ellipse 100% 90% at 50% 100%,rgba(255,250,245,.28) 0%,rgba(220,210,200,.12) 45%,transparent 72%)',
+        filter: 'blur(' + (mob ? 10 : 14) + 'px)',
+        opacity: 0.1,
+        animation: 'bfTfSteamAmb ' + (mob ? '7s' : '8.5s') + ' ease-in-out infinite',
+        animationDelay: '-3s',
+      }),
+    }),
+  ]);
+}
+
+/** Terrafé: chávena no tampo entre o jogador de baixo (sul) e o da direita (este). */
+function tableDecorTerrafe(mob) {
+  var wPct = mob ? 23 : 21;
+  return [
+    React.createElement(
+      'div',
+      {
+        key: 'tf-coffee',
+        className: 'bfTfSteamRoot',
+        style: {
+          position: 'absolute',
+          right: '13%',
+          bottom: '15%',
+          width: wPct + '%',
+          maxWidth: mob ? 38 : 42,
+          aspectRatio: '1',
+          pointerEvents: 'none',
+          zIndex: 1,
+          opacity: 0.97,
+        },
+      },
+      React.createElement(
+        'div',
+        {
+          style: {
+            position: 'absolute',
+            inset: 0,
+            overflow: 'visible',
+            zIndex: 2,
+            /* Não usar isolation:isolate aqui — corta o blend do vapor com o fundo da mesa. */
+            WebkitMaskImage:
+              'linear-gradient(to bottom,#fff 0%,rgba(255,255,255,.92) 30%,rgba(255,255,255,.45) 52%,rgba(255,255,255,.12) 66%,transparent 80%)',
+            maskImage:
+              'linear-gradient(to bottom,#fff 0%,rgba(255,255,255,.92) 30%,rgba(255,255,255,.45) 52%,rgba(255,255,255,.12) 66%,transparent 80%)',
+            WebkitMaskSize: '100% 100%',
+            maskSize: '100% 100%',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+          },
+        },
+        terrafeCoffeeSteamWisps(mob)
+      ),
+      React.createElement('img', {
+        src: '/assets/terrafe/coffee-cup.png?v=3',
+        alt: '',
+        draggable: false,
+        style: {
+          position: 'relative',
+          zIndex: 1,
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          objectPosition: 'center bottom',
+          display: 'block',
+          userSelect: 'none',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))',
+        },
+      })
     ),
   ];
 }
@@ -4041,7 +4180,7 @@ function GameScreen(props){
         React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'visible'}},
-        th.decor ? th.decor() : null,
+        th.decor ? th.decor(mob) : null,
         React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
         React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dE)),
