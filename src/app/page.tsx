@@ -2170,9 +2170,21 @@ function terrafeCoffeeSteamWisps(mob) {
   ]);
 }
 
+/** Chávena Terrafé: canto inferior direito. Com overflow:hidden + border-radius 50%, os cantos do
+ *  retângulo ficam FORA da elipse — right/bottom baixos cortavam quase tudo; estes valores
+ *  mantêm chávena+prato dentro do círculo visível. */
+function terrafeCoffeeTableLayout(mob) {
+  return {
+    right: mob ? '14%' : '15%',
+    bottom: mob ? '16%' : '17%',
+    wPct: mob ? 16 : 17,
+    maxW: mob ? 26 : 30,
+  };
+}
+
 /** Terrafé: chávena no tampo entre o jogador de baixo (sul) e o da direita (este). */
 function tableDecorTerrafe(mob) {
-  var wPct = mob ? 23 : 21;
+  var L = terrafeCoffeeTableLayout(mob);
   return [
     React.createElement(
       'div',
@@ -2181,13 +2193,12 @@ function tableDecorTerrafe(mob) {
         className: 'bfTfSteamRoot',
         style: {
           position: 'absolute',
-          right: '13%',
-          bottom: '15%',
-          width: wPct + '%',
-          maxWidth: mob ? 38 : 42,
+          right: L.right,
+          bottom: L.bottom,
+          width: L.wPct + '%',
+          maxWidth: L.maxW,
           aspectRatio: '1',
           pointerEvents: 'none',
-          zIndex: 1,
           opacity: 0.97,
         },
       },
@@ -4179,12 +4190,12 @@ function GameScreen(props){
         ),
         React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
-      React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:'visible'}},
+      React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:th.id==='terrafe'?'hidden':'visible'}},
         th.decor ? th.decor(mob) : null,
-        React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dN)),
-        React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dW)),
-        React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)'}},rPlaced(dE)),
-        React.createElement('div',{style:{position:'absolute',bottom:edge,left:'50%',transform:'translateX(-50%)'}},rPlaced(dS)),
+        React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)',zIndex:2}},rPlaced(dN)),
+        React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)',zIndex:2}},rPlaced(dW)),
+        React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)',zIndex:2}},rPlaced(dE)),
+        React.createElement('div',{style:{position:'absolute',bottom:edge,left:'50%',transform:'translateX(-50%)',zIndex:2}},rPlaced(dS)),
         releVisible && g.phase==='playing' ? releTableImpactOverlay(mob, releSt, th.id==='terrafe'?'50%':14) : null,
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
