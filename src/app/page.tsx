@@ -1572,14 +1572,13 @@ var ACSS = [
   '@keyframes bfReleBeamsSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}',
   '@keyframes bfReleCoreSlam{0%{opacity:0;transform:translate(-50%,-50%) scale(.35) translateY(14px);filter:blur(8px)}42%{opacity:1;transform:translate(-50%,-50%) scale(1.08) translateY(-4px);filter:blur(0)}68%{transform:translate(-50%,-50%) scale(.97) translateY(2px)}100%{opacity:1;transform:translate(-50%,-50%) scale(1) translateY(0);filter:blur(0)}}',
   '@keyframes bfReleGlow{0%,100%{box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 24px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.08)}50%{box-shadow:0 18px 50px rgba(0,0,0,.58),0 0 36px rgba(251,191,36,.22),inset 0 1px 0 rgba(255,255,255,.1)}}',
-  /* Vapor Terrafé: várias curvas independentes, só opacity + transform (GPU), sem animar blur. */
-  '@keyframes bfTfSteam1{0%{opacity:0;transform:translate3d(0,5px,0) scale(.88)}9%{opacity:.14}28%{opacity:.2;transform:translate3d(7px,-20px,0) scale(1.06)}52%{opacity:.16;transform:translate3d(-4px,-44px,0) scale(1.22)}76%{opacity:.1;transform:translate3d(5px,-66px,0) scale(1.34)}100%{opacity:0;transform:translate3d(-1px,-90px,0) scale(1.42)}}',
-  '@keyframes bfTfSteam2{0%{opacity:0;transform:translate3d(0,6px,0) scale(.9)}11%{opacity:.12}33%{opacity:.19;transform:translate3d(-8px,-24px,0) scale(1.08)}58%{opacity:.14;transform:translate3d(4px,-50px,0) scale(1.26)}82%{opacity:.08;transform:translate3d(-6px,-74px,0) scale(1.38)}100%{opacity:0;transform:translate3d(2px,-92px,0) scale(1.45)}}',
-  '@keyframes bfTfSteam3{0%{opacity:0;transform:translate3d(0,4px,0) scale(.92)}14%{opacity:.11}40%{opacity:.18;transform:translate3d(3px,-32px,0) scale(1.12)}65%{opacity:.13;transform:translate3d(-5px,-58px,0) scale(1.3)}90%{opacity:.06;transform:translate3d(4px,-82px,0) scale(1.4)}100%{opacity:0;transform:translate3d(0,-96px,0) scale(1.44)}}',
-  '@keyframes bfTfSteam4{0%{opacity:0;transform:translate3d(0,7px,0) scale(.86)}7%{opacity:.13}26%{opacity:.2;transform:translate3d(-5px,-16px,0) scale(1.04)}48%{opacity:.17;transform:translate3d(8px,-38px,0) scale(1.18)}71%{opacity:.11;transform:translate3d(-3px,-62px,0) scale(1.32)}100%{opacity:0;transform:translate3d(3px,-88px,0) scale(1.48)}}',
-  '@keyframes bfTfSteam5{0%{opacity:0;transform:translate3d(0,3px,0) scale(.94)}12%{opacity:.1}38%{opacity:.17;transform:translate3d(6px,-28px,0) scale(1.1)}63%{opacity:.12;transform:translate3d(-7px,-54px,0) scale(1.28)}88%{opacity:.06;transform:translate3d(2px,-78px,0) scale(1.36)}100%{opacity:0;transform:translate3d(-2px,-94px,0) scale(1.41)}}',
-  '@keyframes bfTfSteamAmb{0%,100%{opacity:.08;transform:translate3d(0,0,0) scale(1)}50%{opacity:.12;transform:translate3d(-3px,-8px,0) scale(1.04)}}',
-  '@media (prefers-reduced-motion:reduce){.bfTfSteamRoot .bfTfSteamWisp,.bfTfSteamRoot .bfTfSteamAmb{animation:none!important;opacity:0!important}}'
+  /* Vapor Terrafé (SVG): curvas a subir + desvanecer; blur no filtro SVG (visível em mobile). */
+  '@keyframes bfTfSteamSvgA{0%{opacity:0;transform:translate(0,5px) scaleX(1)}14%{opacity:.72}42%{opacity:.5;transform:translate(4px,-14px) scaleX(1.12)}100%{opacity:0;transform:translate(-3px,-34px) scaleX(1.28)}}',
+  '@keyframes bfTfSteamSvgB{0%{opacity:0;transform:translate(0,4px) scaleX(1)}18%{opacity:.62}48%{opacity:.38;transform:translate(-5px,-16px) scaleX(1.18)}100%{opacity:0;transform:translate(4px,-32px) scaleX(1.32)}}',
+  '@keyframes bfTfSteamSvgC{0%{opacity:0;transform:translate(0,6px) scaleX(1)}16%{opacity:.55}52%{opacity:.32;transform:translate(3px,-18px) scaleX(1.15)}100%{opacity:0;transform:translate(-2px,-30px) scaleX(1.25)}}',
+  '@keyframes bfTfSteamSvgD{0%{opacity:0;transform:translate(0,3px)}20%{opacity:.45}55%{opacity:.22;transform:translate(-2px,-12px)}100%{opacity:0;transform:translate(3px,-26px)}}',
+  '@keyframes bfTfSteamSvgPuff{0%{opacity:.15;transform:scale(.85,.9)}35%{opacity:.42;transform:scale(1.05,1.35)}100%{opacity:0;transform:scale(1.35,2.4)}}',
+  '@media (prefers-reduced-motion:reduce){.bfTfSteamRoot .bfTfSteamSvgAnim{animation:none!important;opacity:0!important}}'
 ].join('');
 
 /* ═══ RENDER HELPERS ═══ */
@@ -2106,68 +2105,123 @@ function tableDecorHub() {
   ];
 }
 
-/** Camadas de vapor — alpha normal (sem mix-blend: backdrop-filter do painel quebra screen em alguns browsers). */
-function terrafeCoffeeSteamWisps(mob) {
-  var b = mob ? 5 : 7;
-  var b2 = mob ? 7 : 10;
-  var ease = 'cubic-bezier(0.42,0.02,0.28,1)';
-  var base = {
-    position: 'absolute',
-    left: '50%',
-    pointerEvents: 'none',
-    borderRadius: '50%',
-    willChange: 'transform,opacity',
-    backfaceVisibility: 'hidden',
-    WebkitBackfaceVisibility: 'hidden',
-  };
-  var g1 =
-    'radial-gradient(ellipse 85% 100% at 50% 85%,rgba(255,253,248,.72) 0%,rgba(238,230,220,.28) 32%,rgba(200,190,180,.12) 52%,transparent 74%)';
-  var g2 =
-    'radial-gradient(ellipse 90% 95% at 48% 88%,rgba(252,248,242,.62) 0%,rgba(230,220,210,.22) 38%,transparent 72%)';
-  var g3 =
-    'radial-gradient(ellipse 78% 100% at 52% 82%,rgba(255,255,252,.58) 0%,rgba(220,215,208,.18) 45%,transparent 70%)';
-  var gThin =
-    'radial-gradient(ellipse 70% 100% at 50% 90%,rgba(255,252,248,.65) 0%,rgba(235,228,220,.2) 40%,transparent 68%)';
-  var rows = [
-    { w: '24%', h: '11%', bottom: '56%', ml: '-12%', grad: g1, anim: 'bfTfSteam1', dur: '12.8s', del: '-1.2s', blur: b2 },
-    { w: '18%', h: '9%', bottom: '58%', ml: '-9%', grad: g2, anim: 'bfTfSteam2', dur: '10.4s', del: '-4.7s', blur: b },
-    { w: '20%', h: '10%', bottom: '57%', ml: '-10%', grad: g3, anim: 'bfTfSteam3', dur: '14.6s', del: '-7.1s', blur: b2 },
-    { w: '26%', h: '12%', bottom: '55%', ml: '-13%', grad: g1, anim: 'bfTfSteam4', dur: '11.2s', del: '-2.9s', blur: b },
-    { w: '14%', h: '7%', bottom: '59%', ml: '-7%', grad: gThin, anim: 'bfTfSteam5', dur: '9.1s', del: '-5.3s', blur: b },
-  ];
-  return rows.map(function (r, i) {
-    return React.createElement('div', {
-      key: 'st' + i,
-      className: 'bfTfSteamWisp',
-      style: Object.assign({}, base, {
-        width: r.w,
-        height: r.h,
-        bottom: r.bottom,
-        marginLeft: r.ml,
-        background: r.grad,
-        filter: 'blur(' + r.blur + 'px)',
-        animation: r.anim + ' ' + r.dur + ' ' + ease + ' infinite',
-        animationDelay: r.del,
-      }),
-    });
-  }).concat([
-    React.createElement('div', {
-      key: 'st-amb',
-      className: 'bfTfSteamAmb',
-      style: Object.assign({}, base, {
-        width: '38%',
-        height: '16%',
-        bottom: '52%',
-        marginLeft: '-19%',
-        background:
-          'radial-gradient(ellipse 100% 90% at 50% 100%,rgba(255,250,245,.28) 0%,rgba(220,210,200,.12) 45%,transparent 72%)',
-        filter: 'blur(' + (mob ? 10 : 14) + 'px)',
-        opacity: 0.1,
-        animation: 'bfTfSteamAmb ' + (mob ? '7s' : '8.5s') + ' ease-in-out infinite',
-        animationDelay: '-3s',
-      }),
-    }),
-  ]);
+/** Vapor realista: SVG + feGaussianBlur (o blur em div+gradiente quase não se via no telemóvel). */
+function terrafeCoffeeSteamSvg(mob) {
+  var ease = 'cubic-bezier(0.42,0.02,0.32,1)';
+  var dA = mob ? '3.9s' : '4.5s';
+  var dB = mob ? '4.7s' : '5.4s';
+  var dC = mob ? '4.2s' : '4.85s';
+  var dD = mob ? '3.5s' : '4s';
+  var puff = mob ? '2.75s' : '3.15s';
+  var blur = mob ? 1.85 : 2.45;
+  var stem = { strokeLinecap: 'round', fill: 'none', strokeWidth: 2.35 };
+  var stem2 = { strokeLinecap: 'round', fill: 'none', strokeWidth: 1.85 };
+  var stemThin = { strokeLinecap: 'round', fill: 'none', strokeWidth: 1.45 };
+  return React.createElement(
+    'svg',
+    {
+      className: 'bfTfSteamSvg',
+      viewBox: '0 0 100 100',
+      preserveAspectRatio: 'xMidYMax meet',
+      'aria-hidden': true,
+      style: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'visible',
+        pointerEvents: 'none',
+        zIndex: 3,
+      },
+    },
+    React.createElement(
+      'defs',
+      null,
+      React.createElement(
+        'filter',
+        {
+          id: 'bfTfSteamFilt',
+          x: '-55%',
+          y: '-95%',
+          width: '210%',
+          height: '250%',
+          colorInterpolationFilters: 'sRGB',
+        },
+        React.createElement('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: blur })
+      )
+    ),
+    React.createElement(
+      'g',
+      { filter: 'url(#bfTfSteamFilt)' },
+      React.createElement(
+        'ellipse',
+        {
+          className: 'bfTfSteamSvgAnim',
+          cx: 50,
+          cy: 69.5,
+          rx: 5,
+          ry: 2.4,
+          fill: 'rgba(255,248,242,0.42)',
+          style: {
+            transformOrigin: '50px 69.5px',
+            animation: 'bfTfSteamSvgPuff ' + puff + ' ease-out infinite',
+          },
+        }
+      ),
+      React.createElement(
+        'g',
+        {
+          className: 'bfTfSteamSvgAnim',
+          stroke: 'rgba(255,252,248,0.88)',
+          style: {
+            transformOrigin: '50px 68px',
+            animation: 'bfTfSteamSvgA ' + dA + ' ' + ease + ' infinite',
+          },
+        },
+        React.createElement('path', Object.assign({}, stem, { d: 'M47 69 Q45 58 48.5 47 Q51.5 37 47.5 26' }))
+      ),
+      React.createElement(
+        'g',
+        {
+          className: 'bfTfSteamSvgAnim',
+          stroke: 'rgba(250,245,238,0.78)',
+          style: {
+            transformOrigin: '50px 68px',
+            animation: 'bfTfSteamSvgB ' + dB + ' ' + ease + ' infinite',
+            animationDelay: '-1.15s',
+          },
+        },
+        React.createElement('path', Object.assign({}, stem2, { d: 'M52.5 69 Q55 59 50 48 Q46.5 38 52.5 27' }))
+      ),
+      React.createElement(
+        'g',
+        {
+          className: 'bfTfSteamSvgAnim',
+          stroke: 'rgba(255,250,245,0.68)',
+          style: {
+            transformOrigin: '50px 68px',
+            animation: 'bfTfSteamSvgC ' + dC + ' ' + ease + ' infinite',
+            animationDelay: '-2.35s',
+          },
+        },
+        React.createElement('path', Object.assign({}, stem2, { d: 'M50 68.5 Q49 55 51 43 Q53 32 49 23' }))
+      ),
+      React.createElement(
+        'g',
+        {
+          className: 'bfTfSteamSvgAnim',
+          stroke: 'rgba(248,242,235,0.58)',
+          style: {
+            transformOrigin: '50px 68px',
+            animation: 'bfTfSteamSvgD ' + dD + ' ' + ease + ' infinite',
+            animationDelay: '-0.6s',
+          },
+        },
+        React.createElement('path', Object.assign({}, stemThin, { d: 'M49.2 69 Q50.8 60 48 50 Q45.5 40 50.5 30' }))
+      )
+    )
+  );
 }
 
 /** Chávena Terrafé: canto inferior direito. Com overflow:hidden + border-radius 50%, os cantos do
@@ -2202,27 +2256,6 @@ function tableDecorTerrafe(mob) {
           opacity: 0.97,
         },
       },
-      React.createElement(
-        'div',
-        {
-          style: {
-            position: 'absolute',
-            inset: 0,
-            overflow: 'visible',
-            zIndex: 2,
-            /* Não usar isolation:isolate aqui — corta o blend do vapor com o fundo da mesa. */
-            WebkitMaskImage:
-              'linear-gradient(to bottom,#fff 0%,rgba(255,255,255,.92) 30%,rgba(255,255,255,.45) 52%,rgba(255,255,255,.12) 66%,transparent 80%)',
-            maskImage:
-              'linear-gradient(to bottom,#fff 0%,rgba(255,255,255,.92) 30%,rgba(255,255,255,.45) 52%,rgba(255,255,255,.12) 66%,transparent 80%)',
-            WebkitMaskSize: '100% 100%',
-            maskSize: '100% 100%',
-            WebkitMaskRepeat: 'no-repeat',
-            maskRepeat: 'no-repeat',
-          },
-        },
-        terrafeCoffeeSteamWisps(mob)
-      ),
       React.createElement('img', {
         src: '/assets/terrafe/coffee-cup.png?v=3',
         alt: '',
@@ -2238,7 +2271,8 @@ function tableDecorTerrafe(mob) {
           userSelect: 'none',
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))',
         },
-      })
+      }),
+      terrafeCoffeeSteamSvg(mob)
     ),
   ];
 }
