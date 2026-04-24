@@ -966,7 +966,10 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var followWinners = winners(followOpts, curWin.card, lead);
   /* Com cartas do naipe de abertura: se alguma ganha → só encarte (esse naipe). Se nenhuma ganha →
      adversário a ganhar: lixar 0 pts (não trunfo) se não der para cortar a vencer; senão mão livre para cortar/lixar.
-     Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder). */
+     Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder).
+     Excepção: parceiro já ganha de trunfo e só tens no naipe de saída bíscas/figuras altas (≥10 pts) que não mudam
+     quem leva — não “empilhar” Ás/7 só por cumprir naipe se houver lixo 0 pts fora de trunfo que mantém a vaza
+     (house rule / heurística; na bisca de mesa costuma ser obrigatório seguir o naipe). */
   if(followOpts.length){
     if(followWinners.length){
       var loseFollow = followOpts.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
@@ -1005,15 +1008,30 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       };
       if(!partnerWinning){
         var d0 = poolAll.filter(dumpZeroSafe);
-        if(!twCut.length && d0.length) pool = d0;
+        /* Último a jogar, vaza já perdida: não “oferecer” Ás/7/bísca no naipe de saída — só aumenta o que os adversários levam.
+           Mesmo com corte que ganhava, preferir lixo 0 pts (house rule pedida; na mesa real muitos cortam para levar a mão). */
+        var onlyHighLosingFollow =
+          isLast &&
+          followOpts.length &&
+          !followWinners.length &&
+          followOpts.every(function (c) {
+            return isBiscaCard(c, trump) || cPts(c) >= 10;
+          });
+        if ((!twCut.length && d0.length) || (d0.length && onlyHighLosingFollow)) pool = d0;
         else pool = poolAll;
       } else {
-        /* Parceiro da mesma equipa já vai ganhando com TRUNFO (ex.: a tua D♥): não reduzir o pool só a
-           lixo 0 pts — isso exclui bíscas e obriga o bot a jogar 6♠ em vez de empilhar o 7♠ na vaza. */
+        /* Parceiro já ganha de trunfo: em geral manter pool completo (ex.: empilhar 7♠ na vaza quando faz sentido).
+           Se só tens no naipe de saída cartas muito valiosas que não mudam o vencedor, preferir lixo 0 pts. */
         var teammateTrumpWinning = curWin.card.s===trump && pTm(curWin.player)===mt;
         var dm = poolAll.filter(function(c){ return dumpZeroSafe(c) && trickStillOurs(c); });
-        if(teammateTrumpWinning) pool = poolAll;
-        else if(dm.length) pool = dm;
+        var allFollowHigh =
+          followOpts.length > 0 &&
+          followOpts.every(function (c) {
+            return isBiscaCard(c, trump) || cPts(c) >= 10;
+          });
+        if (teammateTrumpWinning && dm.length && allFollowHigh) pool = dm;
+        else if (teammateTrumpWinning) pool = poolAll;
+        else if (dm.length) pool = dm;
         else pool = followOpts;
       }
     }
