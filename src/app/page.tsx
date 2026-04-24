@@ -885,7 +885,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
     strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
 
-    // RULE 1: na 1.ª mão, se abrir e tiver o 7 de trunfo, sai sempre com ele (regra da mesa: vale 1 ponto).
+    // RULE 1: na 1.ª mão (trickN===0), se abrir e tiver o 7 de trunfo, sai com ele (vale 1 pt na mesa).
+    // Nas mãos 2–10 não abrir com o 7 de trunfo: expõe demais o Ás de trunfo do adversário. O 7 de trunfo nas
+    // posições 2–4 da vaza (encarte, réle com Ás na mão, etc.) continua tratado no bloco FOLLOWING / mayPlaySevenTrumpFourth.
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
     if(my7t && trickN===0) return my7t;
 
@@ -906,11 +908,6 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
         }
       }
     }
-
-    // RULE 2b: últimas 3 rodadas (trickN 7–9) — abrir com o 7 de corte antes da última rodada se ainda não saiu,
-    // para o parceiro poder usar o Ás de corte a tempo (Ás de corte só depois do 7 na mesa).
-    var sevenOpen = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(sevenOpen && endGame && !sevenOut && trickN < 9) return sevenOpen;
 
     // RULE 3 (abertura): sair baixo num naipe onde tens A ou 7 (trabalhar o naipe). Isto não é "encarte" na tua mesa.
     var openLowSuits = SUITS.filter(function(s){
@@ -950,7 +947,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var lnb = lowestPreferNoBisca(nonTrump);
       if(lnb) return lnb;
     }
-    return lowest(trumpCards);
+    var trumpLead = trumpCards;
+    if (trickN > 0 && trumpCards.length > 1) {
+      var noSevenTrumpLead = trumpCards.filter(function (c) {
+        return !(c.v === "7" && c.s === trump);
+      });
+      if (noSevenTrumpLead.length) trumpLead = noSevenTrumpLead;
+    }
+    return lowest(trumpLead);
   }
 
   // ══ FOLLOWING ══
