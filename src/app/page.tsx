@@ -32,19 +32,26 @@ function bfVictoryFxKey(sfm, setWins) {
   return sw + "|" + (sfm && typeof sfm.join === "function" ? sfm.join(",") : "");
 }
 
-/** Evita burst duplo no React Strict Mode (~remount imediato); vitórias reais têm chave diferente ou >1s. */
-function bfVictoryFxDebounceKey(k) {
+/** Lê a trava anti-burst sem marcar execução. */
+function bfVictoryFxCanRun(k) {
   try {
     if (typeof sessionStorage === "undefined") return true;
     var now = Date.now();
     var sk = "bf_vicfx_" + k;
     var prev = sessionStorage.getItem(sk);
     if (prev && now - Number(prev) < 850) return false;
-    sessionStorage.setItem(sk, String(now));
     return true;
   } catch (e) {
     return true;
   }
+}
+
+/** Marca execução de confete (apenas quando o efeito realmente vai disparar). */
+function bfVictoryFxMarkRun(k) {
+  try {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem("bf_vicfx_" + k, String(Date.now()));
+  } catch (e) {}
 }
 
 /** onDisconnect da chave de presença atual (cancelar antes de sair ou trocar de sala). */
@@ -3172,7 +3179,7 @@ function GameScreen(props){
       var winTeam = sfm[0] > sfm[1] ? 0 : 1;
       if (typeof mySeat !== "number" || mySeat < 0 || mySeat > 3 || pTm(mySeat) !== winTeam) return;
       var k = bfVictoryFxKey(sfm, g.setWins);
-      if (!bfVictoryFxDebounceKey(k)) return;
+      if (!bfVictoryFxCanRun(k)) return;
       var reduceMotion =
         typeof window !== "undefined" &&
         window.matchMedia &&
@@ -3189,6 +3196,8 @@ function GameScreen(props){
       void import("canvas-confetti")
         .then(function (mod) {
           if (cancelled) return;
+          if (!bfVictoryFxCanRun(k)) return;
+          bfVictoryFxMarkRun(k);
           var confetti = mod.default;
           var palette = ["#fde68a", "#facc15", "#fffbeb", "#fef08a", "#22c55e", "#86efac", "#f87171", "#fb7185", "#C41230"];
           var base = { zIndex: 260, disableForReducedMotion: true };
