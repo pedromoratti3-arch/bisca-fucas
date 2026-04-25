@@ -1159,15 +1159,22 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var ntLeadWin = safePool.filter(function(c){ return c.s!==trump; });
       if(ntLeadWin.length) candidates = ntLeadWin;
     }
-    /* Quem ganha a vaza tem de continuar a ser o parceiro: não “roubar” com corte mais alto nem trocar o vencedor sem necessidade. */
+    /* Quem leva a vaza: em geral não “roubar” ao parceiro no meio da vaza (mantém o mesmo assento vencedor).
+       Em último jogador, basta a dupla continuar a ganhar — pode somar bísca/trunfo ainda que o vencedor
+       passe de tu para o parceiro (ex.: tu encartaste e o parceiro fecha com 7♥ de trunfo na mesa). */
     function winnerSeatIfPlay(card){
       return getWin(trick.concat([{ player: mySeat, card: card }]), trump).player;
     }
-    var keepPartnerAsWinner = candidates.filter(function(c){ return winnerSeatIfPlay(c) === curWin.player; });
-    if(keepPartnerAsWinner.length) candidates = keepPartnerAsWinner;
-    else {
-      var dumpLose = pool.filter(function(c){ return !teamWinsWith(c) && c.s !== trump && cPts(c) <= 2; });
-      if(dumpLose.length) return lowest(dumpLose);
+    if(isLast){
+      var teamStillWinsLast = candidates.filter(function(c){ return pTm(winnerSeatIfPlay(c)) === mt; });
+      if(teamStillWinsLast.length) candidates = teamStillWinsLast;
+    } else {
+      var keepPartnerAsWinner = candidates.filter(function(c){ return winnerSeatIfPlay(c) === curWin.player; });
+      if(keepPartnerAsWinner.length) candidates = keepPartnerAsWinner;
+      else {
+        var dumpLose = pool.filter(function(c){ return !teamWinsWith(c) && c.s !== trump && cPts(c) <= 2; });
+        if(dumpLose.length) return lowest(dumpLose);
+      }
     }
     /* Último a jogar, bísca na mesa, parceiro já vai ganhando com corte: não “subir” o corte do parceiro — somar fora de trunfo se der. */
     if(isLast && anyBiscaTableGlobal && mateWinsTrump && pTm(curWin.player)===mt){
