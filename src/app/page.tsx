@@ -955,8 +955,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(lnb) return lnb;
     }
     var trumpLead = trumpCards;
-    if (trickN > 0 && trumpCards.length > 1) {
-      var noSevenTrumpLead = trumpCards.filter(function (c) {
+    /* Abertura: evitar K/J/Q de trunfo sem bísca na rodada (não existe bísca na mesa ao abrir),
+       salvo quando não há alternativa de trunfo mais baixo. */
+    var noHighTrumpLead = trumpLead.filter(function (c) {
+      return !(c.s === trump && (c.v === "K" || c.v === "J" || c.v === "Q"));
+    });
+    if (noHighTrumpLead.length) trumpLead = noHighTrumpLead;
+    if (trickN > 0 && trumpLead.length > 1) {
+      var noSevenTrumpLead = trumpLead.filter(function (c) {
         return !(c.v === "7" && c.s === trump);
       });
       if (noSevenTrumpLead.length) trumpLead = noSevenTrumpLead;
@@ -1234,15 +1240,24 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
     }
     function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
+    function highTrumpAllowedNow(){
+      /* Regra pedida: K/J/Q de trunfo só quando há bísca na rodada. */
+      return anyBiscaOnTable;
+    }
     /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
     function pickWinningTrumpPreferLow(){
       var esc = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
       if(esc.length) return lowest(esc);
+      /* Se só houver K/J/Q para ganhar e não houver alternativa legal, joga o menor deles. */
       return lowest(trumpW);
     }
     /** Bísca / vaza pesada: maior corte que ganha (força, depois pontos). */
     function pickWinningTrumpPreferHigh(){
-      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
+      var src = highTrumpAllowedNow()
+        ? trumpW
+        : trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
+      if(!src.length) src = trumpW;
+      return src.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
     }
     function pickWinningTrumpChosen(){
       return stakeHigh ? pickWinningTrumpPreferHigh() : pickWinningTrumpPreferLow();
@@ -1250,7 +1265,11 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     var partnerNotYetPlayed = !trick.some(function(t){ return pTm(t.player)===mt; });
 
     if(partnerPutBisca){
-      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
+      var srcBisca = highTrumpAllowedNow()
+        ? trumpW
+        : trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
+      if(!srcBisca.length) srcBisca = trumpW;
+      return srcBisca.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
     }
     /* Adversário já vai ganhando com corte em vaza sem bísca e quase sem pontos: não gastar Dama/Rei/Valete só para isso — lixar se ainda der. */
     if(
