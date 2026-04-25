@@ -4266,7 +4266,8 @@ function GameScreen(props){
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)',zIndex:2}},rPlaced(dW)),
         React.createElement('div',{style:{position:'absolute',right:edge,top:'50%',transform:'translateY(-50%)',zIndex:2}},rPlaced(dE)),
         React.createElement('div',{style:{position:'absolute',bottom:edge,left:'50%',transform:'translateX(-50%)',zIndex:2}},rPlaced(dS)),
-        releVisible && g.phase==='playing' ? releTableImpactOverlay(mob, releSt, th.id==='terrafe'?'50%':14) : null,
+        /* Réle deve surgir no instante da 4.ª carta (Ás após 7), mesmo quando a fase já virou para end_trick. */
+        releVisible ? releTableImpactOverlay(mob, releSt, th.id==='terrafe'?'50%':14) : null,
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
       React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
