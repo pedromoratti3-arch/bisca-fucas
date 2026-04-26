@@ -410,9 +410,38 @@ var RT = {
       var r = await RT.getRoom(code);
       if (!r) return;
       if (!Array.isArray(r.players)) return;
-      var players = r.players.filter(function (p) {
-        return p && p.id !== playerId;
+      var leavingPlayer = r.players.find(function (p) {
+        return p && p.id === playerId;
       });
+      var playingNow = !!(r.game && typeof r.game === "object");
+      var shouldSwapToBot =
+        !!leavingPlayer &&
+        !leavingPlayer.isBot &&
+        !!playingNow &&
+        typeof leavingPlayer.seat === "number" &&
+        leavingPlayer.seat >= 0 &&
+        leavingPlayer.seat <= 3;
+      var players;
+      if (shouldSwapToBot) {
+        var botName = "IA " + ((leavingPlayer && leavingPlayer.name) ? "(" + clampDisplayName(String(leavingPlayer.name)) + ")" : "");
+        players = r.players
+          .filter(function (p) {
+            return p && p.id !== playerId;
+          })
+          .concat([
+            {
+              id: "bot:" + code + ":" + uid(),
+              name: botName,
+              seat: leavingPlayer.seat,
+              team: leavingPlayer.team || null,
+              isBot: true,
+            },
+          ]);
+      } else {
+        players = r.players.filter(function (p) {
+          return p && p.id !== playerId;
+        });
+      }
       var humans = players.filter(function (p) {
         return !p.isBot;
       });
@@ -425,6 +454,12 @@ var RT = {
         hostId = humans[0].id;
       }
       var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
+      if (shouldSwapToBot && r.game && leavingPlayer) {
+        var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
+        nextRoom.game = Object.assign({}, r.game, {
+          msg: leaveName + " saiu da sala. IA assumiu o lugar.",
+        });
+      }
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
