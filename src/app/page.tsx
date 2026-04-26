@@ -415,16 +415,17 @@ var RT = {
         return p && p.id === playerId;
       });
       var playingNow = !!(r.game && typeof r.game === "object");
+      var leavingSeat = leavingPlayer ? parseSeat(leavingPlayer.seat) : NaN;
       var shouldSwapToBot =
         !!leavingPlayer &&
         !leavingPlayer.isBot &&
         !!playingNow &&
-        typeof leavingPlayer.seat === "number" &&
-        leavingPlayer.seat >= 0 &&
-        leavingPlayer.seat <= 3;
+        !isNaN(leavingSeat);
       var players;
       if (shouldSwapToBot) {
-        var botName = "IA " + ((leavingPlayer && leavingPlayer.name) ? "(" + clampDisplayName(String(leavingPlayer.name)) + ")" : "");
+        var leaveNm = clampDisplayName(String((leavingPlayer && leavingPlayer.name) || ""));
+        var botName = leaveNm ? "IA (" + leaveNm + ")" : "IA";
+        var seatTeam = leavingPlayer && leavingPlayer.team ? leavingPlayer.team : (leavingSeat % 2 === 0 ? "A" : "B");
         players = r.players
           .filter(function (p) {
             return p && p.id !== playerId;
@@ -433,8 +434,8 @@ var RT = {
             {
               id: "bot:" + code + ":" + uid(),
               name: botName,
-              seat: leavingPlayer.seat,
-              team: leavingPlayer.team || null,
+              seat: leavingSeat,
+              team: seatTeam,
               isBot: true,
             },
           ]);
@@ -3156,6 +3157,7 @@ function RtConnectionBadge(P){
   var c = P.connected;
   var variant = P.variant === 'hud' ? 'hud' : 'inline';
   var isHud = variant === 'hud';
+  if (c == null) return null;
   var dot = '#facc15';
   var label = 'A reconectar';
   var border = 'rgba(250,204,21,.42)';
@@ -3224,7 +3226,23 @@ function RtConnectionBadge(P){
     }),
     React.createElement('span', { style: { lineHeight: 1.2 } }, label)
   );
-  if (isHud) return pill;
+  if (isHud) {
+    if (c === true) return null;
+    return React.createElement(
+      'div',
+      {
+        style: {
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bottom: 'max(14px, calc(14px + env(safe-area-inset-bottom)))',
+          zIndex: 4700,
+          pointerEvents: 'none',
+        },
+      },
+      pill
+    );
+  }
   return React.createElement('div', { style: { flexShrink: 0, marginLeft: 'auto', minWidth: 0, display: 'flex', justifyContent: 'flex-end' } }, pill);
 }
 
