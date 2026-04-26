@@ -8,6 +8,7 @@ var RTB = "bisca/rooms";
 var RTP = "bisca/presence";
 var ROOM_ORPHAN_TTL_MS = 10 * 60 * 1000;
 var ROOM_ACTIVITY_TOUCH_MS = 45 * 1000;
+var RECONNECT_GRACE_MS = 30 * 1000;
 function roomDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code);
@@ -458,6 +459,99 @@ var RT = {
         var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
         nextRoom.game = Object.assign({}, r.game, {
           msg: leaveName + " saiu da sala. IA assumiu o lugar.",
+        });
+      }
+      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
+    } catch (e) {
+      void e;
+    }
+  },
+  setReconnectNotice: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    try {
+      var r = await RT.getRoom(code);
+      if (!r || !r.game || !Array.isArray(r.players)) return;
+      var p = r.players.find(function (x) {
+        return x && x.id === playerId && !x.isBot;
+      });
+      if (!p) return;
+      var name = clampDisplayName(String(p.name || "")) || "Jogador";
+      var nextRoom = Object.assign({}, r, {
+        game: Object.assign({}, r.game, {
+          msg: name + " reconectando... (" + String(Math.round(RECONNECT_GRACE_MS / 1000)) + "s)",
+        }),
+      });
+      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
+    } catch (e) {
+      void e;
+    }
+  },
+  resolveOfflineAfterGrace: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    try {
+      var r = await RT.getRoom(code);
+      if (!r || !Array.isArray(r.players)) return;
+      var leavingPlayer = r.players.find(function (p) {
+        return p && p.id === playerId;
+      });
+      if (!leavingPlayer) return;
+      if (leavingPlayer.isBot) return;
+      var pref = presencePlayerRef(code, playerId);
+      if (pref) {
+        try {
+          var ps = await get(pref);
+          if (ps.exists() && ps.val() === true) return;
+        } catch (e) {
+          void e;
+        }
+      }
+      if (r.hostId === playerId) {
+        await RT.deleteRoom(code);
+        return;
+      }
+      var playingNow = !!(r.game && typeof r.game === "object");
+      var shouldSwapToBot =
+        !!playingNow &&
+        typeof leavingPlayer.seat === "number" &&
+        leavingPlayer.seat >= 0 &&
+        leavingPlayer.seat <= 3;
+      var players;
+      if (shouldSwapToBot) {
+        var botName = "IA " + ((leavingPlayer && leavingPlayer.name) ? "(" + clampDisplayName(String(leavingPlayer.name)) + ")" : "");
+        players = r.players
+          .filter(function (p) {
+            return p && p.id !== playerId;
+          })
+          .concat([
+            {
+              id: "bot:" + code + ":" + uid(),
+              name: botName,
+              seat: leavingPlayer.seat,
+              team: leavingPlayer.team || null,
+              isBot: true,
+            },
+          ]);
+      } else {
+        players = r.players.filter(function (p) {
+          return p && p.id !== playerId;
+        });
+      }
+      var humans = players.filter(function (p) {
+        return !p.isBot;
+      });
+      if (humans.length === 0) {
+        await RT.deleteRoom(code);
+        return;
+      }
+      var hostId = r.hostId;
+      if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
+        hostId = humans[0].id;
+      }
+      var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
+      if (shouldSwapToBot && r.game && leavingPlayer) {
+        var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
+        nextRoom.game = Object.assign({}, r.game, {
+          msg: leaveName + " não reconectou. IA assumiu o lugar.",
         });
       }
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
@@ -4570,6 +4664,7 @@ export default function App(){
   var myIdRef=useRef(myId);
   var roomCodeRef=useRef(roomCode);
   var hostClosedRoomRef=useRef(false);
+  var reconnectTimersRef = useRef({});
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
@@ -4696,6 +4791,64 @@ export default function App(){
       void RT.detachRoomPresence();
     };
   },[roomCode, myId, screen]);
+
+  /* Queda de ligação/aba fechada: avisa reconexão (30s). Se não voltar:
+     - host: encerra sala (igual host sair);
+     - não-host: IA assume (partida) ou remove jogador (lobby). */
+  useEffect(function(){
+    function clearAllReconnectTimers(){
+      var map = reconnectTimersRef.current || {};
+      Object.keys(map).forEach(function(pid){
+        try{ clearTimeout(map[pid]); }catch(e){ void e; }
+      });
+      reconnectTimersRef.current = {};
+    }
+    if(screen!=="lobby" && screen!=="online"){
+      clearAllReconnectTimers();
+      return;
+    }
+    if(!roomCode || !room || !Array.isArray(room.players)){
+      clearAllReconnectTimers();
+      return;
+    }
+    var timerMap = reconnectTimersRef.current || {};
+    var presentMap = presenceByPlayer && typeof presenceByPlayer === "object" ? presenceByPlayer : {};
+    room.players.forEach(function(p){
+      if(!p || p.isBot || !p.id) return;
+      var isOnlineNow = !!presentMap[p.id];
+      if(isOnlineNow){
+        if(timerMap[p.id]){
+          try{ clearTimeout(timerMap[p.id]); }catch(e){ void e; }
+          delete timerMap[p.id];
+        }
+        return;
+      }
+      if(timerMap[p.id]) return;
+      void RT.setReconnectNotice(roomCode, p.id);
+      timerMap[p.id] = setTimeout(function(){
+        delete reconnectTimersRef.current[p.id];
+        void RT.resolveOfflineAfterGrace(roomCode, p.id);
+      }, RECONNECT_GRACE_MS);
+    });
+    Object.keys(timerMap).forEach(function(pid){
+      var stillInRoom = room.players.some(function(p){ return p && p.id===pid && !p.isBot; });
+      if(stillInRoom) return;
+      try{ clearTimeout(timerMap[pid]); }catch(e){ void e; }
+      delete timerMap[pid];
+    });
+    reconnectTimersRef.current = timerMap;
+    return function(){};
+  },[screen, roomCode, room, presenceByPlayer]);
+
+  useEffect(function(){
+    return function(){
+      var map = reconnectTimersRef.current || {};
+      Object.keys(map).forEach(function(pid){
+        try{ clearTimeout(map[pid]); }catch(e){ void e; }
+      });
+      reconnectTimersRef.current = {};
+    };
+  },[]);
 
   /* Enquanto houver humanos na sala, renova carimbo para limpeza por TTL de salas órfãs. */
   useEffect(function(){
