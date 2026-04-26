@@ -411,39 +411,9 @@ var RT = {
       var r = await RT.getRoom(code);
       if (!r) return;
       if (!Array.isArray(r.players)) return;
-      var leavingPlayer = r.players.find(function (p) {
-        return p && p.id === playerId;
+      var players = r.players.filter(function (p) {
+        return p && p.id !== playerId;
       });
-      var playingNow = !!(r.game && typeof r.game === "object");
-      var leavingSeat = leavingPlayer ? parseSeat(leavingPlayer.seat) : NaN;
-      var shouldSwapToBot =
-        !!leavingPlayer &&
-        !leavingPlayer.isBot &&
-        !!playingNow &&
-        !isNaN(leavingSeat);
-      var players;
-      if (shouldSwapToBot) {
-        var leaveNm = clampDisplayName(String((leavingPlayer && leavingPlayer.name) || ""));
-        var botName = leaveNm ? "IA " + leaveNm : "IA";
-        var seatTeam = leavingPlayer && leavingPlayer.team ? leavingPlayer.team : (leavingSeat % 2 === 0 ? "A" : "B");
-        players = r.players
-          .filter(function (p) {
-            return p && p.id !== playerId;
-          })
-          .concat([
-            {
-              id: "bot:" + code + ":" + uid(),
-              name: botName,
-              seat: leavingSeat,
-              team: seatTeam,
-              isBot: true,
-            },
-          ]);
-      } else {
-        players = r.players.filter(function (p) {
-          return p && p.id !== playerId;
-        });
-      }
       var humans = players.filter(function (p) {
         return !p.isBot;
       });
@@ -456,160 +426,6 @@ var RT = {
         hostId = humans[0].id;
       }
       var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
-      if (nextRoom.reconnect && nextRoom.reconnect.playerId === playerId) {
-        delete nextRoom.reconnect;
-      }
-      if (shouldSwapToBot && r.game && leavingPlayer) {
-        var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
-        var gameNames = Array.isArray(r.game.playerNames) ? r.game.playerNames.slice() : ["?", "?", "?", "?"];
-        if (gameNames.length < 4) gameNames = [gameNames[0] || "?", gameNames[1] || "?", gameNames[2] || "?", gameNames[3] || "?"];
-        if (!isNaN(leavingSeat)) gameNames[leavingSeat] = botName;
-        nextRoom.game = Object.assign({}, r.game, {
-          msg: leaveName + " saiu da sala. IA assumiu o lugar.",
-          playerNames: gameNames,
-        });
-        nextRoom.systemNotice = {
-          text: leaveName + " saiu da sala. Substituindo por IA.",
-          t: Date.now(),
-        };
-      }
-      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
-    } catch (e) {
-      void e;
-    }
-  },
-  beginReconnectGrace: async function (code, playerId) {
-    if (!db || !code || !playerId) return;
-    try {
-      var r = await RT.getRoom(code);
-      if (!r || !Array.isArray(r.players)) return;
-      var leavingPlayer = r.players.find(function (p) {
-        return p && p.id === playerId;
-      });
-      if (!leavingPlayer) return;
-      if (leavingPlayer.isBot) return;
-      var curRec = r.reconnect;
-      if (
-        curRec &&
-        typeof curRec === "object" &&
-        curRec.playerId === playerId &&
-        typeof curRec.deadline === "number" &&
-        curRec.deadline > Date.now()
-      ) {
-        return;
-      }
-      var pref = presencePlayerRef(code, playerId);
-      if (pref) {
-        try {
-          var ps = await get(pref);
-          if (ps.exists() && ps.val() === true) return;
-        } catch (e) {
-          void e;
-        }
-      }
-      var now = Date.now();
-      var nextRoom = Object.assign({}, r, {
-        reconnect: {
-          playerId: playerId,
-          name: clampDisplayName(String(leavingPlayer.name || "")) || "Jogador",
-          isHost: r.hostId === playerId,
-          startedAt: now,
-          deadline: now + RECONNECT_GRACE_MS,
-        },
-      });
-      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
-    } catch (e) {
-      void e;
-    }
-  },
-  resolveReconnectState: async function (code) {
-    if (!db || !code) return;
-    try {
-      var r = await RT.getRoom(code);
-      if (!r || !Array.isArray(r.players)) return;
-      var rec = r.reconnect;
-      if (!rec || typeof rec !== "object" || !rec.playerId) return;
-      var playerId = rec.playerId;
-      var leavingPlayer = r.players.find(function (p) {
-        return p && p.id === playerId;
-      });
-      if (!leavingPlayer || leavingPlayer.isBot) {
-        var clrRoom = Object.assign({}, r);
-        delete clrRoom.reconnect;
-        await RT.setRoom(code, roomEnsureGameLastActorForPlayers(clrRoom));
-        return;
-      }
-      var pref = presencePlayerRef(code, playerId);
-      var isOnline = false;
-      if (pref) {
-        try {
-          var ps = await get(pref);
-          isOnline = !!(ps.exists() && ps.val() === true);
-        } catch (e) {
-          void e;
-        }
-      }
-      if (isOnline) {
-        var backRoom = Object.assign({}, r);
-        delete backRoom.reconnect;
-        if (backRoom.game) {
-          var backName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
-          backRoom.game = Object.assign({}, backRoom.game, {
-            msg: backName + " reconectou.",
-          });
-        }
-        await RT.setRoom(code, roomEnsureGameLastActorForPlayers(backRoom));
-        return;
-      }
-      var deadline = typeof rec.deadline === "number" ? rec.deadline : 0;
-      if (Date.now() < deadline) return;
-      if (r.hostId === playerId) {
-        await RT.deleteRoom(code);
-        return;
-      }
-      var stSeat = parseSeat(leavingPlayer.seat);
-      var playingNow = !!(r.game && typeof r.game === "object");
-      var shouldSwapToBot = !!playingNow && !isNaN(stSeat);
-      var players;
-      if (shouldSwapToBot) {
-        var botName = "IA " + ((leavingPlayer && leavingPlayer.name) ? "(" + clampDisplayName(String(leavingPlayer.name)) + ")" : "");
-        players = r.players
-          .filter(function (p) {
-            return p && p.id !== playerId;
-          })
-          .concat([
-            {
-              id: "bot:" + code + ":" + uid(),
-              name: botName,
-              seat: stSeat,
-              team: leavingPlayer.team || null,
-              isBot: true,
-            },
-          ]);
-      } else {
-        players = r.players.filter(function (p) {
-          return p && p.id !== playerId;
-        });
-      }
-      var humans = players.filter(function (p) {
-        return !p.isBot;
-      });
-      if (humans.length === 0) {
-        await RT.deleteRoom(code);
-        return;
-      }
-      var hostId = r.hostId;
-      if (!players.some(function (p) { return p.id === hostId; })) {
-        hostId = humans[0].id;
-      }
-      var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
-      delete nextRoom.reconnect;
-      if (shouldSwapToBot && r.game && leavingPlayer) {
-        var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
-        nextRoom.game = Object.assign({}, r.game, {
-          msg: leaveName + " não reconectou. IA assumiu o lugar.",
-        });
-      }
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
@@ -3165,7 +2981,6 @@ function RtConnectionBadge(P){
   var c = P.connected;
   var variant = P.variant === 'hud' ? 'hud' : 'inline';
   var isHud = variant === 'hud';
-  if (c == null) return null;
   var dot = '#facc15';
   var label = 'A reconectar';
   var border = 'rgba(250,204,21,.42)';
@@ -3234,23 +3049,7 @@ function RtConnectionBadge(P){
     }),
     React.createElement('span', { style: { lineHeight: 1.2 } }, label)
   );
-  if (isHud) {
-    if (c === true) return null;
-    return React.createElement(
-      'div',
-      {
-        style: {
-          position: 'fixed',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          bottom: 'max(14px, calc(14px + env(safe-area-inset-bottom)))',
-          zIndex: 4700,
-          pointerEvents: 'none',
-        },
-      },
-      pill
-    );
-  }
+  if (isHud) return pill;
   return React.createElement('div', { style: { flexShrink: 0, marginLeft: 'auto', minWidth: 0, display: 'flex', justifyContent: 'flex-end' } }, pill);
 }
 
@@ -4723,14 +4522,12 @@ export default function App(){
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
   var crErrSt=useState(''); var createRoomErr=crErrSt[0], setCreateRoomErr=crErrSt[1];
   var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
-  var pLoadedSt=useState(false); var presenceLoaded=pLoadedSt[0], setPresenceLoaded=pLoadedSt[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var rClosedSt=useState(/** @type {string | null} */ (null));
   var roomClosedNotice=rClosedSt[0], setRoomClosedNotice=rClosedSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
-  var recNowSt=useState(Date.now()); var reconnectNow=recNowSt[0], setReconnectNow=recNowSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
@@ -4843,14 +4640,12 @@ export default function App(){
   useEffect(function(){
     if(!RT.isConfigured() || !roomCode) return;
     if(screen!=="lobby" && screen!=="online") return;
-    setPresenceLoaded(false);
     var pref = presenceRoomRef(roomCode);
     if(!pref) return;
     var unsub = onValue(pref, function(snap){
       var v = snap.val();
       if(v && typeof v === "object" && !Array.isArray(v)) setPresenceByPlayer(v);
       else setPresenceByPlayer({});
-      setPresenceLoaded(true);
     });
     return function(){ unsub(); };
   },[roomCode, screen]);
@@ -4867,39 +4662,6 @@ export default function App(){
       void RT.detachRoomPresence();
     };
   },[roomCode, myId, screen]);
-
-  /* Detecta quedas e abre janela de reconexão de 30s na própria sala. */
-  useEffect(function(){
-    if(screen!=="lobby" && screen!=="online") return;
-    if(!roomCode || !room || !Array.isArray(room.players)) return;
-    if(!presenceLoaded) return;
-    var activeRec = room.reconnect && typeof room.reconnect === "object" ? room.reconnect : null;
-    var presentMap = presenceByPlayer && typeof presenceByPlayer === "object" ? presenceByPlayer : {};
-    room.players.forEach(function(p){
-      if(!p || p.isBot || !p.id) return;
-      if(activeRec && activeRec.playerId === p.id) return;
-      if(!!presentMap[p.id]) return;
-      void RT.beginReconnectGrace(roomCode, p.id);
-    });
-  },[screen, roomCode, room, presenceByPlayer, presenceLoaded]);
-
-  /* Resolve reconexão expirada/reconectada (idempotente) para cobrir todos os clientes. */
-  useEffect(function(){
-    if(screen!=="lobby" && screen!=="online") return;
-    if(!roomCode) return;
-    var t = setInterval(function(){
-      void RT.resolveReconnectState(roomCode);
-    }, 1000);
-    return function(){ clearInterval(t); };
-  },[screen, roomCode]);
-
-  /* Tick visual do cronómetro do aviso de reconexão. */
-  useEffect(function(){
-    if(screen!=="online") return;
-    if(!room || !room.reconnect || typeof room.reconnect.deadline !== "number") return;
-    var t = setInterval(function(){ setReconnectNow(Date.now()); }, 250);
-    return function(){ clearInterval(t); };
-  },[screen, room && room.reconnect && room.reconnect.deadline]);
 
   /* Enquanto houver humanos na sala, renova carimbo para limpeza por TTL de salas órfãs. */
   useEffect(function(){
@@ -5230,66 +4992,8 @@ export default function App(){
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
-    var rec = room.reconnect && typeof room.reconnect === "object" ? room.reconnect : null;
-    var recLeft = rec && typeof rec.deadline === "number" ? Math.max(0, Math.ceil((rec.deadline - reconnectNow)/1000)) : 0;
-    var sysNotice = room.systemNotice && typeof room.systemNotice === "object" ? room.systemNotice : null;
-    var leaveNotice = !!(sysNotice && typeof sysNotice.text === "string" && typeof sysNotice.t === "number" && Date.now() - sysNotice.t < 12000)
-      ? sysNotice.text
-      : null;
-    var reconnectBanner = rec
-      ? React.createElement('div',{
-          role:'status',
-          'aria-live':'polite',
-          style:{
-            position:'fixed',
-            bottom:'max(14px, calc(14px + env(safe-area-inset-bottom)))',
-            left:'50%',
-            transform:'translateX(-50%)',
-            width:'min(420px, calc(100vw - 20px))',
-            zIndex:4600,
-            padding:'10px 12px',
-            borderRadius:12,
-            background:'linear-gradient(165deg, #2b1408 0%, #1f0f07 55%, #150a05 100%)',
-            border:'1px solid rgba(251,146,60,.55)',
-            boxShadow:'0 10px 30px rgba(0,0,0,.45)',
-            color:'#fed7aa',
-            fontSize:13,
-            textAlign:'center',
-            fontWeight:600,
-            pointerEvents:'none',
-          }
-        },
-        (rec.name || 'Jogador') + ' reconectando... (' + String(recLeft) + 's)'
-      )
-      : null;
-    var leaveBanner = leaveNotice
-      ? React.createElement('div',{
-          role:'status',
-          'aria-live':'polite',
-          style:{
-            position:'fixed',
-            bottom: rec ? 'max(60px, calc(60px + env(safe-area-inset-bottom)))' : 'max(14px, calc(14px + env(safe-area-inset-bottom)))',
-            left:'50%',
-            transform:'translateX(-50%)',
-            width:'min(420px, calc(100vw - 20px))',
-            zIndex:4595,
-            padding:'10px 12px',
-            borderRadius:12,
-            background:'linear-gradient(165deg, #2b1408 0%, #1f0f07 55%, #150a05 100%)',
-            border:'1px solid rgba(251,146,60,.55)',
-            boxShadow:'0 10px 30px rgba(0,0,0,.45)',
-            color:'#fed7aa',
-            fontSize:13,
-            textAlign:'center',
-            fontWeight:600,
-            pointerEvents:'none',
-          }
-        }, leaveNotice)
-      : null;
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
       React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
-      leaveBanner,
-      reconnectBanner,
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
     );
