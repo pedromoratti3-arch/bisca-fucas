@@ -4618,7 +4618,24 @@ export default function App(){
       setRoom(r);
       var scr=screenRef.current;
       if(r.themeId && (scr==='lobby' || scr==='online')) setLocId(r.themeId);
-      if(r.game && scr==="lobby") setScreen("online");
+      if(r.game && scr==="lobby"){
+        var gmLobby = normalizeGame(r.game);
+        if(gmLobby){
+          var hidLobby = r.hostId || '';
+          if(
+            hidLobby &&
+            (gmLobby.phase==='shuffle'||gmLobby.phase==='deal'||gmLobby.phase==='end_trick'||gmLobby.phase==='end_round'||gmLobby.phase==='show_summary'||gmLobby.phase==='cut') &&
+            gmLobby.lastActor !== hidLobby
+          ){
+            gmLobby = Object.assign({}, gmLobby, { lastActor: hidLobby });
+          }
+          var midLobby = myIdRef.current;
+          setOG(function(prev){
+            return mergeOnlineGameState(prev, gmLobby, hidLobby, midLobby);
+          });
+        }
+        setScreen("online");
+      }
       if(r.game && scr==="online"){
         var gm = normalizeGame(r.game);
         var hid = r.hostId || '';
@@ -4757,7 +4774,26 @@ export default function App(){
       playerId: me.id,
       playerName: clampDisplayName(me.name || s.playerName || "") || "Jogador",
     });
-    setOG(null);
+    if(r.game){
+      var gmResume = normalizeGame(r.game);
+      if(gmResume){
+        var hidResume = r.hostId || '';
+        if(
+          hidResume &&
+          (gmResume.phase==='shuffle'||gmResume.phase==='deal'||gmResume.phase==='end_trick'||gmResume.phase==='end_round'||gmResume.phase==='show_summary'||gmResume.phase==='cut') &&
+          gmResume.lastActor !== hidResume
+        ){
+          gmResume = Object.assign({}, gmResume, { lastActor: hidResume });
+        }
+        setOG(function(prev){
+          return mergeOnlineGameState(prev, gmResume, hidResume, me.id);
+        });
+      } else {
+        setOG(null);
+      }
+    } else {
+      setOG(null);
+    }
     setScreen(r.game ? "online" : "lobby");
     setResumeOffer(null);
     setResumeBusy(false);
