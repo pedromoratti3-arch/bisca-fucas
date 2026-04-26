@@ -874,8 +874,9 @@ function trickNeedsStrongTrumpCut(trick, trump, trickPts){
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
   /* Vocabulário Bisca Fucas (mesa): "corte" = trunfo; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
      "bísca" = Ás ou 7 fora do naipe de trunfo (Ás/7 de trunfo não são bíscas);
-     "encarte" = matar a carta do adversário no mesmo naipe (carta maior que a que vai ganhando). Na abertura,
-     RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
+     "encarte" = matar no mesmo naipe que a saída (inclui trunfo: ex. saída 2♥, pode subir com 3♥–6♥ se não houver bísca na mesa).
+     Com saída em trunfo e SEM bísca na mesa: não escalar K/J/Q (nem encarte “de mesa”) só para levar vaza fraca —
+     preferir perder com trunfo baixo se der. Na abertura, RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
@@ -1173,13 +1174,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
   /* Adversário já ganha só com corte, sem bísca nem vaza pesada, e não há 7 de trunfo em jogo: não “subir” corte (encartar trunfo) — perder com o menor trunfo / lixo possível. */
   if(lowStakeOppTrumpWins){
-    var shedNt0Ls = pool.filter(function(c){ return c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump); });
+    /* Preferir lixo fora de trunfo a partir da mão completa: com saída em trunfo e adversário a ganhar,
+       não “queimar” 3♥–6♥ se ainda há 0 pts noutro naipe (ex.: 2♥, 6♥ na mesa e na mão só perdes com 3♥). */
+    var shedNt0Ls = poolAll.filter(function(c){ return c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump); });
     if(shedNt0Ls.length) return lowest(shedNt0Ls);
     var loseFollowLs = pool.filter(function(c){ return c.s===lead && !beats(c, curWin.card, lead, trump); });
     if(loseFollowLs.length) return lowest(loseFollowLs);
     var loseTrumpLs = pool.filter(function(c){ return c.s===trump && !beats(c, curWin.card, lead, trump); });
     if(loseTrumpLs.length) return lowest(loseTrumpLs);
-    var shedNtSoftLs = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)<=4; });
+    var shedNtSoftLs = poolAll.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)<=4; });
     if(shedNtSoftLs.length) return lowest(shedNtSoftLs);
   }
 
@@ -1313,13 +1316,14 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var loseTrumpFollow = followSuit.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
       function isHeavyTrump(c){ return c.v==='A' || c.v==='7' || c.v==='K' || c.v==='J' || c.v==='Q'; }
       var lightWinTrump = suitW.filter(function(c){ return !isHeavyTrump(c); });
-      /* Trunfo puxado (corte sobre corte): em vaza sem bísca e fraca/média, não “encartar” trunfos altos à toa. */
-      if(!anyBiscaTableGlobal && trickPts<=8){
-        if(!isLast && loseTrumpFollow.length) return lowest(loseTrumpFollow);
-        if(isLast){
-          if(lightWinTrump.length) return lowest(lightWinTrump);
-          if(trickPts<=4 && loseTrumpFollow.length) return lowest(loseTrumpFollow);
+      /* Trunfo puxado sem bísca na mesa: não gastar figuras (K/J/Q) nem A/7 só para “encartar” vaza fraca.
+         Ex.: saída 2♥, 6♥, J♥ — o último não deve pôr R♥ se ainda pode perder com trunfo baixo. */
+      if(!anyBiscaTableGlobal && !trickNeedsStrongTrumpCut(trick, trump, trickPts)){
+        if(loseTrumpFollow.length){
+          if(!isLast) return lowest(loseTrumpFollow);
+          if(isLast && trickPts<=10) return lowest(loseTrumpFollow);
         }
+        if(isLast && lightWinTrump.length) return lowest(lightWinTrump);
       }
     }
     /* Com bísca na mesa e a dupla a perder a vaza: matar com a MAIOR carta do naipe (fixar pontos), não a mínima. */
