@@ -424,7 +424,7 @@ var RT = {
       var players;
       if (shouldSwapToBot) {
         var leaveNm = clampDisplayName(String((leavingPlayer && leavingPlayer.name) || ""));
-        var botName = leaveNm ? "IA (" + leaveNm + ")" : "IA";
+        var botName = leaveNm ? "IA " + leaveNm : "IA";
         var seatTeam = leavingPlayer && leavingPlayer.team ? leavingPlayer.team : (leavingSeat % 2 === 0 ? "A" : "B");
         players = r.players
           .filter(function (p) {
@@ -461,9 +461,17 @@ var RT = {
       }
       if (shouldSwapToBot && r.game && leavingPlayer) {
         var leaveName = clampDisplayName(String(leavingPlayer.name || "")) || "Jogador";
+        var gameNames = Array.isArray(r.game.playerNames) ? r.game.playerNames.slice() : ["?", "?", "?", "?"];
+        if (gameNames.length < 4) gameNames = [gameNames[0] || "?", gameNames[1] || "?", gameNames[2] || "?", gameNames[3] || "?"];
+        if (!isNaN(leavingSeat)) gameNames[leavingSeat] = botName;
         nextRoom.game = Object.assign({}, r.game, {
           msg: leaveName + " saiu da sala. IA assumiu o lugar.",
+          playerNames: gameNames,
         });
+        nextRoom.systemNotice = {
+          text: leaveName + " saiu da sala. Substituindo por IA.",
+          t: Date.now(),
+        };
       }
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
@@ -4715,6 +4723,7 @@ export default function App(){
   var crBusySt=useState(false); var crBusy=crBusySt[0], setCrBusy=crBusySt[1];
   var crErrSt=useState(''); var createRoomErr=crErrSt[0], setCreateRoomErr=crErrSt[1];
   var pbs=useState({}); var presenceByPlayer=pbs[0], setPresenceByPlayer=pbs[1];
+  var pLoadedSt=useState(false); var presenceLoaded=pLoadedSt[0], setPresenceLoaded=pLoadedSt[1];
   var resSt=useState(null); var resumeOffer=resSt[0], setResumeOffer=resSt[1];
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var rClosedSt=useState(/** @type {string | null} */ (null));
@@ -4834,12 +4843,14 @@ export default function App(){
   useEffect(function(){
     if(!RT.isConfigured() || !roomCode) return;
     if(screen!=="lobby" && screen!=="online") return;
+    setPresenceLoaded(false);
     var pref = presenceRoomRef(roomCode);
     if(!pref) return;
     var unsub = onValue(pref, function(snap){
       var v = snap.val();
       if(v && typeof v === "object" && !Array.isArray(v)) setPresenceByPlayer(v);
       else setPresenceByPlayer({});
+      setPresenceLoaded(true);
     });
     return function(){ unsub(); };
   },[roomCode, screen]);
@@ -4861,6 +4872,7 @@ export default function App(){
   useEffect(function(){
     if(screen!=="lobby" && screen!=="online") return;
     if(!roomCode || !room || !Array.isArray(room.players)) return;
+    if(!presenceLoaded) return;
     var activeRec = room.reconnect && typeof room.reconnect === "object" ? room.reconnect : null;
     var presentMap = presenceByPlayer && typeof presenceByPlayer === "object" ? presenceByPlayer : {};
     room.players.forEach(function(p){
@@ -4869,7 +4881,7 @@ export default function App(){
       if(!!presentMap[p.id]) return;
       void RT.beginReconnectGrace(roomCode, p.id);
     });
-  },[screen, roomCode, room, presenceByPlayer]);
+  },[screen, roomCode, room, presenceByPlayer, presenceLoaded]);
 
   /* Resolve reconexão expirada/reconectada (idempotente) para cobrir todos os clientes. */
   useEffect(function(){
@@ -5220,13 +5232,17 @@ export default function App(){
     });
     var rec = room.reconnect && typeof room.reconnect === "object" ? room.reconnect : null;
     var recLeft = rec && typeof rec.deadline === "number" ? Math.max(0, Math.ceil((rec.deadline - reconnectNow)/1000)) : 0;
+    var sysNotice = room.systemNotice && typeof room.systemNotice === "object" ? room.systemNotice : null;
+    var leaveNotice = !!(sysNotice && typeof sysNotice.text === "string" && typeof sysNotice.t === "number" && Date.now() - sysNotice.t < 12000)
+      ? sysNotice.text
+      : null;
     var reconnectBanner = rec
       ? React.createElement('div',{
           role:'status',
           'aria-live':'polite',
           style:{
             position:'fixed',
-            top:'max(10px, env(safe-area-inset-top))',
+            bottom:'max(14px, calc(14px + env(safe-area-inset-bottom)))',
             left:'50%',
             transform:'translateX(-50%)',
             width:'min(420px, calc(100vw - 20px))',
@@ -5240,13 +5256,39 @@ export default function App(){
             fontSize:13,
             textAlign:'center',
             fontWeight:600,
+            pointerEvents:'none',
           }
         },
         (rec.name || 'Jogador') + ' reconectando... (' + String(recLeft) + 's)'
       )
       : null;
+    var leaveBanner = leaveNotice
+      ? React.createElement('div',{
+          role:'status',
+          'aria-live':'polite',
+          style:{
+            position:'fixed',
+            bottom: rec ? 'max(60px, calc(60px + env(safe-area-inset-bottom)))' : 'max(14px, calc(14px + env(safe-area-inset-bottom)))',
+            left:'50%',
+            transform:'translateX(-50%)',
+            width:'min(420px, calc(100vw - 20px))',
+            zIndex:4595,
+            padding:'10px 12px',
+            borderRadius:12,
+            background:'linear-gradient(165deg, #2b1408 0%, #1f0f07 55%, #150a05 100%)',
+            border:'1px solid rgba(251,146,60,.55)',
+            boxShadow:'0 10px 30px rgba(0,0,0,.45)',
+            color:'#fed7aa',
+            fontSize:13,
+            textAlign:'center',
+            fontWeight:600,
+            pointerEvents:'none',
+          }
+        }, leaveNotice)
+      : null;
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
       React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
+      leaveBanner,
       reconnectBanner,
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal
