@@ -6,6 +6,8 @@ import { db } from "@/lib/firebase";
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
 var RTP = "bisca/presence";
+var ROOM_ORPHAN_TTL_MS = 10 * 60 * 1000;
+var ROOM_ACTIVITY_TOUCH_MS = 45 * 1000;
 function roomDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code);
@@ -25,6 +27,10 @@ function presencePlayerRef(code, playerId) {
 function presenceRoomRef(code) {
   if (!db || !code) return null;
   return ref(db, RTP + "/" + code);
+}
+function roomLastPresenceAtRef(code) {
+  if (!db || !code) return null;
+  return ref(db, RTB + "/" + code + "/lastPresenceAt");
 }
 
 function bfVictoryFxKey(sfm, setWins) {
@@ -296,6 +302,12 @@ var RT = {
     if (!pref) return;
     try {
       await rtSet(pref, true);
+      try {
+        var lref = roomLastPresenceAtRef(code);
+        if (lref) await rtSet(lref, Date.now());
+      } catch (e) {
+        void e;
+      }
       var od = onDisconnect(pref);
       await od.remove();
       activePresenceOnDisconnect = od;
@@ -321,6 +333,65 @@ var RT = {
       void e;
     }
     activePresencePlayerRef = null;
+  },
+  touchRoomPresenceActivity: async function (code) {
+    if (!db || !code) return;
+    try {
+      var lref = roomLastPresenceAtRef(code);
+      if (!lref) return;
+      await rtSet(lref, Date.now());
+    } catch (e) {
+      void e;
+    }
+  },
+  cleanupExpiredOrphanRooms: async function () {
+    if (!db) return;
+    try {
+      var roomsRef = ref(db, RTB);
+      var presRef = ref(db, RTP);
+      var roomsSnap = await get(roomsRef);
+      if (!roomsSnap.exists()) return;
+      var roomsVal = roomsSnap.val();
+      if (!roomsVal || typeof roomsVal !== "object") return;
+      var presSnap = await get(presRef);
+      var presVal = presSnap.exists() && presSnap.val() && typeof presSnap.val() === "object" ? presSnap.val() : {};
+      var now = Date.now();
+      var codes = Object.keys(roomsVal);
+      for (var i = 0; i < codes.length; i++) {
+        var code = codes[i];
+        if (!/^[A-HJ-NP-Z]{4}$/.test(code)) continue;
+        var nr = normalizeRoom(roomsVal[code]);
+        if (!nr || !Array.isArray(nr.players)) continue;
+        var humans = nr.players.filter(function (p) {
+          return p && !p.isBot;
+        });
+        if (humans.length === 0) {
+          try {
+            await RT.deleteRoom(code);
+          } catch (e) {
+            void e;
+          }
+          continue;
+        }
+        var roomPresence = presVal && presVal[code] && typeof presVal[code] === "object" ? presVal[code] : {};
+        var hasOnlineHuman = humans.some(function (p) {
+          return !!(p && p.id && roomPresence[p.id]);
+        });
+        if (hasOnlineHuman) continue;
+        var lastAtRaw = nr.lastPresenceAt;
+        var lastAt = typeof lastAtRaw === "number" ? lastAtRaw : Number(lastAtRaw || 0);
+        if (!isFinite(lastAt) || lastAt <= 0) continue;
+        if (now - lastAt >= ROOM_ORPHAN_TTL_MS) {
+          try {
+            await RT.deleteRoom(code);
+          } catch (e) {
+            void e;
+          }
+        }
+      }
+    } catch (e) {
+      void e;
+    }
   },
   removeSelfFromRoom: async function (code, playerId) {
     if (!db || !code || !playerId) return;
@@ -4590,6 +4661,26 @@ export default function App(){
       void RT.detachRoomPresence();
     };
   },[roomCode, myId, screen]);
+
+  /* Enquanto houver humanos na sala, renova carimbo para limpeza por TTL de salas órfãs. */
+  useEffect(function(){
+    if(!RT.isConfigured() || !roomCode) return;
+    if(screen!=="lobby" && screen!=="online") return;
+    void RT.touchRoomPresenceActivity(roomCode);
+    var t = setInterval(function(){
+      void RT.touchRoomPresenceActivity(roomCode);
+    }, ROOM_ACTIVITY_TOUCH_MS);
+    return function(){
+      clearInterval(t);
+    };
+  },[roomCode, screen]);
+
+  /* Janitor leve no menu: remove salas sem humanos online após TTL. */
+  useEffect(function(){
+    if(screen!=="home") return;
+    if(!RT.isConfigured()) return;
+    void RT.cleanupExpiredOrphanRooms();
+  },[screen]);
 
   useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
