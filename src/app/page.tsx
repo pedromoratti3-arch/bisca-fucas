@@ -381,7 +381,9 @@ var RT = {
         if (hasOnlineHuman) continue;
         var lastAtRaw = nr.lastPresenceAt;
         var lastAt = typeof lastAtRaw === "number" ? lastAtRaw : Number(lastAtRaw || 0);
-        if (!isFinite(lastAt) || lastAt <= 0) continue;
+        if (!isFinite(lastAt) || lastAt <= 0) {
+          lastAt = now - ROOM_ORPHAN_TTL_MS;
+        }
         if (now - lastAt >= ROOM_ORPHAN_TTL_MS) {
           try {
             await RT.deleteRoom(code);
@@ -425,7 +427,22 @@ var RT = {
       if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
         hostId = humans[0].id;
       }
-      var nextRoom = Object.assign({}, r, { players: players, hostId: hostId });
+      var leaverRec = null;
+      for (var li = 0; li < r.players.length; li++) {
+        if (r.players[li] && r.players[li].id === playerId) {
+          leaverRec = r.players[li];
+          break;
+        }
+      }
+      var leaveDisp =
+        leaverRec && typeof leaverRec.name === "string"
+          ? clampDisplayName(leaverRec.name) || "Jogador"
+          : "Jogador";
+      var nextRoom = Object.assign({}, r, {
+        players: players,
+        hostId: hostId,
+        lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
+      });
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
@@ -1740,6 +1757,8 @@ var ACSS = [
   '@keyframes bfTfSteamSvgC{0%{opacity:0;transform:translate(0,6px) scaleX(1)}16%{opacity:.55}52%{opacity:.32;transform:translate(3px,-18px) scaleX(1.15)}100%{opacity:0;transform:translate(-2px,-30px) scaleX(1.25)}}',
   '@keyframes bfTfSteamSvgD{0%{opacity:0;transform:translate(0,3px)}20%{opacity:.45}55%{opacity:.22;transform:translate(-2px,-12px)}100%{opacity:0;transform:translate(3px,-26px)}}',
   '@keyframes bfTfSteamSvgPuff{0%{opacity:.15;transform:scale(.85,.9)}35%{opacity:.42;transform:scale(1.05,1.35)}100%{opacity:0;transform:scale(1.35,2.4)}}',
+  '@keyframes bfLeaveToastIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  '@media (prefers-reduced-motion:reduce){.bfLeaveToastCard{animation:none!important;opacity:1!important;transform:none!important}}',
   '@media (prefers-reduced-motion:reduce){.bfTfSteamRoot .bfTfSteamSvgAnim{animation:none!important;opacity:0!important}}'
 ].join('');
 
@@ -1897,6 +1916,143 @@ function themeGhostButtonStyle(th){
     fontSize: 14,
     fontWeight: 600,
   };
+}
+
+/** Aviso quando um jogador humano confirma saída pela opção «Sair» (lobby ou mesa online). */
+function OnlineLeaveToastCard(P) {
+  var th = P.theme || THEMES.sala;
+  var u = (th && th.ui) || {};
+  var accent = u.timer || th.accent || '#d4a843';
+  var name = P.playerName || 'Jogador';
+  var onDismiss = P.onDismiss;
+  var icon = React.createElement(
+    'svg',
+    {
+      width: 22,
+      height: 22,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      'aria-hidden': true,
+      style: { display: 'block' },
+    },
+    React.createElement('path', {
+      d: 'M13 4h6v16h-6',
+      stroke: 'rgba(250,250,250,.88)',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+    }),
+    React.createElement('path', {
+      d: 'M9 12H4m0 0l3-3M4 12l3 3',
+      stroke: accent,
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    })
+  );
+  return React.createElement(
+    'div',
+    {
+      className: 'bfLeaveToastCard',
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-atomic': 'true',
+      style: {
+        position: 'fixed',
+        bottom: 'max(20px, calc(14px + env(safe-area-inset-bottom)))',
+        right: 'max(16px, calc(12px + env(safe-area-inset-right)))',
+        left: 'max(16px, calc(12px + env(safe-area-inset-left)))',
+        marginLeft: 'auto',
+        width: 'min(340px, calc(100vw - 32px))',
+        zIndex: 9200,
+        animation: 'bfLeaveToastIn .45s cubic-bezier(.22,1,.36,1) both',
+        fontFamily: 'system-ui, sans-serif',
+        boxSizing: 'border-box',
+        pointerEvents: 'auto',
+      },
+    },
+    React.createElement(
+      'div',
+      {
+        style: {
+          background: 'linear-gradient(165deg, rgba(24,16,22,.98) 0%, rgba(10,8,14,.99) 100%)',
+          border: '1px solid rgba(212,168,67,.38)',
+          borderRadius: 14,
+          padding: '13px 14px',
+          boxShadow:
+            '0 18px 50px rgba(0,0,0,.58), 0 0 0 1px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.07)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+        },
+      },
+      React.createElement(
+        'div',
+        {
+          style: {
+            width: 42,
+            height: 42,
+            borderRadius: 11,
+            background: 'linear-gradient(145deg, rgba(196,18,48,.32), rgba(212,168,67,.14))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          },
+        },
+        icon
+      ),
+      React.createElement(
+        'div',
+        { style: { flex: 1, minWidth: 0, paddingTop: 1 } },
+        React.createElement(
+          'div',
+          {
+            style: {
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+              color: 'rgba(212,168,67,.92)',
+              marginBottom: 5,
+            },
+          },
+          'Saiu da sala'
+        ),
+        React.createElement(
+          'div',
+          { style: { fontSize: 15, fontWeight: 700, color: '#fafafa', lineHeight: 1.3, wordBreak: 'break-word' } },
+          name
+        ),
+        React.createElement(
+          'div',
+          { style: { fontSize: 11, opacity: 0.48, marginTop: 5, lineHeight: 1.35 } },
+          'A mesa segue com quem permaneceu ligado.'
+        )
+      ),
+      React.createElement('button', {
+        type: 'button',
+        onClick: onDismiss,
+        'aria-label': 'Fechar aviso',
+        style: {
+          background: 'rgba(255,255,255,.07)',
+          border: '1px solid rgba(255,255,255,.12)',
+          color: 'rgba(255,255,255,.62)',
+          cursor: 'pointer',
+          borderRadius: 8,
+          width: 30,
+          height: 30,
+          flexShrink: 0,
+          fontSize: 17,
+          lineHeight: 1,
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: -2,
+        },
+      }, '\u00d7')
+    )
+  );
 }
 
 /** Faixa de vitória ao fechar a partida a 4 pontos: nomes da dupla vencedora + animação alinhada ao resto da mesa. */
@@ -4530,6 +4686,8 @@ export default function App(){
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var rClosedSt=useState(/** @type {string | null} */ (null));
   var roomClosedNotice=rClosedSt[0], setRoomClosedNotice=rClosedSt[1];
+  var oltSt=useState(/** @type {{ name: string } | null} */ (null));
+  var onlineLeaveToast=oltSt[0], setOnlineLeaveToast=oltSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
@@ -4540,9 +4698,39 @@ export default function App(){
   var myIdRef=useRef(myId);
   var roomCodeRef=useRef(roomCode);
   var hostClosedRoomRef=useRef(false);
+  var onlineLeaveToastAtRef=useRef(0);
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
+
+  useEffect(function(){
+    if (screen !== 'lobby' && screen !== 'online') {
+      setOnlineLeaveToast(null);
+    }
+  }, [screen]);
+
+  useEffect(function(){
+    if (screen !== 'lobby' && screen !== 'online') return;
+    if (!room || !myId) return;
+    var L = room.lastLeaveNotice;
+    if (!L || typeof L !== 'object') return;
+    var at = typeof L.at === 'number' ? L.at : Number(L.at);
+    if (!isFinite(at)) return;
+    if (Date.now() - at > 15000) return;
+    var pid = L.playerId != null ? String(L.playerId) : '';
+    if (pid && pid === String(myId)) return;
+    if (at <= onlineLeaveToastAtRef.current) return;
+    onlineLeaveToastAtRef.current = at;
+    var nm = typeof L.name === 'string' ? clampDisplayName(L.name) : '';
+    if (!nm) nm = 'Jogador';
+    setOnlineLeaveToast({ name: nm });
+    var t = setTimeout(function () {
+      setOnlineLeaveToast(null);
+    }, 6200);
+    return function () {
+      clearTimeout(t);
+    };
+  }, [screen, room, room && room.lastLeaveNotice, myId]);
 
   useEffect(function(){
     if (!db) return;
@@ -4568,24 +4756,32 @@ export default function App(){
       setResumeOffer(null);
       return;
     }
-    var s = readBfSession();
-    if(!s){
-      setResumeOffer(null);
-      return;
-    }
     var cancelled=false;
-    void RT.getRoom(s.code).then(function(r){
+    function homeJanitorTick(){
       if(cancelled) return;
-      if(!r || !playerInRoom(r, s.playerId)){
-        clearBfSession();
+      void RT.cleanupExpiredOrphanRooms();
+      var s = readBfSession();
+      if(!s){
         setResumeOffer(null);
         return;
       }
-      var me = playerInRoom(r, s.playerId);
-      setResumeOffer({ code: s.code, name: (me && me.name) || s.playerName || "Jogador", inGame: !!r.game });
-    });
+      void RT.getRoom(s.code).then(function(r){
+        if(cancelled) return;
+        if(!r || !playerInRoom(r, s.playerId)){
+          clearBfSession();
+          setResumeOffer(null);
+          return;
+        }
+        var me = playerInRoom(r, s.playerId);
+        setResumeOffer({ code: s.code, name: (me && me.name) || s.playerName || "Jogador", inGame: !!r.game });
+      });
+    }
+    homeJanitorTick();
+    var intervalMs = 60 * 1000;
+    var id = setInterval(homeJanitorTick, intervalMs);
     return function(){
       cancelled=true;
+      clearInterval(id);
     };
   },[screen]);
 
@@ -4696,13 +4892,6 @@ export default function App(){
       clearInterval(t);
     };
   },[roomCode, screen]);
-
-  /* Janitor leve no menu: remove salas sem humanos online após TTL. */
-  useEffect(function(){
-    if(screen!=="home") return;
-    if(!RT.isConfigured()) return;
-    void RT.cleanupExpiredOrphanRooms();
-  },[screen]);
 
   useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
@@ -4992,7 +5181,7 @@ export default function App(){
           }
           setCrBusy(true);
           var c=mkCode(), pid=uid();
-          var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc};
+          var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc,lastPresenceAt:Date.now()};
           var ok = await RT.setRoom(c, roomNew);
           setCrBusy(false);
           if(ok){
@@ -5016,14 +5205,30 @@ export default function App(){
     });
   }
 
-  if(screen==='lobby' && room){
-    return React.createElement(LobbyScreen,{
-      room: room,
-      myId: myId,
-      presenceByPlayer: presenceByPlayer,
-      onLeave: goHome,
-      serverConnected: rtdbConnected,
+  var onlineLeaveToastEl =
+    onlineLeaveToast &&
+    (screen === 'lobby' || screen === 'online') &&
+    React.createElement(OnlineLeaveToastCard, {
+      theme: theme,
+      playerName: onlineLeaveToast.name,
+      onDismiss: function () {
+        setOnlineLeaveToast(null);
+      },
     });
+
+  if(screen==='lobby' && room){
+    return React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(LobbyScreen,{
+        room: room,
+        myId: myId,
+        presenceByPlayer: presenceByPlayer,
+        onLeave: goHome,
+        serverConnected: rtdbConnected,
+      }),
+      onlineLeaveToastEl
+    );
   }
 
   if(screen==='online' && room && og){
@@ -5035,7 +5240,8 @@ export default function App(){
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
       React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
-      exitBtn, exitModal
+      exitBtn, exitModal,
+      onlineLeaveToastEl
     );
   }
 
