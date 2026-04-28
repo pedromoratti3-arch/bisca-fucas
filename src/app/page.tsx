@@ -4999,7 +4999,7 @@ export default function App(){
     setOnlineLeaveToast({ name: nm, replacedByBot: !!L.replacedByBot });
     var t = setTimeout(function () {
       setOnlineLeaveToast(null);
-    }, 6200);
+    }, 10000);
     return function () {
       clearTimeout(t);
     };
