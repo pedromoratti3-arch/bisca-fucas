@@ -1758,6 +1758,8 @@ var ACSS = [
   '@keyframes bfTfSteamSvgD{0%{opacity:0;transform:translate(0,3px)}20%{opacity:.45}55%{opacity:.22;transform:translate(-2px,-12px)}100%{opacity:0;transform:translate(3px,-26px)}}',
   '@keyframes bfTfSteamSvgPuff{0%{opacity:.15;transform:scale(.85,.9)}35%{opacity:.42;transform:scale(1.05,1.35)}100%{opacity:0;transform:scale(1.35,2.4)}}',
   '@keyframes bfLeaveToastIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  ' .bfLeaveToastWrap{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9200;width:min(340px,calc(100vw - 32px));max-width:calc(100vw - 24px);font-family:system-ui,sans-serif;box-sizing:border-box;pointer-events:auto;padding:0;margin:0}',
+  ' @media (min-width:641px){.bfLeaveToastWrap{bottom:24px}} ',
   '@media (prefers-reduced-motion:reduce){.bfLeaveToastCard{animation:none!important;opacity:1!important;transform:none!important}}',
   '@media (prefers-reduced-motion:reduce){.bfTfSteamRoot .bfTfSteamSvgAnim{animation:none!important;opacity:0!important}}'
 ].join('');
@@ -1920,11 +1922,10 @@ function themeGhostButtonStyle(th){
 
 /** Aviso quando um jogador humano confirma saída pela opção «Sair» (lobby ou mesa online). */
 function OnlineLeaveToastCard(P) {
-  var th = P.theme || THEMES.sala;
-  var u = (th && th.ui) || {};
-  var accent = u.timer || th.accent || '#d4a843';
   var name = P.playerName || 'Jogador';
   var onDismiss = P.onDismiss;
+  var onLeaveRoom = P.onLeaveRoom;
+  var iconWhite = 'rgba(255,255,255,.94)';
   var icon = React.createElement(
     'svg',
     {
@@ -1937,13 +1938,13 @@ function OnlineLeaveToastCard(P) {
     },
     React.createElement('path', {
       d: 'M13 4h6v16h-6',
-      stroke: 'rgba(250,250,250,.88)',
+      stroke: iconWhite,
       strokeWidth: 2,
       strokeLinecap: 'round',
     }),
     React.createElement('path', {
       d: 'M9 12H4m0 0l3-3M4 12l3 3',
-      stroke: accent,
+      stroke: iconWhite,
       strokeWidth: 2,
       strokeLinecap: 'round',
       strokeLinejoin: 'round',
@@ -1952,28 +1953,17 @@ function OnlineLeaveToastCard(P) {
   return React.createElement(
     'div',
     {
-      className: 'bfLeaveToastCard',
+      className: 'bfLeaveToastWrap',
       role: 'status',
       'aria-live': 'polite',
       'aria-atomic': 'true',
-      style: {
-        position: 'fixed',
-        bottom: 'max(20px, calc(14px + env(safe-area-inset-bottom)))',
-        right: 'max(16px, calc(12px + env(safe-area-inset-right)))',
-        left: 'max(16px, calc(12px + env(safe-area-inset-left)))',
-        marginLeft: 'auto',
-        width: 'min(340px, calc(100vw - 32px))',
-        zIndex: 9200,
-        animation: 'bfLeaveToastIn .45s cubic-bezier(.22,1,.36,1) both',
-        fontFamily: 'system-ui, sans-serif',
-        boxSizing: 'border-box',
-        pointerEvents: 'auto',
-      },
     },
     React.createElement(
       'div',
       {
+        className: 'bfLeaveToastCard',
         style: {
+          animation: 'bfLeaveToastIn .45s cubic-bezier(.22,1,.36,1) both',
           background: 'linear-gradient(165deg, rgba(24,16,22,.98) 0%, rgba(10,8,14,.99) 100%)',
           border: '1px solid rgba(212,168,67,.38)',
           borderRadius: 14,
@@ -1986,17 +1976,31 @@ function OnlineLeaveToastCard(P) {
         },
       },
       React.createElement(
-        'div',
+        'button',
         {
+          type: 'button',
+          onClick: function (e) {
+            e.stopPropagation();
+            if (onDismiss) onDismiss();
+            if (onLeaveRoom) void onLeaveRoom();
+          },
+          'aria-label': 'Sair da sala e voltar ao menu',
+          title: 'Sair da sala',
           style: {
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
             borderRadius: 11,
-            background: 'linear-gradient(145deg, rgba(196,18,48,.32), rgba(212,168,67,.14))',
+            background: 'rgba(255,255,255,.1)',
+            border: '1px solid rgba(255,255,255,.22)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            cursor: 'pointer',
+            padding: 0,
+            WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation',
+            boxSizing: 'border-box',
           },
         },
         icon
@@ -5214,6 +5218,7 @@ export default function App(){
       onDismiss: function () {
         setOnlineLeaveToast(null);
       },
+      onLeaveRoom: goHome,
     });
 
   if(screen==='lobby' && room){
