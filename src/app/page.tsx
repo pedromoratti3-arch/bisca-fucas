@@ -413,6 +413,84 @@ var RT = {
       var r = await RT.getRoom(code);
       if (!r) return;
       if (!Array.isArray(r.players)) return;
+      var leaverRec = null;
+      for (var li = 0; li < r.players.length; li++) {
+        if (r.players[li] && r.players[li].id === playerId) {
+          leaverRec = r.players[li];
+          break;
+        }
+      }
+      var leaveDisp =
+        leaverRec && typeof leaverRec.name === "string"
+          ? clampDisplayName(leaverRec.name) || "Jogador"
+          : "Jogador";
+      var ng = r.game != null ? normalizeGame(r.game) : null;
+      var tryBot = !!(
+        ng &&
+        leaverRec &&
+        !leaverRec.isBot &&
+        r.hostId &&
+        String(r.hostId) !== String(playerId)
+      );
+      var seat = -1;
+      if (tryBot && leaverRec) {
+        var sr = leaverRec.seat != null && leaverRec.seat !== "" ? Number(leaverRec.seat) : NaN;
+        if (!isNaN(sr) && sr >= 0 && sr <= 3 && sr === Math.floor(sr)) seat = sr;
+        else if (ng && Array.isArray(ng.playerNames)) {
+          var lvn = leaveDisp;
+          for (var sj = 0; sj < 4; sj++) {
+            if (clampDisplayName(String(ng.playerNames[sj] || "")) === lvn) {
+              seat = sj;
+              break;
+            }
+          }
+        }
+        if (seat < 0) tryBot = false;
+      }
+      if (tryBot && seat >= 0) {
+        var maxBn = 0;
+        for (var pi = 0; pi < r.players.length; pi++) {
+          var pp = r.players[pi];
+          if (pp && pp.isBot && typeof pp.name === "string") {
+            var mx = /^IA\s*(\d+)/i.exec(String(pp.name).trim());
+            if (mx) maxBn = Math.max(maxBn, Number(mx[1]));
+          }
+        }
+        var bn = maxBn + 1;
+        var botName = "IA " + bn;
+        var botId = "bot:" + code + ":" + uid();
+        var bot = {
+          id: botId,
+          name: botName,
+          seat: seat,
+          team: leaverRec.team === "B" ? "B" : "A",
+          isBot: true,
+        };
+        var nextPlayers = r.players.map(function (p) {
+          return p && p.id === playerId ? bot : p;
+        });
+        var pNames = ng.playerNames.slice();
+        pNames[seat] = botName;
+        var nextGame = Object.assign({}, ng, { playerNames: pNames });
+        var la0 = nextGame.lastActor != null ? String(nextGame.lastActor) : "";
+        if (la0 === String(playerId)) {
+          nextGame = Object.assign({}, nextGame, { lastActor: r.hostId || botId });
+        }
+        var nextRoomBot = Object.assign({}, r, {
+          players: nextPlayers,
+          hostId: r.hostId,
+          game: nextGame,
+          lastLeaveNotice: {
+            playerId: playerId,
+            name: leaveDisp,
+            at: Date.now(),
+            replacedByBot: true,
+          },
+          lastSeatHandoff: { seat: seat, prevName: leaveDisp, botName: botName, at: Date.now() },
+        });
+        await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
+        return;
+      }
       var players = r.players.filter(function (p) {
         return p && p.id !== playerId;
       });
@@ -427,17 +505,6 @@ var RT = {
       if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
         hostId = humans[0].id;
       }
-      var leaverRec = null;
-      for (var li = 0; li < r.players.length; li++) {
-        if (r.players[li] && r.players[li].id === playerId) {
-          leaverRec = r.players[li];
-          break;
-        }
-      }
-      var leaveDisp =
-        leaverRec && typeof leaverRec.name === "string"
-          ? clampDisplayName(leaverRec.name) || "Jogador"
-          : "Jogador";
       var nextRoom = Object.assign({}, r, {
         players: players,
         hostId: hostId,
@@ -1758,6 +1825,8 @@ var ACSS = [
   '@keyframes bfTfSteamSvgD{0%{opacity:0;transform:translate(0,3px)}20%{opacity:.45}55%{opacity:.22;transform:translate(-2px,-12px)}100%{opacity:0;transform:translate(3px,-26px)}}',
   '@keyframes bfTfSteamSvgPuff{0%{opacity:.15;transform:scale(.85,.9)}35%{opacity:.42;transform:scale(1.05,1.35)}100%{opacity:0;transform:scale(1.35,2.4)}}',
   '@keyframes bfLeaveToastIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}',
+  '@keyframes bfHandoffOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-7px)}}',
+  '@keyframes bfHandoffSpin{to{transform:rotate(360deg)}}',
   ' .bfLeaveToastWrap{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9200;width:min(340px,calc(100vw - 32px));max-width:calc(100vw - 24px);font-family:system-ui,sans-serif;box-sizing:border-box;pointer-events:auto;padding:0;margin:0}',
   ' @media (min-width:641px){.bfLeaveToastWrap{bottom:24px}} ',
   '@media (prefers-reduced-motion:reduce){.bfLeaveToastCard{animation:none!important;opacity:1!important;transform:none!important}}',
@@ -2030,7 +2099,9 @@ function OnlineLeaveToastCard(P) {
         React.createElement(
           'div',
           { style: { fontSize: 11, opacity: 0.48, marginTop: 5, lineHeight: 1.35 } },
-          'A mesa segue com quem permaneceu ligado.'
+          P.replacedByBot
+            ? 'Uma IA entrou no mesmo lugar, com as mesmas cartas e a mesma dupla — a partida segue.'
+            : 'A mesa segue com quem permaneceu ligado.'
         )
       ),
       React.createElement('button', {
@@ -3380,6 +3451,50 @@ function GameScreen(props){
   /** Boolean estável para deps de efeitos — `botSeats` é recriado no pai a cada render. */
   var isBotCutter = !!(botSeats && botSeats[cutter]);
   var isRoomHost = !!props.isRoomHost;
+  var seatHandoffProp = props.seatHandoff;
+  var seatHandoffUiSt = useState(
+    /** @type {null | { seat: number; phase: string; prevName: string; botName: string }} */ (null)
+  );
+  var seatHandoffUI = seatHandoffUiSt[0];
+  var setSeatHandoffUI = seatHandoffUiSt[1];
+  var seatHandoffSeenRef = useRef(0);
+  useEffect(
+    function () {
+      if (!isOnline) {
+        setSeatHandoffUI(null);
+        return;
+      }
+      var h = seatHandoffProp;
+      if (!h || typeof h !== "object" || typeof h.at !== "number") {
+        return;
+      }
+      if (Date.now() - h.at > 18000) return;
+      if (h.at === seatHandoffSeenRef.current) return;
+      seatHandoffSeenRef.current = h.at;
+      var prevNm = typeof h.prevName === "string" ? h.prevName : "Jogador";
+      var botNm = typeof h.botName === "string" ? h.botName : "IA";
+      var seatH = typeof h.seat === "number" ? h.seat : Number(h.seat);
+      if (!isFinite(seatH) || seatH < 0 || seatH > 3) return;
+      setSeatHandoffUI({ seat: seatH, phase: "out", prevName: prevNm, botName: botNm });
+      var t1 = setTimeout(function () {
+        setSeatHandoffUI(function (prev) {
+          if (!prev || prev.seat !== seatH) return prev;
+          return Object.assign({}, prev, { phase: "load" });
+        });
+      }, 400);
+      var t2 = setTimeout(function () {
+        setSeatHandoffUI(function (prev) {
+          if (!prev || prev.seat !== seatH) return prev;
+          return null;
+        });
+      }, 1850);
+      return function () {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    },
+    [isOnline, seatHandoffProp && seatHandoffProp.at, seatHandoffProp && seatHandoffProp.seat]
+  );
   var cutSecSt = useState(null);
   var cutSec = cutSecSt[0], setCutSec = cutSecSt[1];
   var cutLiftSt = useState(null);
@@ -4174,6 +4289,172 @@ function GameScreen(props){
     );
   };
 
+  /** Nome no lugar do jogador: × + saída do nome → spinner → volta ao nome vindo do estado (IA). */
+  function rSeatHandoffNameRow(absSeat, flexStyle, curPForSeat) {
+    var ho = seatHandoffUI && seatHandoffUI.seat === absSeat ? seatHandoffUI : null;
+    var turn = curPForSeat === absSeat ? rTurnIndicator(mob) : null;
+    if (!ho) {
+      return React.createElement(
+        'div',
+        { style: flexStyle },
+        React.createElement('span', { style: { lineHeight: 1, display: 'block' } }, NAMES[absSeat]),
+        turn
+      );
+    }
+    if (ho.phase === 'out') {
+      return React.createElement(
+        'div',
+        { style: flexStyle },
+        React.createElement(
+          'div',
+          {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              animation: 'bfHandoffOut .34s ease-out forwards',
+              maxWidth: '100%',
+            },
+          },
+          React.createElement(
+            'span',
+            {
+              style: {
+                width: 24,
+                height: 24,
+                borderRadius: 8,
+                background: 'rgba(248,113,113,.22)',
+                border: '1px solid rgba(248,113,113,.45)',
+                color: '#fecaca',
+                fontWeight: 900,
+                fontSize: 15,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                flexShrink: 0,
+              },
+            },
+            '\u00d7'
+          ),
+          React.createElement(
+            'span',
+            {
+              style: {
+                fontSize: mob ? 10 : 11,
+                fontWeight: 600,
+                opacity: 0.92,
+                maxWidth: '40vw',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              },
+            },
+            ho.prevName
+          )
+        ),
+        turn
+      );
+    }
+    if (ho.phase === 'load') {
+      return React.createElement(
+        'div',
+        { style: flexStyle },
+        React.createElement(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 } },
+          React.createElement('span', {
+            style: {
+              width: 16,
+              height: 16,
+              border: '2px solid rgba(255,255,255,.3)',
+              borderTopColor: 'rgba(253,224,130,.92)',
+              borderRadius: '50%',
+              animation: 'bfHandoffSpin .65s linear infinite',
+              display: 'inline-block',
+              flexShrink: 0,
+              boxSizing: 'border-box',
+            },
+            'aria-hidden': true,
+          }),
+          React.createElement(
+            'span',
+            { style: { fontSize: mob ? 9 : 10, opacity: 0.78, fontWeight: 600 } },
+            'IA a assumir\u2026'
+          )
+        ),
+        turn
+      );
+    }
+    return React.createElement(
+      'div',
+      { style: flexStyle },
+      React.createElement('span', { style: { lineHeight: 1, display: 'block' } }, NAMES[absSeat]),
+      turn
+    );
+  }
+
+  function rSeatHandoffHeroName(absSeat) {
+    var bigStyle = { fontSize: mob ? 20 : 24, fontWeight: 800, lineHeight: 1.2 };
+    var ho = seatHandoffUI && seatHandoffUI.seat === absSeat ? seatHandoffUI : null;
+    if (!ho) return NAMES[absSeat];
+    if (ho.phase === 'out') {
+      return React.createElement(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' } },
+        React.createElement(
+          'span',
+          {
+            style: {
+              width: 28,
+              height: 28,
+              borderRadius: 9,
+              background: 'rgba(248,113,113,.22)',
+              border: '1px solid rgba(248,113,113,.45)',
+              color: '#fecaca',
+              fontWeight: 900,
+              fontSize: 17,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+              flexShrink: 0,
+            },
+          },
+          '\u00d7'
+        ),
+        React.createElement(
+          'span',
+          { style: Object.assign({ animation: 'bfHandoffOut .34s ease-out forwards' }, bigStyle) },
+          ho.prevName
+        )
+      );
+    }
+    if (ho.phase === 'load') {
+      return React.createElement(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 } },
+        React.createElement('span', {
+          style: {
+            width: 20,
+            height: 20,
+            border: '2px solid rgba(255,255,255,.3)',
+            borderTopColor: 'rgba(253,224,130,.92)',
+            borderRadius: '50%',
+            animation: 'bfHandoffSpin .65s linear infinite',
+            display: 'inline-block',
+            flexShrink: 0,
+            boxSizing: 'border-box',
+          },
+          'aria-hidden': true,
+        }),
+        React.createElement('span', { style: bigStyle }, 'IA a assumir\u2026')
+      );
+    }
+    return NAMES[absSeat];
+  }
+
   // ── SHUFFLE / CUT / DEAL ──
   if(g.phase==='shuffle' || g.phase==='cut' || (g.phase==='deal' && !isOnline)){
     var showCut = g.phase==='cut' && (isSolo ? cutter===0 : iAmCutter);
@@ -4210,7 +4491,7 @@ function GameScreen(props){
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
         React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
-          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},NAMES[dealer]),
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},rSeatHandoffHeroName(dealer)),
           React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a embaralhar…')
         )
       ) : null,
@@ -4260,7 +4541,7 @@ function GameScreen(props){
       ) : null,
       aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
-          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},NAMES[cutter]),
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},rSeatHandoffHeroName(cutter)),
           React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a cortar…')
         )
       ) : null,
@@ -4273,10 +4554,10 @@ function GameScreen(props){
         React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n""w c e""s s s"',gridTemplateColumns:mob?'minmax(0,1fr) minmax(56px,32vw) minmax(0,1fr)':'1fr 120px 1fr',gap:mob?4:6,alignItems:'center',justifyItems:'center',flex:1,minWidth:0,width:'100%'}},
           React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{display:'flex',gap:3,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dN].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,dN!==mySeat,false,false,false,mob,cbk)):null; })),
-            React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dN])
+            rSeatHandoffNameRow(dN,{fontSize:10,opacity:0.6,textAlign:'center',width:'100%',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',maxWidth:'100%',minHeight:18,lineHeight:1},g.curP)
           ),
           React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
-            React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dW]),
+            rSeatHandoffNameRow(dW,{fontSize:10,opacity:0.6,textAlign:'center',width:'100%',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',maxWidth:'100%',minHeight:18,lineHeight:1},g.curP),
             React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dW].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob,cbk)):null; }))
           ),
           React.createElement('div',{style:{gridArea:'c',display:'flex',flexDirection:'column',alignItems:'center',gap:6,minWidth:0}},
@@ -4284,12 +4565,12 @@ function GameScreen(props){
             deckPile(Math.max(0, g.batido ? 28-g.dealStep*3 : 28-g.dealStep),null,false,mob,cbk)
           ),
           React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
-            React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dE]),
+            rSeatHandoffNameRow(dE,{fontSize:10,opacity:0.6,textAlign:'center',width:'100%',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',maxWidth:'100%',minHeight:18,lineHeight:1},g.curP),
             React.createElement('div',{style:{display:'flex',gap:2,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dE].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,true,false,false,false,mob,cbk)):null; }))
           ),
           React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0,maxWidth:'100%'}},
             React.createElement('div',{style:{display:'flex',gap:4,minHeight:mob?58:65,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},g.hands[dS].map(function(c){ return c?React.createElement('div',{key:c.id,style:{animation:'cin .28s ease-out'}},rCard(c,null,false,false,false,false,mob,cbk)):null; })),
-            React.createElement('div',{style:{fontSize:10,opacity:0.6}},NAMES[dS])
+            rSeatHandoffNameRow(dS,{fontSize:10,opacity:0.6,textAlign:'center',width:'100%',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',maxWidth:'100%',minHeight:18,lineHeight:1},g.curP)
           )
         ),
         React.createElement('div',{style:{textAlign:'center',fontSize:11,opacity:0.58,fontWeight:400,lineHeight:1.45,animation:'pls 1s infinite'}},
@@ -4541,16 +4822,10 @@ function GameScreen(props){
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
         React.createElement('div',{ref:handAreaRefN,style:{display:'flex',gap:mob?2:4,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dN,false,true)),
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 4px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
-          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dN]),
-          g.curP===dN ? rTurnIndicator(mob) : null
-        )
+        rSeatHandoffNameRow(dN,{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 4px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1},g.curP)
       ),
       React.createElement('div',{style:{gridArea:'w',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
-          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dW]),
-          g.curP===dW ? rTurnIndicator(mob) : null
-        ),
+        rSeatHandoffNameRow(dW,{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1},g.curP),
         React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:th.id==='terrafe'?'hidden':'visible'}},
@@ -4564,18 +4839,12 @@ function GameScreen(props){
         g.lastW!==null && g.lastW>=0 && g.lastW<4 && g.trick.length===0 ? React.createElement('div',{style:{fontSize:mob?8:10,opacity:0.35,textAlign:'center',padding:'0 4px'}},'ganhou: '+NAMES[g.lastW]) : null
       ),
       React.createElement('div',{style:{gridArea:'e',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0,overflow:'hidden'}},
-        React.createElement('div',{style:{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1}},
-          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dE]),
-          g.curP===dE ? rTurnIndicator(mob) : null
-        ),
+        rSeatHandoffNameRow(dE,{fontSize:mob?9:11,opacity:0.7,color:'rgba(255,255,255,.92)',textAlign:'center',padding:'0 2px',display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?18:20,lineHeight:1},g.curP),
         React.createElement('div',{ref:handAreaRefE,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dE,false,false))
       ),
       React.createElement('div',{style:{gridArea:'s',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?4:6,paddingBottom:mob?4:0,minWidth:0,maxWidth:'100%'}},
         React.createElement('div',{ref:handAreaRefS,style:{display:'flex',gap:mob?3:5,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dS,true,false)),
-        React.createElement('div',{style:{fontSize:mob?11:12,fontWeight:'bold',color:'#ffffff',textAlign:'center',padding:'0 8px',lineHeight:1,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?20:22}},
-          React.createElement('span',{style:{lineHeight:1,display:'block'}},NAMES[dS]),
-          g.curP===dS ? rTurnIndicator(mob) : null
-        )
+        rSeatHandoffNameRow(dS,{fontSize:mob?11:12,fontWeight:'bold',color:'#ffffff',textAlign:'center',padding:'0 8px',lineHeight:1,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:mob?6:7,flexWrap:'nowrap',maxWidth:'100%',minHeight:mob?20:22},g.curP)
       )
     ),
     handGhost && handGhost.card
@@ -4690,7 +4959,7 @@ export default function App(){
   var rsBusySt=useState(false); var resumeBusy=rsBusySt[0], setResumeBusy=rsBusySt[1];
   var rClosedSt=useState(/** @type {string | null} */ (null));
   var roomClosedNotice=rClosedSt[0], setRoomClosedNotice=rClosedSt[1];
-  var oltSt=useState(/** @type {{ name: string } | null} */ (null));
+  var oltSt=useState(/** @type {{ name: string; replacedByBot?: boolean } | null} */ (null));
   var onlineLeaveToast=oltSt[0], setOnlineLeaveToast=oltSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
@@ -4727,7 +4996,7 @@ export default function App(){
     onlineLeaveToastAtRef.current = at;
     var nm = typeof L.name === 'string' ? clampDisplayName(L.name) : '';
     if (!nm) nm = 'Jogador';
-    setOnlineLeaveToast({ name: nm });
+    setOnlineLeaveToast({ name: nm, replacedByBot: !!L.replacedByBot });
     var t = setTimeout(function () {
       setOnlineLeaveToast(null);
     }, 6200);
@@ -5215,6 +5484,7 @@ export default function App(){
     React.createElement(OnlineLeaveToastCard, {
       theme: theme,
       playerName: onlineLeaveToast.name,
+      replacedByBot: !!onlineLeaveToast.replacedByBot,
       onDismiss: function () {
         setOnlineLeaveToast(null);
       },
@@ -5243,7 +5513,7 @@ export default function App(){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
       onlineLeaveToastEl
