@@ -6115,10 +6115,8 @@ export default function App(){
           }
           var isHost = r.hostId && String(r.hostId) === String(pid);
           if (isHost) {
-            hostClosedRoomRef.current = true;
-            setTimeout(function () {
-              hostClosedRoomRef.current = false;
-            }, 3500);
+            /* Não usar hostClosedRoomRef aqui: isso é só para o anfitrião que sai por goHome (evitar banner a si próprio).
+               Quem executa o delete é o “líder” na rede — deve ver o mesmo aviso que os outros. */
             await RT.deleteRoom(code);
             return;
           }
