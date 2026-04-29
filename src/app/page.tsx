@@ -6,8 +6,6 @@ import { db } from "@/lib/firebase";
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
 var RTP = "bisca/presence";
-/** Prazo de reconexão partilhado (epoch ms por jogador) — qualquer cliente “líder” aplica a ação ao expirar. */
-var RTG = "bisca/roomGrace";
 var ROOM_ORPHAN_TTL_MS = 30 * 1000;
 var ROOM_ACTIVITY_TOUCH_MS = 12 * 1000;
 var RECONNECT_GRACE_MS = 30 * 1000;
@@ -35,13 +33,14 @@ function roomLastPresenceAtRef(code) {
   if (!db || !code) return null;
   return ref(db, RTB + "/" + code + "/lastPresenceAt");
 }
-function roomGracePlayerRef(code, playerId) {
+/** Prazos de reconexão sob a própria sala (mesmas regras RTDB que `rooms`) — evita `permission_denied` de um nó extra não deployado. */
+function roomReconnectGracePlayerRef(code, playerId) {
   if (!db || !code || !playerId) return null;
-  return ref(db, RTG + "/" + code + "/" + playerId);
+  return ref(db, RTB + "/" + code + "/reconnectGrace/" + playerId);
 }
-function roomGraceRoomRef(code) {
+function roomReconnectGraceParentRef(code) {
   if (!db || !code) return null;
-  return ref(db, RTG + "/" + code);
+  return ref(db, RTB + "/" + code + "/reconnectGrace");
 }
 
 function bfVictoryFxKey(sfm, setWins) {
@@ -367,7 +366,16 @@ var RT = {
     try {
       var rref = roomDbRef(code);
       if (!rref) return false;
+      var snap = await get(rref);
       var payload = Object.assign({}, room);
+      if (snap.exists()) {
+        var ev = snap.val();
+        var sg = ev && ev.reconnectGrace;
+        var pg = payload.reconnectGrace;
+        if (sg && typeof sg === "object" && !Array.isArray(sg)) {
+          payload.reconnectGrace = Object.assign({}, sg, pg && typeof pg === "object" && !Array.isArray(pg) ? pg : {});
+        }
+      }
       if (Array.isArray(payload.players)) {
         var pm = {};
         for (var pi = 0; pi < payload.players.length; pi++) {
@@ -390,14 +398,6 @@ var RT = {
       await remove(rref);
       var pref = presenceRoomRef(code);
       if (pref) await remove(pref);
-      var gref = roomGraceRoomRef(code);
-      if (gref) {
-        try {
-          await remove(gref);
-        } catch (e) {
-          void e;
-        }
-      }
       return true;
     } catch {
       return false;
@@ -426,7 +426,7 @@ var RT = {
   ensureReconnectDeadline: async function (code, playerId) {
     if (!db || !code || !playerId) return 0;
     try {
-      var gref = roomGracePlayerRef(code, playerId);
+      var gref = roomReconnectGracePlayerRef(code, playerId);
       if (!gref) return 0;
       var snap = await get(gref);
       if (snap.exists()) {
@@ -444,7 +444,7 @@ var RT = {
   clearReconnectDeadline: async function (code, playerId) {
     if (!db || !code || !playerId) return;
     try {
-      var gref = roomGracePlayerRef(code, playerId);
+      var gref = roomReconnectGracePlayerRef(code, playerId);
       if (gref) await remove(gref);
     } catch (e) {
       void e;
@@ -5873,7 +5873,7 @@ export default function App(){
       setGraceByPlayer({});
       return;
     }
-    var gref = roomGraceRoomRef(roomCode);
+    var gref = roomReconnectGraceParentRef(roomCode);
     if (!gref) return;
     var unsub = onValue(gref, function (snap) {
       var v = snap.val();
