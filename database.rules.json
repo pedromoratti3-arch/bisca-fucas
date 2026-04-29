@@ -24,6 +24,16 @@
             ".validate": "!newData.exists() || newData.val() === true"
           }
         }
+      },
+      "roomGrace": {
+        "$code": {
+          ".read": "$code.matches(/^[A-HJ-NP-Z]{4}$/)",
+          ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/)",
+          "$playerId": {
+            ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/) && $playerId.matches(/^[a-zA-Z0-9_:.-]{2,80}$/)",
+            ".validate": "!newData.exists() || newData.isNumber()"
+          }
+        }
       }
     }
   }

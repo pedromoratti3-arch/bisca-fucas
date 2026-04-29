@@ -6,8 +6,10 @@ import { db } from "@/lib/firebase";
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
 var RTP = "bisca/presence";
-var ROOM_ORPHAN_TTL_MS = 10 * 60 * 1000;
-var ROOM_ACTIVITY_TOUCH_MS = 45 * 1000;
+/** Prazo de reconexão partilhado (epoch ms por jogador) — qualquer cliente “líder” aplica a ação ao expirar. */
+var RTG = "bisca/roomGrace";
+var ROOM_ORPHAN_TTL_MS = 30 * 1000;
+var ROOM_ACTIVITY_TOUCH_MS = 12 * 1000;
 var RECONNECT_GRACE_MS = 30 * 1000;
 function roomDbRef(code) {
   if (!db) return null;
@@ -32,6 +34,14 @@ function presenceRoomRef(code) {
 function roomLastPresenceAtRef(code) {
   if (!db || !code) return null;
   return ref(db, RTB + "/" + code + "/lastPresenceAt");
+}
+function roomGracePlayerRef(code, playerId) {
+  if (!db || !code || !playerId) return null;
+  return ref(db, RTG + "/" + code + "/" + playerId);
+}
+function roomGraceRoomRef(code) {
+  if (!db || !code) return null;
+  return ref(db, RTG + "/" + code);
 }
 
 function bfVictoryFxKey(sfm, setWins) {
@@ -245,6 +255,77 @@ function roomEnsureGameLastActorForPlayers(room) {
   return room;
 }
 
+/** Substitui humano offline por IA (somente quando já há jogo em curso). */
+function roomReplaceDisconnectedWithBot(room, playerId) {
+  if (!room || !Array.isArray(room.players)) return null;
+  var leaverRec = null;
+  for (var li = 0; li < room.players.length; li++) {
+    if (room.players[li] && room.players[li].id === playerId) {
+      leaverRec = room.players[li];
+      break;
+    }
+  }
+  if (!leaverRec || leaverRec.isBot) return null;
+  var ng = room.game != null ? normalizeGame(room.game) : null;
+  if (!ng) return null;
+  var leaveDisp =
+    leaverRec && typeof leaverRec.name === "string"
+      ? clampDisplayName(leaverRec.name) || "Jogador"
+      : "Jogador";
+  var seat = -1;
+  var sr = leaverRec.seat != null && leaverRec.seat !== "" ? Number(leaverRec.seat) : NaN;
+  if (!isNaN(sr) && sr >= 0 && sr <= 3 && sr === Math.floor(sr)) seat = sr;
+  else if (Array.isArray(ng.playerNames)) {
+    for (var sj = 0; sj < 4; sj++) {
+      if (clampDisplayName(String(ng.playerNames[sj] || "")) === leaveDisp) {
+        seat = sj;
+        break;
+      }
+    }
+  }
+  if (seat < 0) return null;
+  var maxBn = 0;
+  for (var pi = 0; pi < room.players.length; pi++) {
+    var pp = room.players[pi];
+    if (pp && pp.isBot && typeof pp.name === "string") {
+      var mx = /^IA\s*(\d+)/i.exec(String(pp.name).trim());
+      if (mx) maxBn = Math.max(maxBn, Number(mx[1]));
+    }
+  }
+  var bn = maxBn + 1;
+  var botName = "IA " + bn;
+  var botId = "bot:" + room.code + ":" + uid();
+  var bot = {
+    id: botId,
+    name: botName,
+    seat: seat,
+    team: leaverRec.team === "B" ? "B" : "A",
+    isBot: true,
+  };
+  var nextPlayers = room.players.map(function (p) {
+    return p && p.id === playerId ? bot : p;
+  });
+  var pNames = ng.playerNames.slice();
+  pNames[seat] = botName;
+  var nextGame = Object.assign({}, ng, { playerNames: pNames });
+  var la0 = nextGame.lastActor != null ? String(nextGame.lastActor) : "";
+  if (la0 === String(playerId)) {
+    nextGame = Object.assign({}, nextGame, { lastActor: room.hostId || botId });
+  }
+  return Object.assign({}, room, {
+    players: nextPlayers,
+    hostId: room.hostId,
+    game: nextGame,
+    lastLeaveNotice: {
+      playerId: playerId,
+      name: leaveDisp,
+      at: Date.now(),
+      replacedByBot: true,
+    },
+    lastSeatHandoff: { seat: seat, prevName: leaveDisp, botName: botName, at: Date.now() },
+  });
+}
+
 /**
  * Assento 0–3 no online: usa `room.players[].seat` quando válido; senão tenta casar o nome
  * com `game.playerNames` (corrige RT atrasado com seat -1 ou cliente que clampava tudo a 0).
@@ -309,8 +390,103 @@ var RT = {
       await remove(rref);
       var pref = presenceRoomRef(code);
       if (pref) await remove(pref);
+      var gref = roomGraceRoomRef(code);
+      if (gref) {
+        try {
+          await remove(gref);
+        } catch (e) {
+          void e;
+        }
+      }
       return true;
     } catch {
+      return false;
+    }
+  },
+  getPresenceMap: async function (code) {
+    if (!db || !code) return {};
+    try {
+      var pref = presenceRoomRef(code);
+      if (!pref) return {};
+      var snap = await get(pref);
+      if (!snap.exists()) return {};
+      var v = snap.val();
+      if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+      var out = {};
+      Object.keys(v).forEach(function (k) {
+        if (!k || k.charAt(0) === "_") return;
+        out[k] = v[k];
+      });
+      return out;
+    } catch (e) {
+      void e;
+      return {};
+    }
+  },
+  ensureReconnectDeadline: async function (code, playerId) {
+    if (!db || !code || !playerId) return 0;
+    try {
+      var gref = roomGracePlayerRef(code, playerId);
+      if (!gref) return 0;
+      var snap = await get(gref);
+      if (snap.exists()) {
+        var ex = typeof snap.val() === "number" ? snap.val() : Number(snap.val());
+        return isFinite(ex) ? ex : 0;
+      }
+      var dl = Date.now() + RECONNECT_GRACE_MS;
+      await rtSet(gref, dl);
+      return dl;
+    } catch (e) {
+      void e;
+      return 0;
+    }
+  },
+  clearReconnectDeadline: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    try {
+      var gref = roomGracePlayerRef(code, playerId);
+      if (gref) await remove(gref);
+    } catch (e) {
+      void e;
+    }
+  },
+  kickDisconnectedHumanFromLobby: async function (code, playerId) {
+    if (!db || !code || !playerId) return false;
+    try {
+      var r = await RT.getRoom(code);
+      if (!r || !Array.isArray(r.players)) return false;
+      var leaverRec = playerInRoom(r, playerId);
+      if (!leaverRec || leaverRec.isBot) return false;
+      var leaveDisp =
+        typeof leaverRec.name === "string" ? clampDisplayName(leaverRec.name) || "Jogador" : "Jogador";
+      if (String(r.hostId) === String(playerId)) {
+        await RT.deleteRoom(code);
+        return true;
+      }
+      var players = r.players.filter(function (p) {
+        return p && p.id !== playerId;
+      });
+      var humans = players.filter(function (p) {
+        return !p.isBot;
+      });
+      if (humans.length === 0) {
+        await RT.deleteRoom(code);
+        return true;
+      }
+      var hostId = r.hostId;
+      if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
+        hostId = humans[0].id;
+      }
+      var nextRoom = Object.assign({}, r, {
+        players: players,
+        hostId: hostId,
+        lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
+      });
+      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
+      await RT.clearReconnectDeadline(code, playerId);
+      return true;
+    } catch (e) {
+      void e;
       return false;
     }
   },
@@ -443,72 +619,13 @@ var RT = {
         leaverRec && typeof leaverRec.name === "string"
           ? clampDisplayName(leaverRec.name) || "Jogador"
           : "Jogador";
-      var ng = r.game != null ? normalizeGame(r.game) : null;
-      var tryBot = !!(
-        ng &&
-        leaverRec &&
-        !leaverRec.isBot &&
-        r.hostId &&
-        String(r.hostId) !== String(playerId)
-      );
-      var seat = -1;
-      if (tryBot && leaverRec) {
-        var sr = leaverRec.seat != null && leaverRec.seat !== "" ? Number(leaverRec.seat) : NaN;
-        if (!isNaN(sr) && sr >= 0 && sr <= 3 && sr === Math.floor(sr)) seat = sr;
-        else if (ng && Array.isArray(ng.playerNames)) {
-          var lvn = leaveDisp;
-          for (var sj = 0; sj < 4; sj++) {
-            if (clampDisplayName(String(ng.playerNames[sj] || "")) === lvn) {
-              seat = sj;
-              break;
-            }
-          }
+      var tryBot = !!(leaverRec && !leaverRec.isBot && r.hostId && String(r.hostId) !== String(playerId));
+      if (tryBot) {
+        var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
+        if (nextRoomBot) {
+          await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
+          return;
         }
-        if (seat < 0) tryBot = false;
-      }
-      if (tryBot && seat >= 0) {
-        var maxBn = 0;
-        for (var pi = 0; pi < r.players.length; pi++) {
-          var pp = r.players[pi];
-          if (pp && pp.isBot && typeof pp.name === "string") {
-            var mx = /^IA\s*(\d+)/i.exec(String(pp.name).trim());
-            if (mx) maxBn = Math.max(maxBn, Number(mx[1]));
-          }
-        }
-        var bn = maxBn + 1;
-        var botName = "IA " + bn;
-        var botId = "bot:" + code + ":" + uid();
-        var bot = {
-          id: botId,
-          name: botName,
-          seat: seat,
-          team: leaverRec.team === "B" ? "B" : "A",
-          isBot: true,
-        };
-        var nextPlayers = r.players.map(function (p) {
-          return p && p.id === playerId ? bot : p;
-        });
-        var pNames = ng.playerNames.slice();
-        pNames[seat] = botName;
-        var nextGame = Object.assign({}, ng, { playerNames: pNames });
-        var la0 = nextGame.lastActor != null ? String(nextGame.lastActor) : "";
-        if (la0 === String(playerId)) {
-          nextGame = Object.assign({}, nextGame, { lastActor: r.hostId || botId });
-        }
-        var nextRoomBot = Object.assign({}, r, {
-          players: nextPlayers,
-          hostId: r.hostId,
-          game: nextGame,
-          lastLeaveNotice: {
-            playerId: playerId,
-            name: leaveDisp,
-            at: Date.now(),
-            replacedByBot: true,
-          },
-          lastSeatHandoff: { seat: seat, prevName: leaveDisp, botName: botName, at: Date.now() },
-        });
-        await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
-        return;
       }
       var players = r.players.filter(function (p) {
         return p && p.id !== playerId;
@@ -532,6 +649,24 @@ var RT = {
       await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
+    }
+  },
+  replaceDisconnectedWithBot: async function (code, playerId) {
+    if (!db || !code || !playerId) return false;
+    try {
+      var r = await RT.getRoom(code);
+      if (!r || !Array.isArray(r.players)) return false;
+      var me = playerInRoom(r, playerId);
+      if (!me || me.isBot) return false;
+      if (!r.hostId || String(r.hostId) === String(playerId)) return false;
+      var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
+      if (!nextRoomBot) return false;
+      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
+      await RT.clearReconnectDeadline(code, playerId);
+      return true;
+    } catch (e) {
+      void e;
+      return false;
     }
   },
   setGame: async function (code, game) {
@@ -3910,6 +4045,8 @@ function RtConnectionBadge(P){
 /* ═══ LOBBY ═══ */
 function LobbyScreen(P){
   var room=P.room, myId=P.myId, presenceByPlayer=P.presenceByPlayer||{}, isHost=room.hostId===myId;
+  var reconnectingByPlayer = P.reconnectingByPlayer || {};
+  var reconnectNow = typeof P.reconnectNow === "number" ? P.reconnectNow : Date.now();
   var lobbyTh = THEMES[room.themeId]||THEMES.sala;
   var me = room.players.find(function(p){ return p.id===myId; });
   var humans = room.players.filter(function(p){ return !p.isBot; });
@@ -3953,17 +4090,33 @@ function LobbyScreen(P){
 
   var playerRows = humans.map(function(p){
     var online = !!presenceByPlayer[p.id];
+    var rc = reconnectingByPlayer[p.id];
+    var leftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
+    var secLeft = leftMs > 0 ? Math.ceil(leftMs / 1000) : 0;
+    var reconnecting = !online && !!rc && secLeft > 0;
     return React.createElement('div',{key:p.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,.05)',borderRadius:8,marginBottom:6}},
       React.createElement('div',{style:{position:'relative',width:30,height:30,flexShrink:0}},
         React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}},p.name[0]),
-        React.createElement('div',{title:online?'Na rede':'Sem ligação (pode voltar)',style:{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:online?'#4ade80':'#64748b',border:'2px solid #14141c',boxSizing:'border-box'}})
+        React.createElement('div',{title:online?'Na rede':'Sem ligação (pode voltar)',style:{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:online?'#4ade80':'#64748b',border:'2px solid #14141c',boxSizing:'border-box'}}),
+        reconnecting
+          ? React.createElement('span',{
+              title:(rc.name || p.name)+' está reconectando',
+              style:{
+                position:'absolute',top:-3,right:-5,width:13,height:13,border:'2px solid rgba(255,255,255,.35)',borderTopColor:'#fde68a',
+                borderRadius:'50%',animation:'bfHandoffSpin .65s linear infinite',boxSizing:'border-box',background:'rgba(15,23,42,.9)'
+              }
+            })
+          : null
       ),
       React.createElement('div',{style:{flex:1}},
         React.createElement('div',{style:{fontSize:13,fontWeight:600}},p.name+(p.id===myId?' (você)':'')),
         React.createElement('div',{style:{fontSize:10,opacity:0.4}},
           (p.id===room.hostId?'Host \u00b7 ':'')+'Dupla '+(p.team||'?'),
           online ? null : React.createElement('span',{style:{marginLeft:6,color:'#fb923c',opacity:0.95}},' · fora da rede')
-        )
+        ),
+        reconnecting
+          ? React.createElement('div',{style:{fontSize:10,fontWeight:700,color:'#fde68a',marginTop:2}},(rc.name || p.name)+' está reconectando ('+secLeft+'s)')
+          : null
       )
     );
   });
@@ -4072,6 +4225,8 @@ function GameScreen(props){
   var isBotCutter = !!(botSeats && botSeats[cutter]);
   var isRoomHost = !!props.isRoomHost;
   var seatHandoffProp = props.seatHandoff;
+  var reconnectingBySeat = props.reconnectingBySeat || {};
+  var reconnectNow = typeof props.reconnectNow === "number" ? props.reconnectNow : Date.now();
   var seatHandoffUiSt = useState(
     /** @type {null | { seat: number; phase: string; prevName: string; botName: string }} */ (null)
   );
@@ -4947,8 +5102,38 @@ function GameScreen(props){
   /** Nome no lugar do jogador: × + saída do nome → spinner → volta ao nome vindo do estado (IA). */
   function rSeatHandoffNameRow(absSeat, flexStyle, curPForSeat) {
     var ho = seatHandoffUI && seatHandoffUI.seat === absSeat ? seatHandoffUI : null;
+    var rc = reconnectingBySeat[absSeat];
+    var rcLeftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
+    var rcSec = rcLeftMs > 0 ? Math.ceil(rcLeftMs / 1000) : 0;
+    var showReconnect = !ho && rc && rcSec > 0;
     var turn = curPForSeat === absSeat ? rTurnIndicator(mob) : null;
     if (!ho) {
+      if (showReconnect) {
+        return React.createElement(
+          'div',
+          { style: flexStyle },
+          React.createElement(
+            'span',
+            { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: mob ? 9 : 10, opacity: 0.92, fontWeight: 700 } },
+            React.createElement('span', {
+              style: {
+                width: 14,
+                height: 14,
+                border: '2px solid rgba(255,255,255,.3)',
+                borderTopColor: 'rgba(253,224,130,.92)',
+                borderRadius: '50%',
+                animation: 'bfHandoffSpin .65s linear infinite',
+                display: 'inline-block',
+                boxSizing: 'border-box',
+                flexShrink: 0,
+              },
+              'aria-hidden': true,
+            }),
+            (rc.name || NAMES[absSeat]) + ' reconectando (' + rcSec + 's)'
+          ),
+          turn
+        );
+      }
       return React.createElement(
         'div',
         { style: flexStyle },
@@ -5053,6 +5238,30 @@ function GameScreen(props){
   function rSeatHandoffHeroName(absSeat) {
     var bigStyle = { fontSize: mob ? 20 : 24, fontWeight: 800, lineHeight: 1.2 };
     var ho = seatHandoffUI && seatHandoffUI.seat === absSeat ? seatHandoffUI : null;
+    var rc = reconnectingBySeat[absSeat];
+    var rcLeftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
+    var rcSec = rcLeftMs > 0 ? Math.ceil(rcLeftMs / 1000) : 0;
+    if (!ho && rc && rcSec > 0) {
+      return React.createElement(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 } },
+        React.createElement('span', {
+          style: {
+            width: 20,
+            height: 20,
+            border: '2px solid rgba(255,255,255,.3)',
+            borderTopColor: 'rgba(253,224,130,.92)',
+            borderRadius: '50%',
+            animation: 'bfHandoffSpin .65s linear infinite',
+            display: 'inline-block',
+            flexShrink: 0,
+            boxSizing: 'border-box',
+          },
+          'aria-hidden': true,
+        }),
+        React.createElement('span', { style: bigStyle }, (rc.name || NAMES[absSeat]) + ' reconectando (' + rcSec + 's)')
+      );
+    }
     if (!ho) return NAMES[absSeat];
     if (ho.phase === 'out') {
       return React.createElement(
@@ -5618,6 +5827,9 @@ export default function App(){
   var onlineLeaveToast=oltSt[0], setOnlineLeaveToast=oltSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
+  var recByPidSt=useState(/** @type {any} */ ({})); var reconnectingByPlayer=recByPidSt[0], setReconnectingByPlayer=recByPidSt[1];
+  var graceSt=useState(/** @type {any} */ ({})); var graceByPlayer=graceSt[0], setGraceByPlayer=graceSt[1];
+  var recNowSt=useState(Date.now()); var reconnectNow=recNowSt[0], setReconnectNow=recNowSt[1];
   var cardInputSt=useState(/** @type {"drag" | "tap"} */ ("drag"));
   var cardInputMode=cardInputSt[0], setCardInputMode=cardInputSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
@@ -5629,6 +5841,7 @@ export default function App(){
   var roomCodeRef=useRef(roomCode);
   var hostClosedRoomRef=useRef(false);
   var onlineLeaveToastAtRef=useRef(0);
+  var reconnectTimersRef=useRef(/** @type {any} */ ({}));
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
@@ -5642,6 +5855,181 @@ export default function App(){
       setOnlineLeaveToast(null);
     }
   }, [screen]);
+
+  useEffect(function () {
+    var hasGrace = graceByPlayer && Object.keys(graceByPlayer).length > 0;
+    var hasRec = reconnectingByPlayer && Object.keys(reconnectingByPlayer).length > 0;
+    if (!hasGrace && !hasRec) return;
+    var t = setInterval(function () {
+      setReconnectNow(Date.now());
+    }, 250);
+    return function () {
+      clearInterval(t);
+    };
+  }, [graceByPlayer, reconnectingByPlayer]);
+
+  useEffect(function () {
+    if (!db || !roomCode || (screen !== "lobby" && screen !== "online")) {
+      setGraceByPlayer({});
+      return;
+    }
+    var gref = roomGraceRoomRef(roomCode);
+    if (!gref) return;
+    var unsub = onValue(gref, function (snap) {
+      var v = snap.val();
+      if (v && typeof v === "object" && !Array.isArray(v)) setGraceByPlayer(v);
+      else setGraceByPlayer({});
+    });
+    return function () {
+      unsub();
+      setGraceByPlayer({});
+    };
+  }, [roomCode, screen]);
+
+  useEffect(function () {
+    if (!roomCode || !room || !Array.isArray(room.players)) return;
+    if (screen !== "lobby" && screen !== "online") return;
+    var pres = presenceByPlayer || {};
+    room.players.forEach(function (p) {
+      if (!p || p.isBot || !p.id) return;
+      var pid = String(p.id);
+      if (pres[pid]) return;
+      void RT.ensureReconnectDeadline(roomCode, pid);
+    });
+  }, [room, roomCode, presenceByPlayer, screen]);
+
+  useEffect(function () {
+    if (!roomCode || (screen !== "lobby" && screen !== "online")) return;
+    var pres = presenceByPlayer || {};
+    Object.keys(pres).forEach(function (pid) {
+      if (pres[pid]) void RT.clearReconnectDeadline(roomCode, pid);
+    });
+  }, [presenceByPlayer, roomCode, screen]);
+
+  useEffect(function () {
+    if (screen !== "lobby" && screen !== "online") {
+      if (reconnectingByPlayer && Object.keys(reconnectingByPlayer).length > 0) setReconnectingByPlayer({});
+      return;
+    }
+    if (!room || !Array.isArray(room.players)) {
+      if (reconnectingByPlayer && Object.keys(reconnectingByPlayer).length > 0) setReconnectingByPlayer({});
+      return;
+    }
+    var pres = presenceByPlayer || {};
+    var g = graceByPlayer || {};
+    var now = Date.now();
+    var nextByPid = {};
+    room.players.forEach(function (p) {
+      if (!p || p.isBot || !p.id) return;
+      var pid = String(p.id);
+      if (pres[pid]) return;
+      var raw = g[pid];
+      var dl = typeof raw === "number" ? raw : Number(raw || 0);
+      if (!isFinite(dl) || dl <= now) return;
+      nextByPid[pid] = {
+        name: clampDisplayName(String(p.name || "")) || "Jogador",
+        seat: typeof p.seat === "number" ? p.seat : Number(p.seat),
+        deadlineAt: dl,
+      };
+    });
+    var pk = Object.keys(reconnectingByPlayer || {});
+    var nk = Object.keys(nextByPid);
+    var changed = pk.length !== nk.length;
+    if (!changed) {
+      for (var si = 0; si < nk.length; si++) {
+        var k = nk[si];
+        var a = reconnectingByPlayer[k];
+        var b = nextByPid[k];
+        if (!a || !b || a.deadlineAt !== b.deadlineAt || a.name !== b.name || a.seat !== b.seat) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (changed) setReconnectingByPlayer(nextByPid);
+  }, [screen, room, presenceByPlayer, graceByPlayer, myId, reconnectNow, reconnectingByPlayer]);
+
+  useEffect(function () {
+    if (screen !== "lobby" && screen !== "online") {
+      var all0 = reconnectTimersRef.current || {};
+      Object.keys(all0).forEach(function (k) {
+        clearTimeout(all0[k]);
+      });
+      reconnectTimersRef.current = {};
+      return;
+    }
+    if (!room || !Array.isArray(room.players) || !roomCode || !myId) {
+      var all1 = reconnectTimersRef.current || {};
+      Object.keys(all1).forEach(function (k) {
+        clearTimeout(all1[k]);
+      });
+      reconnectTimersRef.current = {};
+      return;
+    }
+    var pres = presenceByPlayer || {};
+    var liveHumans = room.players.filter(function (p) {
+      return p && !p.isBot && p.id;
+    });
+    var onlineHumans = liveHumans.filter(function (p) {
+      return !!pres[String(p.id)];
+    });
+    onlineHumans.sort(function (a, b) {
+      return String(a.id).localeCompare(String(b.id));
+    });
+    var leaderId = onlineHumans.length ? String(onlineHumans[0].id) : "";
+    var iAmLeader = !!(leaderId && String(myId) === leaderId);
+
+    var prevTimers = reconnectTimersRef.current || {};
+    Object.keys(prevTimers).forEach(function (k) {
+      clearTimeout(prevTimers[k]);
+      delete prevTimers[k];
+    });
+
+    if (!iAmLeader) {
+      reconnectTimersRef.current = {};
+      return;
+    }
+
+    var gp = graceByPlayer || {};
+    var timers = {};
+    Object.keys(gp).forEach(function (pid) {
+      var dl = typeof gp[pid] === "number" ? gp[pid] : Number(gp[pid]);
+      if (!isFinite(dl)) return;
+      var waitMs = Math.max(0, dl - Date.now());
+      timers[pid] = setTimeout(function () {
+        delete reconnectTimersRef.current[pid];
+        void (async function () {
+          var code = roomCodeRef.current;
+          var liveScreen = screenRef.current;
+          if (!code || (liveScreen !== "lobby" && liveScreen !== "online")) return;
+          var livePres = await RT.getPresenceMap(code);
+          if (livePres[pid]) return;
+          var r = await RT.getRoom(code);
+          if (!r) return;
+          var stillThere = playerInRoom(r, pid);
+          if (!stillThere || stillThere.isBot) {
+            void RT.clearReconnectDeadline(code, pid);
+            return;
+          }
+          var isHost = r.hostId && String(r.hostId) === String(pid);
+          if (isHost) {
+            hostClosedRoomRef.current = true;
+            setTimeout(function () {
+              hostClosedRoomRef.current = false;
+            }, 3500);
+            await RT.deleteRoom(code);
+            return;
+          }
+          if (r.game) {
+            await RT.replaceDisconnectedWithBot(code, pid);
+          } else {
+            await RT.kickDisconnectedHumanFromLobby(code, pid);
+          }
+        })();
+      }, waitMs);
+    });
+    reconnectTimersRef.current = timers;
+  }, [screen, room, roomCode, myId, presenceByPlayer, graceByPlayer]);
 
   useEffect(function(){
     if (screen !== 'lobby' && screen !== 'online') return;
@@ -5711,7 +6099,7 @@ export default function App(){
       });
     }
     homeJanitorTick();
-    var intervalMs = 60 * 1000;
+    var intervalMs = 10 * 1000;
     var id = setInterval(homeJanitorTick, intervalMs);
     return function(){
       cancelled=true;
@@ -6180,6 +6568,8 @@ export default function App(){
         room: room,
         myId: myId,
         presenceByPlayer: presenceByPlayer,
+        reconnectingByPlayer: reconnectingByPlayer,
+        reconnectNow: reconnectNow,
         onLeave: goHome,
         serverConnected: rtdbConnected,
       }),
@@ -6190,11 +6580,15 @@ export default function App(){
   if(screen==='online' && room && og){
     var seatClamped = resolveOnlineMySeat(room, myId, myName, og.playerNames);
     var botSeatsMap = {};
+    var reconnectingBySeat = {};
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
+      if (!p.isBot && reconnectingByPlayer[p.id] && typeof p.seat === "number" && p.seat >= 0 && p.seat <= 3) {
+        reconnectingBySeat[p.seat] = reconnectingByPlayer[p.id];
+      }
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
       onlineLeaveToastEl
