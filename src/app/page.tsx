@@ -450,6 +450,22 @@ var RT = {
       void e;
     }
   },
+  /** `true` quando existe `reconnectGrace` para o jogador e o deadline já passou (não usar “Retomar esta mesa”). */
+  isReconnectGraceExpired: async function (code, playerId) {
+    if (!db || !code || !playerId) return false;
+    try {
+      var gref = roomReconnectGracePlayerRef(code, playerId);
+      if (!gref) return false;
+      var snap = await get(gref);
+      if (!snap.exists()) return false;
+      var dl = typeof snap.val() === "number" ? snap.val() : Number(snap.val());
+      if (!isFinite(dl)) return false;
+      return Date.now() > dl;
+    } catch (e) {
+      void e;
+      return false;
+    }
+  },
   kickDisconnectedHumanFromLobby: async function (code, playerId) {
     if (!db || !code || !playerId) return false;
     try {
@@ -4223,6 +4239,8 @@ function GameScreen(props){
   var botSeats = props.botSeats || {};
   /** Boolean estável para deps de efeitos — `botSeats` é recriado no pai a cada render. */
   var isBotCutter = !!(botSeats && botSeats[cutter]);
+  /** Human→IA na mesma vaza não muda `curP`; sem isto o host não re-dispara o timer de jogada da IA. */
+  var curSeatIsBot = g.curP >= 0 && g.curP <= 3 && !!(botSeats && botSeats[g.curP]);
   var isRoomHost = !!props.isRoomHost;
   var seatHandoffProp = props.seatHandoff;
   var reconnectingBySeat = props.reconnectingBySeat || {};
@@ -4847,7 +4865,7 @@ function GameScreen(props){
       });
     },BOT_PLAY_DELAY_MS);
     return function(){ clearTimeout(t); };
-  },[g.curP,g.phase,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid]);
+  },[g.curP,g.phase,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid,curSeatIsBot]);
 
   // Host: IA não jogou (timer perdido / race) — tenta de novo após margem extra.
   useEffect(function(){
@@ -4863,7 +4881,7 @@ function GameScreen(props){
       });
     },BOT_PLAY_DELAY_MS+4000);
     return function(){ clearTimeout(w); };
-  },[g.curP,g.phase,g.trickN,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid]);
+  },[g.curP,g.phase,g.trickN,partnerCount,partnerViewPause,isOnline,isRoomHost,myPid,curSeatIsBot]);
 
   // Segurança: limpa aceReveal se ficou preso (o fluxo normal limpa ao fechar a mão). Online: só o host — o jogador do 7 pode desligar.
   useEffect(function(){
@@ -6087,9 +6105,29 @@ export default function App(){
         setResumeOffer(null);
         return;
       }
-      void RT.getRoom(s.code).then(function(r){
-        if(cancelled) return;
-        if(!r || !playerInRoom(r, s.playerId)){
+      void RT.getRoom(s.code).then(async function (r) {
+        if (cancelled) return;
+        if (!r || !playerInRoom(r, s.playerId)) {
+          clearBfSession();
+          setResumeOffer(null);
+          return;
+        }
+        var graceExpired = await RT.isReconnectGraceExpired(s.code, s.playerId);
+        var lastAtRaw = r.lastPresenceAt;
+        var lastAt = typeof lastAtRaw === "number" ? lastAtRaw : Number(lastAtRaw || 0);
+        var roomStale =
+          isFinite(lastAt) &&
+          lastAt > 0 &&
+          Date.now() - lastAt > RECONNECT_GRACE_MS;
+        var imHost = String(r.hostId || "") === String(s.playerId);
+        if (graceExpired || (imHost && roomStale)) {
+          if (imHost) {
+            try {
+              await RT.deleteRoom(s.code);
+            } catch (e) {
+              void e;
+            }
+          }
           clearBfSession();
           setResumeOffer(null);
           return;
@@ -6273,6 +6311,27 @@ export default function App(){
     setResumeBusy(true);
     var r = await RT.getRoom(s.code);
     if(!r || !playerInRoom(r, s.playerId)){
+      clearBfSession();
+      setResumeOffer(null);
+      setResumeBusy(false);
+      return;
+    }
+    var graceExpired = await RT.isReconnectGraceExpired(s.code, s.playerId);
+    var lastAtRaw0 = r.lastPresenceAt;
+    var lastAt0 = typeof lastAtRaw0 === "number" ? lastAtRaw0 : Number(lastAtRaw0 || 0);
+    var roomStale0 =
+      isFinite(lastAt0) &&
+      lastAt0 > 0 &&
+      Date.now() - lastAt0 > RECONNECT_GRACE_MS;
+    var imHost0 = String(r.hostId || "") === String(s.playerId);
+    if (graceExpired || (imHost0 && roomStale0)) {
+      if (imHost0) {
+        try {
+          await RT.deleteRoom(s.code);
+        } catch (e) {
+          void e;
+        }
+      }
       clearBfSession();
       setResumeOffer(null);
       setResumeBusy(false);
