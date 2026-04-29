@@ -17,6 +17,11 @@
             "$playerId": {
               ".validate": "!newData.exists() || newData.isNumber()"
             }
+          },
+          "lastPing": {
+            "$playerId": {
+              ".validate": "!newData.exists() || newData.isNumber()"
+            }
           }
         }
       },

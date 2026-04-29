@@ -9,6 +9,19 @@ var RTP = "bisca/presence";
 var ROOM_ORPHAN_TTL_MS = 30 * 1000;
 var ROOM_ACTIVITY_TOUCH_MS = 12 * 1000;
 var RECONNECT_GRACE_MS = 30 * 1000;
+/** Sem heartbeat em `lastPing`: presence RTDB pode manter true após queda de rede — tratar como fora após este tempo. */
+var PLAYER_PING_STALE_MS = 2 * ROOM_ACTIVITY_TOUCH_MS + 8000;
+/** `presence` diz online e ping (se existir) não está velho — alinha UI e prazo de reconexão com a rede real. */
+function playerEffectivelyOnline(presenceByPlayer, lastPingByPlayer, playerId, now) {
+  var pid = String(playerId);
+  var pres = presenceByPlayer || {};
+  if (!pres[pid]) return false;
+  var lp = lastPingByPlayer || {};
+  var raw = lp[pid];
+  var t = typeof raw === "number" ? raw : Number(raw || 0);
+  if (!isFinite(t) || t <= 0) return true;
+  return now - t < PLAYER_PING_STALE_MS;
+}
 function roomDbRef(code) {
   if (!db) return null;
   return ref(db, RTB + "/" + code);
@@ -41,6 +54,14 @@ function roomReconnectGracePlayerRef(code, playerId) {
 function roomReconnectGraceParentRef(code) {
   if (!db || !code) return null;
   return ref(db, RTB + "/" + code + "/reconnectGrace");
+}
+function roomLastPingParentRef(code) {
+  if (!db || !code) return null;
+  return ref(db, RTB + "/" + code + "/lastPing");
+}
+function roomLastPingPlayerRef(code, playerId) {
+  if (!db || !code || !playerId) return null;
+  return ref(db, RTB + "/" + code + "/lastPing/" + playerId);
 }
 
 function bfVictoryFxKey(sfm, setWins) {
@@ -375,6 +396,11 @@ var RT = {
         if (sg && typeof sg === "object" && !Array.isArray(sg)) {
           payload.reconnectGrace = Object.assign({}, sg, pg && typeof pg === "object" && !Array.isArray(pg) ? pg : {});
         }
+        var slp = ev && ev.lastPing;
+        var plp = payload.lastPing;
+        if (slp && typeof slp === "object" && !Array.isArray(slp)) {
+          payload.lastPing = Object.assign({}, slp, plp && typeof plp === "object" && !Array.isArray(plp) ? plp : {});
+        }
       }
       if (Array.isArray(payload.players)) {
         var pm = {};
@@ -431,7 +457,7 @@ var RT = {
       var snap = await get(gref);
       if (snap.exists()) {
         var ex = typeof snap.val() === "number" ? snap.val() : Number(snap.val());
-        return isFinite(ex) ? ex : 0;
+        if (isFinite(ex) && ex > Date.now()) return ex;
       }
       var dl = Date.now() + RECONNECT_GRACE_MS;
       await rtSet(gref, dl);
@@ -520,6 +546,12 @@ var RT = {
       } catch (e) {
         void e;
       }
+      try {
+        var pingRef = roomLastPingPlayerRef(code, playerId);
+        if (pingRef) await rtSet(pingRef, Date.now());
+      } catch (e) {
+        void e;
+      }
       var od = onDisconnect(pref);
       await od.remove();
       activePresenceOnDisconnect = od;
@@ -552,6 +584,16 @@ var RT = {
       var lref = roomLastPresenceAtRef(code);
       if (!lref) return;
       await rtSet(lref, Date.now());
+    } catch (e) {
+      void e;
+    }
+  },
+  /** Heartbeat por jogador (path profundo — não apaga a sala com setRoom). */
+  touchMyRoomLastPing: async function (code, playerId) {
+    if (!db || !code || !playerId) return;
+    try {
+      var pref = roomLastPingPlayerRef(code, playerId);
+      if (pref) await rtSet(pref, Date.now());
     } catch (e) {
       void e;
     }
@@ -4063,6 +4105,7 @@ function LobbyScreen(P){
   var room=P.room, myId=P.myId, presenceByPlayer=P.presenceByPlayer||{}, isHost=room.hostId===myId;
   var reconnectingByPlayer = P.reconnectingByPlayer || {};
   var reconnectNow = typeof P.reconnectNow === "number" ? P.reconnectNow : Date.now();
+  var lastPingMap = P.lastPingByPlayer || {};
   var lobbyTh = THEMES[room.themeId]||THEMES.sala;
   var me = room.players.find(function(p){ return p.id===myId; });
   var humans = room.players.filter(function(p){ return !p.isBot; });
@@ -4105,7 +4148,7 @@ function LobbyScreen(P){
   }
 
   var playerRows = humans.map(function(p){
-    var online = !!presenceByPlayer[p.id];
+    var online = playerEffectivelyOnline(presenceByPlayer, lastPingMap, p.id, reconnectNow);
     var rc = reconnectingByPlayer[p.id];
     var leftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
     var secLeft = leftMs > 0 ? Math.ceil(leftMs / 1000) : 0;
@@ -5860,6 +5903,9 @@ export default function App(){
   var hostClosedRoomRef=useRef(false);
   var onlineLeaveToastAtRef=useRef(0);
   var reconnectTimersRef=useRef(/** @type {any} */ ({}));
+  var rtdbConnPrevRef=useRef(/** @type {boolean | null} */ (null));
+  var lpSt=useState(/** @type {any} */ ({}));
+  var lastPingByPlayer=lpSt[0], setLastPingByPlayer=lpSt[1];
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
@@ -5875,16 +5921,14 @@ export default function App(){
   }, [screen]);
 
   useEffect(function () {
-    var hasGrace = graceByPlayer && Object.keys(graceByPlayer).length > 0;
-    var hasRec = reconnectingByPlayer && Object.keys(reconnectingByPlayer).length > 0;
-    if (!hasGrace && !hasRec) return;
+    if (screen !== "lobby" && screen !== "online") return;
     var t = setInterval(function () {
       setReconnectNow(Date.now());
-    }, 250);
+    }, 500);
     return function () {
       clearInterval(t);
     };
-  }, [graceByPlayer, reconnectingByPlayer]);
+  }, [screen]);
 
   useEffect(function () {
     if (!db || !roomCode || (screen !== "lobby" && screen !== "online")) {
@@ -5905,24 +5949,54 @@ export default function App(){
   }, [roomCode, screen]);
 
   useEffect(function () {
+    if (!RT.isConfigured() || !roomCode || (screen !== "lobby" && screen !== "online")) {
+      setLastPingByPlayer({});
+      return;
+    }
+    var pref = roomLastPingParentRef(roomCode);
+    if (!pref) return;
+    var unsub = onValue(pref, function (snap) {
+      var v = snap.val();
+      if (v && typeof v === "object" && !Array.isArray(v)) setLastPingByPlayer(v);
+      else setLastPingByPlayer({});
+    });
+    return function () {
+      unsub();
+      setLastPingByPlayer({});
+    };
+  }, [roomCode, screen]);
+
+  useEffect(function () {
     if (!roomCode || !room || !Array.isArray(room.players)) return;
     if (screen !== "lobby" && screen !== "online") return;
     var pres = presenceByPlayer || {};
+    var lpm = lastPingByPlayer || {};
+    var now = reconnectNow;
     room.players.forEach(function (p) {
       if (!p || p.isBot || !p.id) return;
       var pid = String(p.id);
-      if (pres[pid]) return;
+      if (playerEffectivelyOnline(pres, lpm, pid, now)) return;
       void RT.ensureReconnectDeadline(roomCode, pid);
     });
-  }, [room, roomCode, presenceByPlayer, screen]);
+  }, [room, roomCode, presenceByPlayer, lastPingByPlayer, reconnectNow, screen]);
 
   useEffect(function () {
     if (!roomCode || (screen !== "lobby" && screen !== "online")) return;
     var pres = presenceByPlayer || {};
-    Object.keys(pres).forEach(function (pid) {
-      if (pres[pid]) void RT.clearReconnectDeadline(roomCode, pid);
-    });
-  }, [presenceByPlayer, roomCode, screen]);
+    var lpm = lastPingByPlayer || {};
+    var now = reconnectNow;
+    if (room && Array.isArray(room.players)) {
+      room.players.forEach(function (p) {
+        if (!p || p.isBot || !p.id) return;
+        var pid = String(p.id);
+        if (playerEffectivelyOnline(pres, lpm, pid, now)) void RT.clearReconnectDeadline(roomCode, pid);
+      });
+    } else {
+      Object.keys(pres).forEach(function (pid) {
+        if (playerEffectivelyOnline(pres, lpm, pid, now)) void RT.clearReconnectDeadline(roomCode, pid);
+      });
+    }
+  }, [presenceByPlayer, lastPingByPlayer, reconnectNow, room, roomCode, screen]);
 
   useEffect(function () {
     if (screen !== "lobby" && screen !== "online") {
@@ -5934,13 +6008,14 @@ export default function App(){
       return;
     }
     var pres = presenceByPlayer || {};
+    var lpm = lastPingByPlayer || {};
     var g = graceByPlayer || {};
-    var now = Date.now();
+    var now = reconnectNow;
     var nextByPid = {};
     room.players.forEach(function (p) {
       if (!p || p.isBot || !p.id) return;
       var pid = String(p.id);
-      if (pres[pid]) return;
+      if (playerEffectivelyOnline(pres, lpm, pid, now)) return;
       var raw = g[pid];
       var dl = typeof raw === "number" ? raw : Number(raw || 0);
       if (!isFinite(dl) || dl <= now) return;
@@ -5965,7 +6040,7 @@ export default function App(){
       }
     }
     if (changed) setReconnectingByPlayer(nextByPid);
-  }, [screen, room, presenceByPlayer, graceByPlayer, myId, reconnectNow, reconnectingByPlayer]);
+  }, [screen, room, presenceByPlayer, lastPingByPlayer, graceByPlayer, myId, reconnectNow, reconnectingByPlayer]);
 
   useEffect(function () {
     if (screen !== "lobby" && screen !== "online") {
@@ -5985,11 +6060,13 @@ export default function App(){
       return;
     }
     var pres = presenceByPlayer || {};
+    var lpm = lastPingByPlayer || {};
+    var now = reconnectNow;
     var liveHumans = room.players.filter(function (p) {
       return p && !p.isBot && p.id;
     });
     var onlineHumans = liveHumans.filter(function (p) {
-      return !!pres[String(p.id)];
+      return playerEffectivelyOnline(pres, lpm, p.id, now);
     });
     onlineHumans.sort(function (a, b) {
       return String(a.id).localeCompare(String(b.id));
@@ -6021,9 +6098,16 @@ export default function App(){
           var liveScreen = screenRef.current;
           if (!code || (liveScreen !== "lobby" && liveScreen !== "online")) return;
           var livePres = await RT.getPresenceMap(code);
-          if (livePres[pid]) return;
           var r = await RT.getRoom(code);
           if (!r) return;
+          var lpObj = r.lastPing && typeof r.lastPing === "object" && !Array.isArray(r.lastPing) ? r.lastPing : {};
+          function stillOnlineForKick(pidStr) {
+            var rawT = lpObj[pidStr];
+            var tn = typeof rawT === "number" ? rawT : Number(rawT || 0);
+            if (isFinite(tn) && tn > 0 && Date.now() - tn < PLAYER_PING_STALE_MS) return true;
+            return !!livePres[pidStr];
+          }
+          if (stillOnlineForKick(pid)) return;
           var stillThere = playerInRoom(r, pid);
           if (!stillThere || stillThere.isBot) {
             void RT.clearReconnectDeadline(code, pid);
@@ -6047,7 +6131,7 @@ export default function App(){
       }, waitMs);
     });
     reconnectTimersRef.current = timers;
-  }, [screen, room, roomCode, myId, presenceByPlayer, graceByPlayer]);
+  }, [screen, room, roomCode, myId, presenceByPlayer, lastPingByPlayer, graceByPlayer, reconnectNow]);
 
   useEffect(function(){
     if (screen !== 'lobby' && screen !== 'online') return;
@@ -6087,6 +6171,21 @@ export default function App(){
       setRtdbConnected(null);
     };
   }, [screen]);
+
+  useEffect(function () {
+    if (screen !== "lobby" && screen !== "online") {
+      rtdbConnPrevRef.current = null;
+      return;
+    }
+    if (!roomCode || !myId) return;
+    var prev = rtdbConnPrevRef.current;
+    rtdbConnPrevRef.current = rtdbConnected;
+    if (rtdbConnected === true && prev === false) {
+      void RT.clearReconnectDeadline(roomCode, myId);
+      void RT.attachRoomPresence(roomCode, myId);
+      void RT.touchMyRoomLastPing(roomCode, myId);
+    }
+  }, [rtdbConnected, roomCode, myId, screen]);
 
   useEffect(function(){
     if(screen!=="home"){
@@ -6242,16 +6341,18 @@ export default function App(){
 
   /* Enquanto houver humanos na sala, renova carimbo para limpeza por TTL de salas órfãs. */
   useEffect(function(){
-    if(!RT.isConfigured() || !roomCode) return;
+    if(!RT.isConfigured() || !roomCode || !myId) return;
     if(screen!=="lobby" && screen!=="online") return;
     void RT.touchRoomPresenceActivity(roomCode);
+    void RT.touchMyRoomLastPing(roomCode, myId);
     var t = setInterval(function(){
       void RT.touchRoomPresenceActivity(roomCode);
+      void RT.touchMyRoomLastPing(roomCode, myId);
     }, ROOM_ACTIVITY_TOUCH_MS);
     return function(){
       clearInterval(t);
     };
-  },[roomCode, screen]);
+  },[roomCode, screen, myId]);
 
   useEffect(function(){
     if(screen!=="online"||!room||!room.game) return;
@@ -6627,6 +6728,7 @@ export default function App(){
         room: room,
         myId: myId,
         presenceByPlayer: presenceByPlayer,
+        lastPingByPlayer: lastPingByPlayer,
         reconnectingByPlayer: reconnectingByPlayer,
         reconnectNow: reconnectNow,
         onLeave: goHome,
