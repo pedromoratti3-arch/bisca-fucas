@@ -3362,7 +3362,7 @@ function bfSettingsRulesContent(narrow) {
     P(
       't2a',
       null,
-      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no monte, com o corte virado. Depois, a cada rodada que alguém ganha, cada um vai buscar cartas ao monte até ter de novo 10 na mão (ou até acabar essa mão de 40 cartas).'
+      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no baralho, com o corte virado. Depois, a cada rodada, quem ganhou compra primeiro e os restantes jogadores compram uma carta do baralho pela ordem da mesa, até o baralho acabar.'
     ),
     H4('s2b', '2.2 Copas batido — três cartas de cada vez'),
     P(
@@ -3380,12 +3380,12 @@ function bfSettingsRulesContent(narrow) {
     P(
       't4a',
       null,
-      'Ao cortar, o baralho é reorganizado e fica definido o naipe de corte da mão. A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa mão — o jogo trata disso automaticamente depois do corte.'
+      'Ao cortar, o baralho é reorganizado e fica definido o naipe de corte da partida. A carta cortada vai para baixo do baralho (fica como a última carta). A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa partida — o jogo trata disso automaticamente depois do corte.'
     ),
     P(
       't4b',
       null,
-      'Se a carta do corte for Ás ou 7, o corte não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no monte), e o jogo fixa o corte certo para esses casos.'
+      'Se a carta do corte for Ás ou 7, o corte não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no baralho), e o jogo fixa o corte certo para esses casos.'
     ),
     P(
       't4c',
@@ -3401,20 +3401,15 @@ function bfSettingsRulesContent(narrow) {
     P(
       't5a',
       null,
-      'Joga-se em rodadas de quatro cartas (cada uma é uma rodada como na mesa real). Quem abre escolhe o naipe de saída; os outros seguem esse naipe se tiverem carta. Quem ganha a rodada leva os pontos das quatro cartas e abre a seguinte. São 10 rodadas por mão de 40 cartas até as mãos esvaziarem.'
+      'Joga-se em rodadas de quatro cartas (cada uma é uma rodada como na mesa real). Quem abre escolhe o naipe de saída. Quem ganha a rodada leva os pontos das quatro cartas e abre a seguinte. São 10 rodadas por partida de 40 cartas até as mãos esvaziarem.'
     ),
     H4('s5b', 'Troca do 2 (só modo normal)'),
     P(
       't5b',
       null,
-      'Se você tiver o 2 do corte, pode trocá-lo pela carta de corte virada no monte — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
+      'Se você tiver o 2 do corte, pode trocá-lo pela carta de corte virada no baralho — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
     ),
     H3('s6', '6. Pontuação na partida'),
-    P(
-      't6intro',
-      Object.assign({}, p, { marginBottom: 12 }),
-      'Isto é o que sobe no placar da partida, mão após mão:'
-    ),
     H4('s6a', '6.1 Vitória por pontos'),
     P(
       't6a',
