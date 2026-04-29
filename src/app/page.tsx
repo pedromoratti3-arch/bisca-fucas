@@ -183,6 +183,25 @@ function clearBfSession() {
   }
 }
 
+var BF_CARD_INPUT_KEY = "bf_card_input_mode_v1";
+function readBfCardInputMode() {
+  try {
+    if (typeof localStorage === "undefined") return "drag";
+    var v = localStorage.getItem(BF_CARD_INPUT_KEY);
+    return v === "tap" ? "tap" : "drag";
+  } catch {
+    return "drag";
+  }
+}
+function writeBfCardInputMode(mode) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(BF_CARD_INPUT_KEY, mode === "tap" ? "tap" : "drag");
+  } catch {
+    void 0;
+  }
+}
+
 /** Limite no estilo de jogos competitivos (ex.: nome de invocador ~16 caracteres). */
 var DISPLAY_NAME_MAX = 16;
 /** Enquanto digita: junta espaços repetidos e corta só espaços no início — o espaço no fim fica (senão “João |” perde o espaço antes da próxima letra). */
@@ -3443,6 +3462,76 @@ function bfSettingsRulesContent(narrow) {
   );
 }
 
+function bfSettingsGameplayContent(narrow, cardInputMode, onModeChange) {
+  var mode = cardInputMode === "tap" ? "tap" : "drag";
+  var wrap = {
+    maxWidth: 760,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  };
+  var hint = {
+    margin: "0 0 4px",
+    fontSize: 14,
+    lineHeight: 1.55,
+    color: "rgba(236,228,218,.78)",
+  };
+  function modeBtn(id, title, desc, recommended) {
+    var active = mode === id;
+    return React.createElement(
+      "button",
+      {
+        key: id,
+        type: "button",
+        onClick: function () {
+          onModeChange(id);
+        },
+        style: {
+          width: "100%",
+          textAlign: "left",
+          padding: narrow ? "12px 14px" : "14px 16px",
+          borderRadius: 12,
+          border: active ? "1px solid rgba(212,168,67,.62)" : "1px solid rgba(255,255,255,.15)",
+          background: active
+            ? "linear-gradient(165deg, rgba(212,168,67,.2) 0%, rgba(90,50,8,.34) 100%)"
+            : "linear-gradient(165deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.02) 100%)",
+          boxShadow: active
+            ? "0 0 0 1px rgba(212,168,67,.25) inset, 0 8px 24px rgba(0,0,0,.28)"
+            : "0 6px 20px rgba(0,0,0,.22)",
+          cursor: "pointer",
+          color: "rgba(255,255,255,.95)",
+        },
+      },
+      React.createElement(
+        "div",
+        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 } },
+        React.createElement("strong", { style: { fontSize: 14, letterSpacing: 0.25 } }, title),
+        recommended ? React.createElement("span", {
+          style: {
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            borderRadius: 999,
+            padding: "3px 7px",
+            background: active ? "rgba(255,255,255,.18)" : "rgba(212,168,67,.2)",
+            color: active ? "rgba(255,255,255,.94)" : "#f0d078",
+          },
+        }, "Recomendado") : null
+      ),
+      React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5, color: "rgba(236,228,218,.78)" } }, desc)
+    );
+  }
+
+  return React.createElement(
+    "div",
+    { style: wrap },
+    React.createElement("p", { style: hint }, "Escolha como jogar as cartas durante a partida:"),
+    modeBtn("drag", "Arrastando a carta (atual)", "Você arrasta a carta para o centro da mesa. Este é o modo padrão.", true),
+    modeBtn("tap", "Clicando na carta (clássico)", "Você toca/clica na carta para jogar direto.", false)
+  );
+}
+
 /**
  * Configurações — mesmo ADN visual do menu (gradiente #0a0a12 / #1a0a14, ouro #d4a843–#f0d078,
  * vermelho Bisca #C41230), tipografia system-ui como em `globals.css`, painel com vidro e ouro.
@@ -3451,6 +3540,8 @@ function SettingsScreen(P){
   var resumeTopPad = typeof P.resumeTopPad === 'number' ? P.resumeTopPad : 0;
   var narrow = useNarrowScreen();
   var onBack = P.onBack || function(){};
+  var cardInputMode = P.cardInputMode === "tap" ? "tap" : "drag";
+  var onCardInputModeChange = typeof P.onCardInputModeChange === "function" ? P.onCardInputModeChange : function(){};
   var ts = useState('rules');
   var tab = ts[0], setTab = ts[1];
 
@@ -3474,7 +3565,7 @@ function SettingsScreen(P){
 
   var tabs = [
     { id: 'rules', label: 'REGRAS', title: 'Regras' },
-    { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade', body: 'Ritmo das animações, feedback tátil, sons e opções de acessibilidade para uma experiência confortável em qualquer dispositivo — em breve.' },
+    { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade' },
     {
       id: 'about',
       label: 'SOBRE',
@@ -3722,17 +3813,19 @@ function SettingsScreen(P){
           ),
           active.id === 'rules'
             ? bfSettingsRulesContent(narrow)
-            : React.createElement('p', {
-                style: {
-                  margin: 0,
-                  fontSize: 15,
-                  lineHeight: 1.68,
-                  color: 'rgba(236,228,218,.78)',
-                  maxWidth: 720,
-                  fontWeight: 450,
-                  whiteSpace: 'pre-line',
-                },
-              }, active.body)
+            : active.id === 'gameplay'
+              ? bfSettingsGameplayContent(narrow, cardInputMode, onCardInputModeChange)
+              : React.createElement('p', {
+                  style: {
+                    margin: 0,
+                    fontSize: 15,
+                    lineHeight: 1.68,
+                    color: 'rgba(236,228,218,.78)',
+                    maxWidth: 720,
+                    fontWeight: 450,
+                    whiteSpace: 'pre-line',
+                  },
+                }, active.body)
         )
       )
     )
@@ -3957,6 +4050,7 @@ function GameScreen(props){
 
   var g=props.g, sg=props.sg, isSolo=props.isSolo;
   var mob = useNarrowScreen();
+  var cardInputMode = props.cardInputMode === "tap" ? "tap" : "drag";
   var _ms = props.mySeat;
   var mySeat = typeof _ms === 'number' && _ms >= 0 && _ms <= 3 ? _ms : 0;
   var isOnline=props.isOnline||false, myPid=props.myPid||'', roomCode=props.roomCode||'';
@@ -4580,6 +4674,12 @@ function GameScreen(props){
       if (d && d.pointerId != null) e.currentTarget.releasePointerCapture(d.pointerId);
     } catch (_) {}
   }
+  useEffect(function(){
+    if(cardInputMode !== "tap") return;
+    dragSessionRef.current = null;
+    setHandGhost(null);
+    setHandLiftId(null);
+  },[cardInputMode]);
 
   // IA (solo) ou bots online — só o host simula bots e grava lastActor para sincronizar
   useEffect(function(){
@@ -4767,6 +4867,35 @@ function GameScreen(props){
       var ab = c.v==='A' && c.s===g.trump && !mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, c, g.trickN);
       var canClick = myTurn && !ab && (!partnerViewPause || partnerCount<=0);
       if (canClick) {
+        if (cardInputMode === "tap") {
+          return React.createElement(
+            'div',
+            {
+              key: c.id,
+              role: 'button',
+              tabIndex: 0,
+              'aria-label': 'Toque na carta para jogar.',
+              style: {
+                display: 'inline-flex',
+                position: 'relative',
+                cursor: 'pointer',
+                borderRadius: 8,
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+              },
+              onClick: function () {
+                playCard(mySeat, c);
+              },
+              onKeyDown: function (ev) {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  playCard(mySeat, c);
+                }
+              },
+            },
+            rCard(c, null, false, true, false, ab, mob, cbk)
+          );
+        }
         var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
         var liftedThis = handLiftId === c.id;
         return React.createElement(
@@ -5494,6 +5623,8 @@ export default function App(){
   var onlineLeaveToast=oltSt[0], setOnlineLeaveToast=oltSt[1];
   var rtConnSt=useState(/** @type {boolean | null} */ (null));
   var rtdbConnected=rtConnSt[0], setRtdbConnected=rtConnSt[1];
+  var cardInputSt=useState(/** @type {"drag" | "tap"} */ ("drag"));
+  var cardInputMode=cardInputSt[0], setCardInputMode=cardInputSt[1];
   var themeKey = locId && THEMES[locId] ? locId : 'sala';
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
@@ -5506,6 +5637,10 @@ export default function App(){
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
+
+  useEffect(function(){
+    setCardInputMode(readBfCardInputMode());
+  },[]);
 
   useEffect(function(){
     if (screen !== 'lobby' && screen !== 'online') {
@@ -5975,7 +6110,16 @@ export default function App(){
     var resumePadSt = resumeOffer ? 168 : 0;
     var settingsTopPad = resumePadSt + (roomClosedNotice ? 118 : 0);
     return React.createElement(React.Fragment,null,
-      React.createElement(SettingsScreen,{ resumeTopPad: settingsTopPad, onBack:function(){ setScreen('home'); } }),
+      React.createElement(SettingsScreen,{
+        resumeTopPad: settingsTopPad,
+        cardInputMode: cardInputMode,
+        onCardInputModeChange:function(mode){
+          var next = mode === "tap" ? "tap" : "drag";
+          setCardInputMode(next);
+          writeBfCardInputMode(next);
+        },
+        onBack:function(){ setScreen('home'); }
+      }),
       resumeBanner,
       roomClosedBanner
     );
@@ -6055,7 +6199,7 @@ export default function App(){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
       onlineLeaveToastEl
@@ -6064,7 +6208,7 @@ export default function App(){
 
   if(screen==='solo' && g){
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme}),
+      React.createElement(GameScreen,{g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
       exitBtn, exitModal
     );
   }
