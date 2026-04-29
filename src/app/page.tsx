@@ -646,7 +646,7 @@ function getWin(tk,tr){
   return tk.reduce(function(b,c){ return beats(c.card,b.card,L,tr)?c:b; }, tk[0]);
 }
 
-/** RÉLE: 7 de trunfo imediatamente seguido do Ás de trunfo — só quando o Ás acaba de entrar (últimas 2 da vaza). */
+/** RÉLE: 7 de corte imediatamente seguido do Ás de corte — só quando o Ás acaba de entrar (últimas 2 da vaza). */
 function makeReleToastIfAny(trick, trump) {
   if (!Array.isArray(trick) || trick.length < 2 || !trump) return null;
   var a = trick[trick.length - 2];
@@ -823,7 +823,7 @@ function bfResolveEndRound(pv, roomHostId, isOnline) {
 }
 
 /**
- * Índice de rotação do baralho antes de revelar a 13.ª carta (trunfo).
+ * Índice de rotação do baralho antes de revelar a 13.ª carta (corte).
  * O UI humano usa só duas faixas: metade de baixo (8–12) e metade de cima (16–20).
  * Os bots usavam 8–31 ao calhas, o que favorecia demais a metade de cima e cortes “estranhos”.
  */
@@ -908,7 +908,7 @@ function mayPlaySevenTrumpFourth(trickLen, hand, trump, card, trick, trickN){
   return false;
 }
 
-/** Ás de trunfo só depois do 7 ter saído (nesta vaza ou noutra). Exceções: mão 10/10 (trickN===9); ou só te resta uma carta na mão e é o Ás (não tens o 7 — não podes cumprir “sair com o 7 primeiro”). Se tens outras cartas e o 7 ainda não saiu, não podes antecipar o Ás. */
+/** Ás de corte só depois do 7 ter saído (nesta vaza ou noutra). Exceções: mão 10/10 (trickN===9); ou só te resta uma carta na mão e é o Ás (não tens o 7 — não podes cumprir “sair com o 7 primeiro”). Se tens outras cartas e o 7 ainda não saiu, não podes antecipar o Ás. */
 function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
   if(!card || card.v!=='A' || card.s!==trump) return true;
   if(trickN===9) return true;
@@ -921,7 +921,7 @@ function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
 }
 
 /**
- * Parceiro jogou o 7 de trunfo nesta vaza — a mesma dupla não joga o Ás de trunfo nessa vaza (evita desperdício).
+ * Parceiro jogou o 7 de corte nesta vaza — a mesma dupla não joga o Ás de corte nessa vaza (evita desperdício).
  * Excepção: última mão da ronda (trickN===9), para o bot não ficar sem jogada legal / a travar a partida.
  */
 function aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, card, trickN, mySeat) {
@@ -942,7 +942,7 @@ function aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, card, tr
   return false;
 }
 
-/** Bíscas = Ás e 7 nos naipes que não são o de trunfo. O Ás e o 7 de trunfo não são bíscas. */
+/** Bíscas = Ás e 7 nos naipes que não são o de corte. O Ás e o 7 de corte não são bíscas. */
 function isBiscaCard(card, trump){
   return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
 }
@@ -956,19 +956,19 @@ function trickNeedsStrongTrumpCut(trick, trump, trickPts){
 }
 
 function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
-  /* Vocabulário Bisca Fucas (mesa): "corte" = trunfo; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
-     "bísca" = Ás ou 7 fora do naipe de trunfo (Ás/7 de trunfo não são bíscas);
-     "encarte" = matar no mesmo naipe que a saída (inclui trunfo: ex. saída 2♥, pode subir com 3♥–6♥ se não houver bísca na mesa).
-     Com saída em trunfo e SEM bísca na mesa: não escalar K/J/Q (nem encarte “de mesa”) só para levar vaza fraca —
-     preferir perder com trunfo baixo se der. Na abertura, RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
+  /* Vocabulário Bisca Fucas (mesa): "corte" = corte; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
+     "bísca" = Ás ou 7 fora do naipe de corte (Ás/7 de corte não são bíscas);
+     "encarte" = matar no mesmo naipe que a saída (inclui corte: ex. saída 2♥, pode subir com 3♥–6♥ se não houver bísca na mesa).
+     Com saída em corte e SEM bísca na mesa: não escalar K/J/Q (nem encarte “de mesa”) só para levar vaza fraca —
+     preferir perder com corte baixo se der. Na abertura, RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
      Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
      (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
      (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
-     Réle: após o 7 de trunfo na mesa o próximo pode jogar o Ás — excepto 7 do parceiro na mesma vaza (excepto última mão, trickN 9, para não travar).
-     Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/trunfo que ganha.
-     Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de trunfo; no último da vaza, não subir o corte do parceiro — só somar pontos fora de trunfo se der.
-     Abertura: não sair com Ás/7 de bísca (fora de trunfo) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
-     Seguir: encartar no naipe de abertura quando dá para ganhar; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do trunfo) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
+     Réle: após o 7 de corte na mesa o próximo pode jogar o Ás — excepto 7 do parceiro na mesma vaza (excepto última mão, trickN 9, para não travar).
+     Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/corte que ganha.
+     Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de corte; no último da vaza, não subir o corte do parceiro — só somar pontos fora de corte se der.
+     Abertura: não sair com Ás/7 de bísca (fora de corte) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
+     Seguir: encartar no naipe de abertura quando dá para ganhar; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do corte) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
   if(!hand.length) return null;
   if(!mem) mem = makeMemory();
   if(mySeat==null || mySeat<0) mySeat = 0;
@@ -1016,7 +1016,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(nb.length) return lowest(nb);
     return lowest(cards);
   }
-  /** Versão “global”: prefere não-bísca no conjunto jogável inteiro (não só fora de trunfo). */
+  /** Versão “global”: prefere não-bísca no conjunto jogável inteiro (não só fora de corte). */
   function lowestPreferNoBiscaAny(cards){
     if(!cards||!cards.length) return null;
     var nb = cards.filter(function(c){ return !isBiscaCard(c, trump); });
@@ -1041,7 +1041,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
 
   // ══ LEADING ══
   if(!trick.length){
-    /* Nunca abrir a vaza com bísca (Ás/7 fora de trunfo) se houver qualquer outra carta jogável — só bísca/trunfo na mão é exceção. */
+    /* Nunca abrir a vaza com bísca (Ás/7 fora de corte) se houver qualquer outra carta jogável — só bísca/corte na mão é exceção. */
     var poolLead = pool.filter(function(c){ return !isBiscaCard(c, trump); });
     if(poolLead.length) pool = poolLead;
     trumpCards = pool.filter(function(c){ return c.s===trump; });
@@ -1049,8 +1049,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
     strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
 
-    // RULE 1: na 1.ª mão (trickN===0), se abrir e tiver o 7 de trunfo, sai com ele (vale 1 pt na mesa).
-    // Nas mãos 2–10 não abrir com o 7 de trunfo: expõe demais o Ás de trunfo do adversário. O 7 de trunfo nas
+    // RULE 1: na 1.ª mão (trickN===0), se abrir e tiver o 7 de corte, sai com ele (vale 1 pt na mesa).
+    // Nas mãos 2–10 não abrir com o 7 de corte: expõe demais o Ás de corte do adversário. O 7 de corte nas
     // posições 2–4 da vaza (encarte, réle com Ás na mão, etc.) continua tratado no bloco FOLLOWING / mayPlaySevenTrumpFourth.
     var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
     if(my7t && trickN===0) return my7t;
@@ -1112,8 +1112,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(lnb) return lnb;
     }
     var trumpLead = trumpCards;
-    /* Abertura: evitar K/J/Q de trunfo sem bísca na rodada (não existe bísca na mesa ao abrir),
-       salvo quando não há alternativa de trunfo mais baixo. */
+    /* Abertura: evitar K/J/Q de corte sem bísca na rodada (não existe bísca na mesa ao abrir),
+       salvo quando não há alternativa de corte mais baixo. */
     var noHighTrumpLead = trumpLead.filter(function (c) {
       return !(c.s === trump && (c.v === "K" || c.v === "J" || c.v === "Q"));
     });
@@ -1139,15 +1139,15 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   var voidLead = followOpts.length===0;
   var followWinners = winners(followOpts, curWin.card, lead);
   /* Com cartas do naipe de abertura: se alguma ganha → só encarte (esse naipe). Se nenhuma ganha →
-     adversário a ganhar: lixar 0 pts (não trunfo) se não der para cortar a vencer; senão mão livre para cortar/lixar.
+     adversário a ganhar: lixar 0 pts (não corte) se não der para cortar a vencer; senão mão livre para cortar/lixar.
      Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder).
-     Excepção: parceiro já ganha de trunfo e só tens no naipe de saída bíscas/figuras altas (≥10 pts) que não mudam
-     quem leva — não “empilhar” Ás/7 só por cumprir naipe se houver lixo 0 pts fora de trunfo que mantém a vaza
+     Excepção: parceiro já ganha de corte e só tens no naipe de saída bíscas/figuras altas (≥10 pts) que não mudam
+     quem leva — não “empilhar” Ás/7 só por cumprir naipe se houver lixo 0 pts fora de corte que mantém a vaza
      (house rule / heurística; na bisca de mesa costuma ser obrigatório seguir o naipe). */
   if(followOpts.length){
     if(followWinners.length){
       var loseFollow = followOpts.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
-      /* Parceiro já vai ganhar no naipe de abertura: não restringir ao Ás (ou outras que batem o 7 dele) — lixar trunfo mais baixo se houver. */
+      /* Parceiro já vai ganhar no naipe de abertura: não restringir ao Ás (ou outras que batem o 7 dele) — lixar corte mais baixo se houver. */
       if(partnerWinning && loseFollow.length) pool = loseFollow;
       else if(
         partnerWinning &&
@@ -1155,7 +1155,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
         curWin.card.s===trump &&
         pTm(curWin.player)===mt
       ){
-        /* Só o Ás de trunfo ganha por cima do 7: nunca roubar a vaza ao parceiro com o Ás se houver outra carta do naipe de saída. */
+        /* Só o Ás de corte ganha por cima do 7: nunca roubar a vaza ao parceiro com o Ás se houver outra carta do naipe de saída. */
         var noAceOverMate7 = followOpts.filter(function(c){ return !(c.v==='A' && c.s===trump); });
         pool = noAceOverMate7.length ? noAceOverMate7 : followWinners;
       } else if(
@@ -1194,7 +1194,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
         if ((!twCut.length && d0.length) || (d0.length && onlyHighLosingFollow)) pool = d0;
         else pool = poolAll;
       } else {
-        /* Parceiro já ganha de trunfo: em geral manter pool completo (ex.: empilhar 7♠ na vaza quando faz sentido).
+        /* Parceiro já ganha de corte: em geral manter pool completo (ex.: empilhar 7♠ na vaza quando faz sentido).
            Se só tens no naipe de saída cartas muito valiosas que não mudam o vencedor, preferir lixo 0 pts. */
         var teammateTrumpWinning = curWin.card.s===trump && pTm(curWin.player)===mt;
         var dm = poolAll.filter(function(c){ return dumpZeroSafe(c) && trickStillOurs(c); });
@@ -1224,8 +1224,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     !trickNeedsStrongTrumpCut(trick, trump, trickPts) &&
     !trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
 
-  /* Evita “queimar” corte à toa: se o adversário já vai ganhando com trunfo e eu não consigo passar por cima,
-     descarto fora de trunfo sempre que possível. */
+  /* Evita “queimar” corte à toa: se o adversário já vai ganhando com corte e eu não consigo passar por cima,
+     descarto fora de corte sempre que possível. */
   if(curWin.card.s===trump && pTm(curWin.player)!==mt){
     var canOverTrump = pool.some(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
     if(!canOverTrump){
@@ -1233,8 +1233,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(dumpNt0.length) return lowest(dumpNt0);
       var dumpNtSafe = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump); });
       if(dumpNtSafe.length) return lowest(dumpNtSafe);
-      /* Já perdemos para trunfo adversário e não dá para passar: antes de “oferecer” bísca/figura fora de trunfo,
-         preferir morrer com trunfo baixo que não ganha (ex.: 2♥ abaixo de 3♥). */
+      /* Já perdemos para corte adversário e não dá para passar: antes de “oferecer” bísca/figura fora de corte,
+         preferir morrer com corte baixo que não ganha (ex.: 2♥ abaixo de 3♥). */
       var loseTrumpLow = pool.filter(function(c){
         return (
           c.s===trump &&
@@ -1256,9 +1256,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     }
   }
 
-  /* Adversário já ganha só com corte, sem bísca nem vaza pesada, e não há 7 de trunfo em jogo: não “subir” corte (encartar trunfo) — perder com o menor trunfo / lixo possível. */
+  /* Adversário já ganha só com corte, sem bísca nem vaza pesada, e não há 7 de corte em jogo: não “subir” corte (encartar corte) — perder com o menor corte / lixo possível. */
   if(lowStakeOppTrumpWins){
-    /* Preferir lixo fora de trunfo a partir da mão completa: com saída em trunfo e adversário a ganhar,
+    /* Preferir lixo fora de corte a partir da mão completa: com saída em corte e adversário a ganhar,
        não “queimar” 3♥–6♥ se ainda há 0 pts noutro naipe (ex.: 2♥, 6♥ na mesa e na mão só perdes com 3♥). */
     var shedNt0Ls = poolAll.filter(function(c){ return c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump); });
     if(shedNt0Ls.length) return lowest(shedNt0Ls);
@@ -1270,7 +1270,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(shedNtSoftLs.length) return lowest(shedNtSoftLs);
   }
 
-  // Réle: Ás logo a seguir ao 7 de trunfo — não forçar se o parceiro já pôs o 7 nesta vaza, excepto na última mão (trickN 9) para não deixar o pool sem jogada útil.
+  // Réle: Ás logo a seguir ao 7 de corte — não forçar se o parceiro já pôs o 7 nesta vaza, excepto na última mão (trickN 9) para não deixar o pool sem jogada útil.
   if(trick.length>0){
     var partnerPlayedSevenTrump = trick.some(function(t){
       return t && t.card && t.card.s===trump && t.card.v==='7' && pTm(t.player)===mt && t.player!==mySeat;
@@ -1297,7 +1297,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(!safePool.length) return lowest(pool);
 
     var mateWinsTrump = curWin.card.s===trump;
-    /* Bísca na mesa, parceiro vai ganhando com corte e ainda há quem jogar: subir ao máximo de trunfo para não deixarem roubar a vaza. */
+    /* Bísca na mesa, parceiro vai ganhando com corte e ainda há quem jogar: subir ao máximo de corte para não deixarem roubar a vaza. */
     if(anyBiscaTableGlobal && mateWinsTrump && !isLast){
       var raiseTrump = pool.filter(function(c){
         if(!(c.s===trump && beats(c, curWin.card, lead, trump) && teamWinsWith(c))) return false;
@@ -1319,8 +1319,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       if(ntLeadWin.length) candidates = ntLeadWin;
     }
     /* Quem leva a vaza: em geral não “roubar” ao parceiro no meio da vaza (mantém o mesmo assento vencedor).
-       Em último jogador, basta a dupla continuar a ganhar — pode somar bísca/trunfo ainda que o vencedor
-       passe de tu para o parceiro (ex.: tu encartaste e o parceiro fecha com 7♥ de trunfo na mesa). */
+       Em último jogador, basta a dupla continuar a ganhar — pode somar bísca/corte ainda que o vencedor
+       passe de tu para o parceiro (ex.: tu encartaste e o parceiro fecha com 7♥ de corte na mesa). */
     function winnerSeatIfPlay(card){
       return getWin(trick.concat([{ player: mySeat, card: card }]), trump).player;
     }
@@ -1335,7 +1335,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
         if(dumpLose.length) return lowest(dumpLose);
       }
     }
-    /* Último a jogar, bísca na mesa, parceiro já vai ganhando com corte: não “subir” o corte do parceiro — somar fora de trunfo se der. */
+    /* Último a jogar, bísca na mesa, parceiro já vai ganhando com corte: não “subir” o corte do parceiro — somar fora de corte se der. */
     if(isLast && anyBiscaTableGlobal && mateWinsTrump && pTm(curWin.player)===mt){
       var noTrumpOverMate = candidates.filter(function(c){
         if(c.s!==trump) return true;
@@ -1343,7 +1343,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       });
       if(noTrumpOverMate.length) candidates = noTrumpOverMate;
     }
-    // Parceiro já largou bísca (Ás/7 fora de trunfo): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
+    // Parceiro já largou bísca (Ás/7 fora de corte): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
     var matePlayedBisca = trick.some(function(t){
       return pTm(t.player)===mt && isBiscaCard(t.card, trump);
     });
@@ -1355,9 +1355,9 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var sansAceOverMate7 = candidates.filter(function(c){ return !(c.v==='A' && c.s===trump); });
       if(sansAceOverMate7.length) candidates = sansAceOverMate7;
     }
-    /* Parceiro a ganhar no naipe (não trunfo) e ainda falta adversário jogar:
-       não “entregar” bísca/figuras cedo. Prioriza descarte seguro; se houver trunfo baixo, usa-o
-       em vez de largar Ás/7 fora de trunfo. */
+    /* Parceiro a ganhar no naipe (não corte) e ainda falta adversário jogar:
+       não “entregar” bísca/figuras cedo. Prioriza descarte seguro; se houver corte baixo, usa-o
+       em vez de largar Ás/7 fora de corte. */
     if(!mateWinsTrump && !isLast){
       var safeZero = candidates.filter(function(c){ return cPts(c)===0 && !isBiscaCard(c, trump); });
       var safeZeroTrump = safeZero.filter(function(c){ return c.s===trump; });
@@ -1372,12 +1372,12 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
   }
 
-  // Parceiro já pôs bísca (Ás/7 fora de trunfo): recuperar esses pontos pesa mais que poupar corte baixo
+  // Parceiro já pôs bísca (Ás/7 fora de corte): recuperar esses pontos pesa mais que poupar corte baixo
   var partnerPutBisca = trick.some(function(t){
     return pTm(t.player)===mt && isBiscaCard(t.card, trump);
   });
 
-  /* Adversário já ganha com corte (ex.: 4 de copas), vaza sem bísca — nunca descartar Ás/7 fora de trunfo se houver lixo. */
+  /* Adversário já ganha com corte (ex.: 4 de copas), vaza sem bísca — nunca descartar Ás/7 fora de corte se houver lixo. */
   var anyBiscaOnTableEarly = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
   if(
     voidLead &&
@@ -1400,8 +1400,8 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var loseTrumpFollow = followSuit.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
       function isHeavyTrump(c){ return c.v==='A' || c.v==='7' || c.v==='K' || c.v==='J' || c.v==='Q'; }
       var lightWinTrump = suitW.filter(function(c){ return !isHeavyTrump(c); });
-      /* Trunfo puxado sem bísca na mesa: não gastar figuras (K/J/Q) nem A/7 só para “encartar” vaza fraca.
-         Ex.: saída 2♥, 6♥, J♥ — o último não deve pôr R♥ se ainda pode perder com trunfo baixo. */
+      /* corte puxado sem bísca na mesa: não gastar figuras (K/J/Q) nem A/7 só para “encartar” vaza fraca.
+         Ex.: saída 2♥, 6♥, J♥ — o último não deve pôr R♥ se ainda pode perder com corte baixo. */
       if(!anyBiscaTableGlobal && !trickNeedsStrongTrumpCut(trick, trump, trickPts)){
         if(loseTrumpFollow.length){
           if(!isLast) return lowest(loseTrumpFollow);
@@ -1433,13 +1433,13 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
   if(trumpW.length){
     var stakeHigh = trickNeedsStrongTrumpCut(trick, trump, trickPts);
     var anyBiscaOnTable = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
-    /* Bísca na mesa e adversários a ganhar: sempre o maior trunfo que ganha (não deixar escapar a vaza). */
+    /* Bísca na mesa e adversários a ganhar: sempre o maior corte que ganha (não deixar escapar a vaza). */
     if(anyBiscaOnTable && !partnerWinning && pTm(curWin.player)!==mt){
       return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
     }
     function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
     function highTrumpAllowedNow(){
-      /* Regra pedida: K/J/Q de trunfo só quando há bísca na rodada. */
+      /* Regra pedida: K/J/Q de corte só quando há bísca na rodada. */
       return anyBiscaOnTable;
     }
     /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
@@ -1487,7 +1487,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       var trumpSevenWin = trumpW.find(function(c){ return c.v==='7' && c.s===trump; });
       if(trumpSevenWin) return trumpSevenWin;
     }
-    // Parceiro ainda joga: vaza sem grande valor — não abrir cortes em cadeia; lixo fora de trunfo
+    // Parceiro ainda joga: vaza sem grande valor — não abrir cortes em cadeia; lixo fora de corte
     if(!stakeHigh && partnerNotYetPlayed && !isLast && !partnerPutBisca && voidLead && !losing){
       if(trickPts<=8){
         var shed0 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
@@ -1544,7 +1544,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
     if(endGame && trickPts>=3) return pickWinningTrumpChosen();
 
     /* Sem o naipe de saída: se não há lixo 0 pts fora de bísca para descartar, cortar com o menor
-       trunfo que ganha — senão a heurística “não vale cortar” deixa a IA “chutar” Ás/7 (bísca) na vaza
+       corte que ganha — senão a heurística “não vale cortar” deixa a IA “chutar” Ás/7 (bísca) na vaza
        perdida (ex.: 7♦ com K♣ a ganhar e 3♥ na mão). */
     if(voidLead && !partnerPutBisca){
       var cheapDumpVoid = nonTrump.filter(function(c){
@@ -1555,7 +1555,7 @@ function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, 
       }
     }
 
-    // Not worth trumping — mínimo de perda; nunca bísca fora de trunfo se houver outra carta
+    // Not worth trumping — mínimo de perda; nunca bísca fora de corte se houver outra carta
     var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
     if(gb2.length) return lowest(gb2);
     if(nonTrump.length){
@@ -2836,7 +2836,7 @@ function aceRevealFlipAnchorStyle(seat, mySeat, mob){
   return { left: '50%', top: '36%', transform: 'translate(-50%, -50%)' };
 }
 
-/** Ás de trunfo revelado: costas → face (3D), como uma carta da mão a virar. */
+/** Ás de corte revelado: costas → face (3D), como uma carta da mão a virar. */
 function aceRevealFlipVisual(ace, mob, cbk){
   if(!ace || !ace.v || !ace.s) return null;
   var face = rCard(ace, null, false, false, false, false, mob, cbk);
@@ -3343,13 +3343,13 @@ function bfSettingsRulesContent(narrow) {
     P(
       't2a',
       null,
-      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no monte, com o trunfo virado. Depois, a cada rodada que alguém ganha, cada um vai buscar cartas ao monte até ter de novo 10 na mão (ou até acabar essa mão de 40 cartas).'
+      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no monte, com o corte virado. Depois, a cada rodada que alguém ganha, cada um vai buscar cartas ao monte até ter de novo 10 na mão (ou até acabar essa mão de 40 cartas).'
     ),
     H4('s2b', '2.2 Copas batido — três cartas de cada vez'),
     P(
       't2b',
       null,
-      'O cortador pode «bater» e declarar copas batido: o trunfo fica fixo em copas. Aqui são 4 passagens e, em cada uma, cada jogador recebe três cartas de uma vez — no fim é o mesmo: 3 cartas na mão de cada um para começar. Neste modo não há troca do 2 pelo trunfo.'
+      'O cortador pode «bater» e declarar copas batido: o corte fica fixo em copas. Aqui são 4 passagens e, em cada uma, cada jogador recebe três cartas de uma vez — no fim é o mesmo: 3 cartas na mão de cada um para começar. Neste modo não há troca do 2 pelo corte.'
     ),
     H3('s3', '3. Valor das cartas (para contar pontos nas rodadas)'),
     P(
@@ -3357,26 +3357,26 @@ function bfSettingsRulesContent(narrow) {
       null,
       'Ás 11, sete 10, rei 4, valete 3, dama 2; 6, 5, 4, 3 e 2 valem zero. No baralho inteiro são 120 pontos no total.'
     ),
-    H3('s4', '4. O corte define o trunfo'),
+    H3('s4', '4. O corte define o Naipe'),
     P(
       't4a',
       null,
-      'Ao cortar, o baralho é reorganizado e fica definido o naipe de trunfo da mão. A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa mão — o jogo trata disso automaticamente depois do corte.'
+      'Ao cortar, o baralho é reorganizado e fica definido o naipe de corte da mão. A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa mão — o jogo trata disso automaticamente depois do corte.'
     ),
     P(
       't4b',
       null,
-      'Se a carta do corte for Ás ou 7, o trunfo não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no monte), e o jogo fixa o trunfo certo para esses casos.'
+      'Se a carta do corte for Ás ou 7, o corte não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no monte), e o jogo fixa o corte certo para esses casos.'
     ),
     P(
       't4c',
       null,
-      'Se for outra carta, o trunfo é o naipe dela e ela é a carta virada no meio que você pode trocar pelo 2 (no modo normal). Se em vez de cortar normalmente você optar por bater, o trunfo é sempre copas — é o «copas batido».'
+      'Se for outra carta, o corte é o naipe dela e ela é a carta virada no meio que você pode trocar pelo 2 (no modo normal). Se em vez de cortar normalmente você optar por bater, o corte é sempre copas — é o «copas batido».'
     ),
     P(
       't4d',
       null,
-      'Fora isso: qualquer trunfo ganha a cartas que não são trunfo; no mesmo naipe a força é Ás > 7 > R > V > D > 6 > 5 > 4 > 3 > 2.'
+      'Fora isso: qualquer corte ganha a cartas que não são corte; no mesmo naipe a força é Ás > 7 > R > V > D > 6 > 5 > 4 > 3 > 2.'
     ),
     H3('s5', '5. Como se joga na mesa'),
     P(
@@ -3388,7 +3388,7 @@ function bfSettingsRulesContent(narrow) {
     P(
       't5b',
       null,
-      'Se você tiver o 2 do trunfo, pode trocá-lo pela carta de trunfo virada no monte — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
+      'Se você tiver o 2 do corte, pode trocá-lo pela carta de corte virada no monte — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
     ),
     H3('s6', '6. Pontuação na partida'),
     P(
@@ -3406,13 +3406,13 @@ function bfSettingsRulesContent(narrow) {
     P(
       't6b',
       null,
-      'Na mesma rodada, se o 7 de trunfo sair logo antes do Ás de trunfo, é réle: a equipe que leva essa rodada ganha +1 no placar da partida.'
+      'Na mesma rodada, se o 7 de corte sair logo antes do Ás de corte, é réle: a equipe que leva essa rodada ganha +1 no placar da partida.'
     ),
     H4('s6c', '6.3 Sete de abertura'),
     P(
       't6c',
       null,
-      'Se a primeira carta da primeira rodada dessa mão for o 7 de trunfo, a equipe desse jogador ganha +1 no placar da partida.'
+      'Se a primeira carta da primeira rodada dessa mão for o 7 de corte, a equipe desse jogador ganha +1 no placar da partida.'
     ),
     H4('s6d', '6.4 Copas batido'),
     P(
@@ -3434,9 +3434,9 @@ function bfSettingsRulesContent(narrow) {
       null,
       'Se a equipe que perde por pontos ficar com menos de 30 nos pontos das cartas, é capote: quem ganhou leva mais +1 no placar da partida.'
     ),
-    H4('s6h', '6.8 Fechar a partida'),
+    H3('s7', '7. Ganhar o jogo'),
     P(
-      't6h',
+      't7',
       null,
       'A partida acaba quando uma equipe chega a 4 pontos. Se as duas estiverem com 4 ou mais ao mesmo tempo, continua até haver desempate por pontos numa mão.'
     )
@@ -4446,7 +4446,7 @@ function GameScreen(props){
       if(!rawTc || !rawTc.v) return pv;
       if(rawTc.v==='7'||rawTc.v==='A'){ trump=PAIRS[rawTc.s]; tc=null; }
       else{ trump=rawTc.s; tc=rawTc; }
-      var msg = tc ? ('Trunfo: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - trunfo: '+SYM[trump]+' '+trump+'!');
+      var msg = tc ? ('corte: '+tc.v+SYM[tc.s]+'! Distribuindo...') : ('Cortou '+rawTc.v+SYM[rawTc.s]+' - corte: '+SYM[trump]+' '+trump+'!');
       if(isOnline){
         /* lastActor = quem gravou esta transição: tem de ser myPid para RT.setGame correr aqui.
            O cortador humano raramente é o host; com lastActor só no host o corte nunca ia para o RT
@@ -4483,14 +4483,14 @@ function GameScreen(props){
     var h7=hand.some(function(c){ return c && c.v==='7' && c.s===g.trump; });
     if(!mayPlayAceTrump(g.trick, g.trump, g.trumpSevenOut, hand, card, g.trickN)){
       var msgAce = h7
-        ? ('Jogue o 7 de '+SYM[g.trump]+' '+g.trump+' antes do Ás de trunfo!')
+        ? ('Jogue o 7 de '+SYM[g.trump]+' '+g.trump+' antes do Ás de corte!')
         : ('O Ás de '+g.trump+' só sai após o 7!');
       if(isOnline) showPlayDeniedLocal(msgAce);
       else sg(function(p){ return Object.assign({},p,{msg:msgAce}); });
       return;
     }
     if(!mayPlaySevenTrumpFourth(g.trick.length, hand, g.trump, card, g.trick, g.trickN)){
-      var m7 = 'O 7 de trunfo não pode ser a 4.ª carta sem o Ás de trunfo na mão ou já na mesa!';
+      var m7 = 'O 7 de corte não pode ser a 4.ª carta sem o Ás de corte na mão ou já na mesa!';
       if(isOnline) showPlayDeniedLocal(m7);
       else sg(function(p){ return Object.assign({},p,{msg:m7}); });
       return;
@@ -4704,7 +4704,7 @@ function GameScreen(props){
     });
   }
 
-  /* IA / host online: troca 2 pelo corte sempre que o corte for maior que o 2 no trunfo (3, 4, … até ao Ás). */
+  /* IA / host online: troca 2 pelo corte sempre que o corte for maior que o 2 no corte (3, 4, … até ao Ás). */
   useEffect(function(){
     if(g.phase!=='playing') return;
     if(partnerViewPause && partnerCount>0) return;
@@ -5067,7 +5067,7 @@ function GameScreen(props){
               });
             })()
           },'Bater!'),
-          React.createElement('div',{style:{fontSize:10,opacity:0.45}},'Bater = trunfo e copas, vencer vale 2 pts')
+          React.createElement('div',{style:{fontSize:10,opacity:0.45}},'Bater = corte e copas, vencer vale 2 pts')
         )
       ) : null,
       aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
@@ -5078,7 +5078,7 @@ function GameScreen(props){
       ) : null,
       g.phase==='deal' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:6}},
         React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.72,display:'flex',alignItems:'center',justifyContent:'center',gap:8}},
-          React.createElement('span',null,'trunfo:'),
+          React.createElement('span',null,'corte:'),
           React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:15}},SYM[g.trump]+' '+g.trump),
           isCB ? React.createElement('span',{style:{background:badgeBg,borderRadius:4,padding:'1px 6px',fontSize:11}},'BATIDO') : null
         ),
@@ -5189,12 +5189,12 @@ function GameScreen(props){
               textAlign: 'center',
             },
           },
-          React.createElement('div', { style: { fontSize: mob ? 13 : 14, fontWeight: 800, letterSpacing: 0.35, color: '#93c5fd', marginBottom: 5 } }, 'Ás de trunfo na mesa'),
+          React.createElement('div', { style: { fontSize: mob ? 13 : 14, fontWeight: 800, letterSpacing: 0.35, color: '#93c5fd', marginBottom: 5 } }, 'Ás de corte na mesa'),
           React.createElement(
             'div',
             { style: { fontSize: mob ? 12 : 13, lineHeight: 1.45, color: 'rgba(255,255,255,.9)' } },
             NAMES[ar.seat] +
-              ' fechou a rodada com o 7 de trunfo e mostrou o Ás ' +
+              ' fechou a rodada com o 7 de corte e mostrou o Ás ' +
               SYM[g.trump] +
               ' (' +
               (g.trump || '') +
@@ -5327,7 +5327,7 @@ function GameScreen(props){
     React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
       React.createElement('span',{style:playDenied?{color:'#fb923c',fontWeight:600}:undefined},playDenied!=null?playDenied:g.msg),
       React.createElement('span',{style:{opacity:0.58,fontSize:mob?9:11,lineHeight:1.45,fontWeight:400}},
-        'trunfo: ',
+        'corte: ',
         React.createElement('b',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontWeight:600}},g.trump?SYM[g.trump]+' '+g.trump:'?'),
         ' \u00b7 m\u00e3o '+Math.min(g.trickN + 1, 10)+'/10 \u00b7 deck: '+
         (g.phase==='deal'?(g.batido?Math.max(0,28-g.dealStep*3):Math.max(0,28-g.dealStep)):g.deck.length),
@@ -5344,7 +5344,7 @@ function GameScreen(props){
         : isCB ? React.createElement('span',{style:{color:'#fca5a5',fontSize:14,fontWeight:'bold'}},'\u2665 copas batido')
         : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
             rCard(g.rawTc,null,false,false,true,false,mob,cbk),
-            React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:11}},'\u2192 trunfo: '+SYM[g.trump]+' '+g.trump),
+            React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:11}},'\u2192 corte: '+SYM[g.trump]+' '+g.trump),
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
         : g.trump ? React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:14,fontWeight:'bold'}},SYM[g.trump]+' '+g.trump) : null,
