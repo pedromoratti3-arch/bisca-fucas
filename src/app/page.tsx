@@ -11,15 +11,67 @@ var ROOM_ACTIVITY_TOUCH_MS = 12 * 1000;
 var RECONNECT_GRACE_MS = 30 * 1000;
 /** Sem heartbeat em `lastPing`: presence RTDB pode manter true após queda de rede — tratar como fora após este tempo. */
 var PLAYER_PING_STALE_MS = 2 * ROOM_ACTIVITY_TOUCH_MS + 8000;
-/** `presence` diz online e ping (se existir) não está velho — alinha UI e prazo de reconexão com a rede real. */
-function playerEffectivelyOnline(presenceByPlayer, lastPingByPlayer, playerId, now) {
+/** Ao entrar na sala, não tratar ausência de `lastPing` como offline até o primeiro intervalo de heartbeat. */
+var ROOM_PING_BOOTSTRAP_MS = 20 * 1000;
+/** Há pelo menos outro humano na sala com ping válido — então ausência de ping neste `playerId` indica problema (ex.: parou de bater). */
+function anyPeerHasPing(lastPingByPlayer, roomPlayers, selfPid) {
+  var lp = lastPingByPlayer || {};
+  var self = String(selfPid);
+  if (roomPlayers && Array.isArray(roomPlayers)) {
+    for (var i = 0; i < roomPlayers.length; i++) {
+      var pl = roomPlayers[i];
+      if (!pl || pl.isBot || !pl.id) continue;
+      var pk = String(pl.id);
+      if (pk === self) continue;
+      var pt = lp[pk];
+      var ptn = typeof pt === "number" ? pt : Number(pt || 0);
+      if (isFinite(ptn) && ptn > 0) return true;
+    }
+    return false;
+  }
+  var ks = Object.keys(lp);
+  for (var j = 0; j < ks.length; j++) {
+    var k = ks[j];
+    if (!k || k.charAt(0) === "_") continue;
+    if (String(k) === self) continue;
+    var pt2 = lp[k];
+    var ptn2 = typeof pt2 === "number" ? pt2 : Number(pt2 || 0);
+    if (isFinite(ptn2) && ptn2 > 0) return true;
+  }
+  return false;
+}
+/**
+ * `serverConnected`: `false` = este cliente sem RTDB — `lastPing` deixa de refrescar mas o relógio avança;
+ *   para outros jogadores confia só em `presence`; para ti próprio considera offline (grace/UI).
+ * `true` ou `null`: usa ping; se outro já tem ping e este jogador não, trata como offline (evita “sempre online”).
+ * `pingBootstrap`: logo após entrar na sala — ainda não exigir ping neste jogador (primeiro heartbeat ~12s).
+ */
+function playerEffectivelyOnline(
+  presenceByPlayer,
+  lastPingByPlayer,
+  playerId,
+  now,
+  serverConnected,
+  myPlayerId,
+  roomPlayers,
+  pingBootstrap
+) {
   var pid = String(playerId);
   var pres = presenceByPlayer || {};
   if (!pres[pid]) return false;
+  if (serverConnected === false) {
+    if (myPlayerId != null && String(myPlayerId) === pid) return false;
+    return true;
+  }
   var lp = lastPingByPlayer || {};
   var raw = lp[pid];
   var t = typeof raw === "number" ? raw : Number(raw || 0);
-  if (!isFinite(t) || t <= 0) return true;
+  var pingKnown = isFinite(t) && t > 0;
+  if (!pingKnown) {
+    if (pingBootstrap) return true;
+    if (serverConnected === true && anyPeerHasPing(lp, roomPlayers, pid)) return false;
+    return true;
+  }
   return now - t < PLAYER_PING_STALE_MS;
 }
 function roomDbRef(code) {
@@ -4148,7 +4200,16 @@ function LobbyScreen(P){
   }
 
   var playerRows = humans.map(function(p){
-    var online = playerEffectivelyOnline(presenceByPlayer, lastPingMap, p.id, reconnectNow);
+    var online = playerEffectivelyOnline(
+      presenceByPlayer,
+      lastPingMap,
+      p.id,
+      reconnectNow,
+      P.serverConnected,
+      P.myId,
+      room.players,
+      P.pingBootstrap
+    );
     var rc = reconnectingByPlayer[p.id];
     var leftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
     var secLeft = leftMs > 0 ? Math.ceil(leftMs / 1000) : 0;
@@ -5904,11 +5965,18 @@ export default function App(){
   var onlineLeaveToastAtRef=useRef(0);
   var reconnectTimersRef=useRef(/** @type {any} */ ({}));
   var rtdbConnPrevRef=useRef(/** @type {boolean | null} */ (null));
+  var roomPingSinceMsRef=useRef(0);
   var lpSt=useState(/** @type {any} */ ({}));
   var lastPingByPlayer=lpSt[0], setLastPingByPlayer=lpSt[1];
   screenRef.current=screen;
   myIdRef.current=myId;
   roomCodeRef.current=roomCode;
+
+  useEffect(function () {
+    if (roomCode && (screen === "lobby" || screen === "online")) {
+      roomPingSinceMsRef.current = Date.now();
+    }
+  }, [roomCode, screen]);
 
   useEffect(function(){
     setCardInputMode(readBfCardInputMode());
@@ -5972,31 +6040,35 @@ export default function App(){
     var pres = presenceByPlayer || {};
     var lpm = lastPingByPlayer || {};
     var now = reconnectNow;
+    var pingB = now - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS;
     room.players.forEach(function (p) {
       if (!p || p.isBot || !p.id) return;
       var pid = String(p.id);
-      if (playerEffectivelyOnline(pres, lpm, pid, now)) return;
+      if (playerEffectivelyOnline(pres, lpm, pid, now, rtdbConnected, myId, room.players, pingB)) return;
       void RT.ensureReconnectDeadline(roomCode, pid);
     });
-  }, [room, roomCode, presenceByPlayer, lastPingByPlayer, reconnectNow, screen]);
+  }, [room, roomCode, presenceByPlayer, lastPingByPlayer, reconnectNow, screen, rtdbConnected, myId]);
 
   useEffect(function () {
     if (!roomCode || (screen !== "lobby" && screen !== "online")) return;
     var pres = presenceByPlayer || {};
     var lpm = lastPingByPlayer || {};
     var now = reconnectNow;
+    var pingB = now - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS;
     if (room && Array.isArray(room.players)) {
       room.players.forEach(function (p) {
         if (!p || p.isBot || !p.id) return;
         var pid = String(p.id);
-        if (playerEffectivelyOnline(pres, lpm, pid, now)) void RT.clearReconnectDeadline(roomCode, pid);
+        if (playerEffectivelyOnline(pres, lpm, pid, now, rtdbConnected, myId, room.players, pingB))
+          void RT.clearReconnectDeadline(roomCode, pid);
       });
     } else {
       Object.keys(pres).forEach(function (pid) {
-        if (playerEffectivelyOnline(pres, lpm, pid, now)) void RT.clearReconnectDeadline(roomCode, pid);
+        if (playerEffectivelyOnline(pres, lpm, pid, now, rtdbConnected, myId, null, pingB))
+          void RT.clearReconnectDeadline(roomCode, pid);
       });
     }
-  }, [presenceByPlayer, lastPingByPlayer, reconnectNow, room, roomCode, screen]);
+  }, [presenceByPlayer, lastPingByPlayer, reconnectNow, room, roomCode, screen, rtdbConnected, myId]);
 
   useEffect(function () {
     if (screen !== "lobby" && screen !== "online") {
@@ -6011,11 +6083,12 @@ export default function App(){
     var lpm = lastPingByPlayer || {};
     var g = graceByPlayer || {};
     var now = reconnectNow;
+    var pingB = now - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS;
     var nextByPid = {};
     room.players.forEach(function (p) {
       if (!p || p.isBot || !p.id) return;
       var pid = String(p.id);
-      if (playerEffectivelyOnline(pres, lpm, pid, now)) return;
+      if (playerEffectivelyOnline(pres, lpm, pid, now, rtdbConnected, myId, room.players, pingB)) return;
       var raw = g[pid];
       var dl = typeof raw === "number" ? raw : Number(raw || 0);
       if (!isFinite(dl) || dl <= now) return;
@@ -6040,7 +6113,7 @@ export default function App(){
       }
     }
     if (changed) setReconnectingByPlayer(nextByPid);
-  }, [screen, room, presenceByPlayer, lastPingByPlayer, graceByPlayer, myId, reconnectNow, reconnectingByPlayer]);
+  }, [screen, room, presenceByPlayer, lastPingByPlayer, graceByPlayer, myId, reconnectNow, reconnectingByPlayer, rtdbConnected]);
 
   useEffect(function () {
     if (screen !== "lobby" && screen !== "online") {
@@ -6062,11 +6135,12 @@ export default function App(){
     var pres = presenceByPlayer || {};
     var lpm = lastPingByPlayer || {};
     var now = reconnectNow;
+    var pingB = now - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS;
     var liveHumans = room.players.filter(function (p) {
       return p && !p.isBot && p.id;
     });
     var onlineHumans = liveHumans.filter(function (p) {
-      return playerEffectivelyOnline(pres, lpm, p.id, now);
+      return playerEffectivelyOnline(pres, lpm, p.id, now, rtdbConnected, myId, room.players, pingB);
     });
     onlineHumans.sort(function (a, b) {
       return String(a.id).localeCompare(String(b.id));
@@ -6101,13 +6175,7 @@ export default function App(){
           var r = await RT.getRoom(code);
           if (!r) return;
           var lpObj = r.lastPing && typeof r.lastPing === "object" && !Array.isArray(r.lastPing) ? r.lastPing : {};
-          function stillOnlineForKick(pidStr) {
-            var rawT = lpObj[pidStr];
-            var tn = typeof rawT === "number" ? rawT : Number(rawT || 0);
-            if (isFinite(tn) && tn > 0 && Date.now() - tn < PLAYER_PING_STALE_MS) return true;
-            return !!livePres[pidStr];
-          }
-          if (stillOnlineForKick(pid)) return;
+          if (playerEffectivelyOnline(livePres, lpObj, pid, Date.now(), true, null, r.players, false)) return;
           var stillThere = playerInRoom(r, pid);
           if (!stillThere || stillThere.isBot) {
             void RT.clearReconnectDeadline(code, pid);
@@ -6129,7 +6197,7 @@ export default function App(){
       }, waitMs);
     });
     reconnectTimersRef.current = timers;
-  }, [screen, room, roomCode, myId, presenceByPlayer, lastPingByPlayer, graceByPlayer, reconnectNow]);
+  }, [screen, room, roomCode, myId, presenceByPlayer, lastPingByPlayer, graceByPlayer, reconnectNow, rtdbConnected]);
 
   useEffect(function(){
     if (screen !== 'lobby' && screen !== 'online') return;
@@ -6731,6 +6799,7 @@ export default function App(){
         reconnectNow: reconnectNow,
         onLeave: goHome,
         serverConnected: rtdbConnected,
+        pingBootstrap: reconnectNow - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS,
       }),
       onlineLeaveToastEl
     );
