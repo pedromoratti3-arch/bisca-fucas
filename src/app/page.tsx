@@ -709,7 +709,7 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
     return h.length === 0;
   });
   var cs = false;
-  if (!over && pv.trickN <= 1 && pv.tc && pv.tc.v !== "2" && deck.some(function (c) {
+  if (!over && pv.trickN <= 2 && pv.tc && pv.tc.v !== "2" && deck.some(function (c) {
     return c && c.id === pv.tc.id;
   })) {
     for (var si = 0; si < 4; si++) {
@@ -823,7 +823,7 @@ function bfResolveEndRound(pv, roomHostId, isOnline) {
 }
 
 /**
- * Índice de rotação do maço antes de revelar a 13.ª carta (trunfo).
+ * Índice de rotação do baralho antes de revelar a 13.ª carta (trunfo).
  * O UI humano usa só duas faixas: metade de baixo (8–12) e metade de cima (16–20).
  * Os bots usavam 8–31 ao calhas, o que favorecia demais a metade de cima e cortes “estranhos”.
  */
@@ -3264,6 +3264,185 @@ function HomeScreen(P){
   );
 }
 
+/** Conteúdo rico das regras (tópicos / subtópicos, títulos reforçados). */
+function bfSettingsRulesContent(narrow) {
+  var p = {
+    fontSize: 15,
+    lineHeight: 1.68,
+    color: 'rgba(236,228,218,.78)',
+    margin: '0 0 11px',
+    maxWidth: 720,
+    fontWeight: 450,
+  };
+  var h3 = {
+    fontSize: narrow ? 13.5 : 14.5,
+    fontWeight: 800,
+    letterSpacing: 0.85,
+    textTransform: 'uppercase',
+    color: '#f0d078',
+    margin: '22px 0 10px',
+    lineHeight: 1.35,
+    textShadow: '0 1px 14px rgba(0,0,0,.35)',
+  };
+  var h4 = {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'rgba(255,248,235,.96)',
+    margin: '14px 0 7px',
+    lineHeight: 1.35,
+  };
+  var h3First = Object.assign({}, h3, { marginTop: 10 });
+  var intro = Object.assign({}, p, {
+    marginBottom: 16,
+    fontStyle: 'italic',
+    color: 'rgba(236,228,218,.88)',
+  });
+  function P(key, style, children) {
+    return React.createElement('p', { key: key, style: style || p }, children);
+  }
+  function H3(key, text, first) {
+    return React.createElement('h3', { key: key, style: first ? h3First : h3 }, text);
+  }
+  function H4(key, text) {
+    return React.createElement('h4', { key: key, style: h4 }, text);
+  }
+
+  return React.createElement(
+    'div',
+    { style: { maxWidth: 720 } },
+    P(
+      'i',
+      intro,
+      'Regras que, na Fucape, foram passadas de geração em geração — e que o Bisca Fucas aplica nesta mesa digital.'
+    ),
+    H3('s1', '1. Duplas e objetivo', true),
+    H4('s1a', 'Equipes'),
+    P(
+      't1a',
+      null,
+      'São quatro jogadores em duas equipes: você e o seu parceiro ficam frente a frente dos dois adversários.'
+    ),
+    H4('s1b', 'Objetivo na partida'),
+    P(
+      't1b',
+      null,
+      'Ganha quem primeiro chegar a 4 pontos no placar da partida. A cada vez que se distribuem e se jogam as 40 cartas, vê-se quem sobe pontos — depois embaralha-se de novo e segue a mesma ordem.'
+    ),
+    H3('s2', '2. Começo da partida: embaralhar, cortar, começar'),
+    P(
+      't2rot',
+      null,
+      'A regra da mesa é esta: uma pessoa embaralha o baralho, quem está à esquerda de quem embaralha é quem corta, e quem está à direita de quem embaralha é quem começa a jogar. É sempre nessa ordem.'
+    ),
+    P(
+      't2see',
+      null,
+      'Dá para ver as cartas a serem dadas no início da distribuição e também na última leva, quando as últimas cartas vão para a mão de cada um.'
+    ),
+    H4('s2a', '2.1 Modo normal — uma carta de cada vez'),
+    P(
+      't2a',
+      null,
+      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no monte, com o trunfo virado. Depois, a cada rodada que alguém ganha, cada um vai buscar cartas ao monte até ter de novo 10 na mão (ou até acabar essa mão de 40 cartas).'
+    ),
+    H4('s2b', '2.2 Copas batido — três cartas de cada vez'),
+    P(
+      't2b',
+      null,
+      'O cortador pode «bater» e declarar copas batido: o trunfo fica fixo em copas. Aqui são 4 passagens e, em cada uma, cada jogador recebe três cartas de uma vez — no fim é o mesmo: 3 cartas na mão de cada um para começar. Neste modo não há troca do 2 pelo trunfo.'
+    ),
+    H3('s3', '3. Valor das cartas (para contar pontos nas rodadas)'),
+    P(
+      't3',
+      null,
+      'Ás 11, sete 10, rei 4, valete 3, dama 2; 6, 5, 4, 3 e 2 valem zero. No baralho inteiro são 120 pontos no total.'
+    ),
+    H3('s4', '4. O corte define o trunfo'),
+    P(
+      't4a',
+      null,
+      'Ao cortar, o baralho é reorganizado e fica definido o naipe de trunfo da mão. A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa mão — o jogo trata disso automaticamente depois do corte.'
+    ),
+    P(
+      't4b',
+      null,
+      'Se a carta do corte for Ás ou 7, o trunfo não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no monte), e o jogo fixa o trunfo certo para esses casos.'
+    ),
+    P(
+      't4c',
+      null,
+      'Se for outra carta, o trunfo é o naipe dela e ela é a carta virada no meio que você pode trocar pelo 2 (no modo normal). Se em vez de cortar normalmente você optar por bater, o trunfo é sempre copas — é o «copas batido».'
+    ),
+    P(
+      't4d',
+      null,
+      'Fora isso: qualquer trunfo ganha a cartas que não são trunfo; no mesmo naipe a força é Ás > 7 > R > V > D > 6 > 5 > 4 > 3 > 2.'
+    ),
+    H3('s5', '5. Como se joga na mesa'),
+    P(
+      't5a',
+      null,
+      'Joga-se em rodadas de quatro cartas (cada uma é uma rodada como na mesa real). Quem abre escolhe o naipe de saída; os outros seguem esse naipe se tiverem carta. Quem ganha a rodada leva os pontos das quatro cartas e abre a seguinte. São 10 rodadas por mão de 40 cartas até as mãos esvaziarem.'
+    ),
+    H4('s5b', 'Troca do 2 (só modo normal)'),
+    P(
+      't5b',
+      null,
+      'Se você tiver o 2 do trunfo, pode trocá-lo pela carta de trunfo virada no monte — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
+    ),
+    H3('s6', '6. Pontuação na partida'),
+    P(
+      't6intro',
+      Object.assign({}, p, { marginBottom: 12 }),
+      'Isto é o que sobe no placar da partida, mão após mão:'
+    ),
+    H4('s6a', '6.1 Vitória por pontos'),
+    P(
+      't6a',
+      null,
+      'Somam-se os pontos das cartas que cada equipe ganhou nas rodadas. Quem tem mais pontos ganha por pontos nessa mão e, em condições normais, marca +1 no placar da partida.'
+    ),
+    H4('s6b', '6.2 Réle'),
+    P(
+      't6b',
+      null,
+      'Na mesma rodada, se o 7 de trunfo sair logo antes do Ás de trunfo, é réle: a equipe que leva essa rodada ganha +1 no placar da partida.'
+    ),
+    H4('s6c', '6.3 Sete de abertura'),
+    P(
+      't6c',
+      null,
+      'Se a primeira carta da primeira rodada dessa mão for o 7 de trunfo, a equipe desse jogador ganha +1 no placar da partida.'
+    ),
+    H4('s6d', '6.4 Copas batido'),
+    P(
+      't6d',
+      null,
+      'Numa mão em copas batido, quem ganhar por pontos leva +2 no placar da partida de uma vez (em vez de +1). Se a equipe do cortador perder por pontos, quem ganha são os outros — e são eles que levam esses 2 pontos.'
+    ),
+    H4('s6e', '6.5 Empate 60–60'),
+    P(
+      't6e',
+      null,
+      'Empate a 60 por pontos: ninguém marca nessa mão, mas fica um bónus pendente — na próxima mão em que alguém ganhe por pontos, soma +1 no placar por cada 60–60 que estava em dívida.'
+    ),
+    H4('s6f', '6.6 Ponta (61–59)'),
+    P('t6f', null, 'Ganhar 61 a 59 vale mais +1 no placar nessa mão.'),
+    H4('s6g', '6.7 Capote'),
+    P(
+      't6g',
+      null,
+      'Se a equipe que perde por pontos ficar com menos de 30 nos pontos das cartas, é capote: quem ganhou leva mais +1 no placar da partida.'
+    ),
+    H4('s6h', '6.8 Fechar a partida'),
+    P(
+      't6h',
+      null,
+      'A partida acaba quando uma equipe chega a 4 pontos. Se as duas estiverem com 4 ou mais ao mesmo tempo, continua até haver desempate por pontos numa mão.'
+    )
+  );
+}
+
 /**
  * Configurações — mesmo ADN visual do menu (gradiente #0a0a12 / #1a0a14, ouro #d4a843–#f0d078,
  * vermelho Bisca #C41230), tipografia system-ui como em `globals.css`, painel com vidro e ouro.
@@ -3293,47 +3472,8 @@ function SettingsScreen(P){
     { s: '\u2663', x: 82, y: 72, a: 'float1', o: 0.055, z: 52 },
   ];
 
-  var rulesBodyFucape = [
-    'Regras que, na Fucape, foram passadas de geração em geração — e que o Bisca Fucas aplica nesta mesa:',
-    '',
-    'DUPLAS E OBJETIVO',
-    'Quatro jogadores em duas duplas (parceiros frente a frente). Vence a partida a primeira dupla a chegar a 4 pontos na marcação. Cada «volta» com as 40 cartas decide quem soma pontos nessa ronda.',
-    '',
-    'BARALHO E VALORES NA MESA',
-    'Joga-se com 40 cartas (incluindo valetes). Os pontos contam assim: Ás 11, sete 10, rei 4, valete 3, dama 2; 6, 5, 4, 3 e 2 valem zero. No total há 120 pontos em jogo na mesa.',
-    '',
-    'O CORTE (TRUNFO)',
-    'Depois do corte, a carta que fica por baixo no maço define o naipe de trunfo. O trunfo ganha a qualquer carta dos outros naipes. Entre cartas do mesmo naipe, a ordem da mais forte para a mais fraca é: Ás, 7, rei, valete, dama, 6, 5, 4, 3, 2.',
-    '',
-    'COMO SE JOGA CADA MÃO',
-    'Joga-se uma carta de cada vez, em sentido acordado na mesa. Quem abre a «vaza» escolhe o naipe de saída; os outros, se puderem, jogam cartas desse naipe. Quem ganha a vaza leva os pontos das quatro cartas e abre a seguinte. São 10 vazas até as mãos acabarem.',
-    '',
-    'BÍSCAS',
-    'Chamamos «bíscas» ao Ás e ao sete dos naipes que não são trunfo. No naipe de trunfo, o Ás e o sete são cartas fortes do corte — não contam como bíscas nesse sentido.',
-    '',
-    'RÉLE',
-    'Na mesma vaza, quando o sete de trunfo é jogado imediatamente antes do Ás de trunfo, diz-se que houve «réle»: a dupla que leva essa jogada marca 1 ponto extra na ronda (aparece no resumo).',
-    '',
-    'SETE DE ABERTURA',
-    'Se a primeira carta da primeira vaza for o sete de trunfo, conta como feito especial: a dupla correspondente marca 1 ponto extra na ronda.',
-    '',
-    'TROCA DO 2 PELO CORTE',
-    'Quem tiver o 2 do naipe de trunfo pode, no início da ronda, trocá-lo pela carta de trunfo que está virada no centro (a mesma que define o naipe).',
-    '',
-    'CONTAR A MESA E A RONDA',
-    'Soma-se o que cada dupla ganhou nas vazas. Quem tiver mais pontos vence na mesa e marca normalmente 1 ponto na partida. Empate a 60–60: ninguém marca nessa ronda; na próxima vitória por pontos na mesa, o vencedor leva 1 ponto extra por cada empate assim acumulado. Vitória 61–59 («ponta»): 1 ponto extra na ronda. Se a dupla perdedora fica com menos de 30 pontos («capote»), quem ganhou leva mais 1 ponto na partida.',
-    '',
-    'COPAS BATIDO',
-    'O cortador pode declarar «copas batido»: o trunfo passa a ser copas fixas e, se a dupla do cortador ganhar na mesa, essa vitória vale o dobro (2 pontos) na marcação — jogada de risco.',
-    '',
-    'FIM DA PARTIDA',
-    'A marcação sobe até uma dupla atingir 4 pontos. Se ambas estiverem com 4 ou mais, continua-se até haver desempate na mesa.',
-    '',
-    'Na sala real combinam-se sempre respeito, fair-play e boa disposição — isto é o espírito da mesa na Fucape.',
-  ].join('\n');
-
   var tabs = [
-    { id: 'rules', label: 'REGRAS', title: 'Regras', body: rulesBodyFucape },
+    { id: 'rules', label: 'REGRAS', title: 'Regras' },
     { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade', body: 'Ritmo das animações, feedback tátil, sons e opções de acessibilidade para uma experiência confortável em qualquer dispositivo — em breve.' },
     {
       id: 'about',
@@ -3580,17 +3720,19 @@ function SettingsScreen(P){
               active.title
             )
           ),
-          React.createElement('p', {
-            style: {
-              margin: 0,
-              fontSize: 15,
-              lineHeight: 1.68,
-              color: 'rgba(236,228,218,.78)',
-              maxWidth: 720,
-              fontWeight: 450,
-              whiteSpace: 'pre-line',
-            },
-          }, active.body)
+          active.id === 'rules'
+            ? bfSettingsRulesContent(narrow)
+            : React.createElement('p', {
+                style: {
+                  margin: 0,
+                  fontSize: 15,
+                  lineHeight: 1.68,
+                  color: 'rgba(236,228,218,.78)',
+                  maxWidth: 720,
+                  fontWeight: 450,
+                  whiteSpace: 'pre-line',
+                },
+              }, active.body)
         )
       )
     )
@@ -3804,7 +3946,7 @@ function GameScreen(props){
   var BOT_PLAY_DELAY_MS = 750;
   /** Troca automática do 2 pelo corte (bot). */
   var BOT_SWAP_DELAY_MS = 550;
-  /** Bot a cortar o maço (solo / host). */
+  /** Bot a cortar o baralho (solo / host). */
   var BOT_AUTO_CUT_DELAY_MS = 1500;
   /** Toast “Troca do 2”: quanto tempo fica no ecrã (+ margem para o ticker redesenhar). */
   var SWAP_TOAST_VISIBLE_MS = 5400;
