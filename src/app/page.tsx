@@ -3174,10 +3174,10 @@ function HomeScreen(P){
         width:46,
         height:46,
         borderRadius:12,
-        border:'1px solid rgba(212,168,67,.35)',
+        border:'1px solid rgba(255,255,255,.42)',
         background:'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
         boxShadow:'0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
-        color:'rgba(240,208,120,.95)',
+        color:'rgba(255,255,255,.94)',
         cursor:'pointer',
         display:'flex',
         alignItems:'center',
@@ -3293,10 +3293,62 @@ function SettingsScreen(P){
     { s: '\u2663', x: 82, y: 72, a: 'float1', o: 0.055, z: 52 },
   ];
 
+  var rulesBodyFucape = [
+    'Regras que, na Fucape, foram passadas de geração em geração — e que o Bisca Fucas aplica nesta mesa:',
+    '',
+    'DUPLAS E OBJETIVO',
+    'Quatro jogadores em duas duplas (parceiros frente a frente). Vence a partida a primeira dupla a chegar a 4 pontos na marcação. Cada «volta» com as 40 cartas decide quem soma pontos nessa ronda.',
+    '',
+    'BARALHO E VALORES NA MESA',
+    'Joga-se com 40 cartas (incluindo valetes). Os pontos contam assim: Ás 11, sete 10, rei 4, valete 3, dama 2; 6, 5, 4, 3 e 2 valem zero. No total há 120 pontos em jogo na mesa.',
+    '',
+    'O CORTE (TRUNFO)',
+    'Depois do corte, a carta que fica por baixo no maço define o naipe de trunfo. O trunfo ganha a qualquer carta dos outros naipes. Entre cartas do mesmo naipe, a ordem da mais forte para a mais fraca é: Ás, 7, rei, valete, dama, 6, 5, 4, 3, 2.',
+    '',
+    'COMO SE JOGA CADA MÃO',
+    'Joga-se uma carta de cada vez, em sentido acordado na mesa. Quem abre a «vaza» escolhe o naipe de saída; os outros, se puderem, jogam cartas desse naipe. Quem ganha a vaza leva os pontos das quatro cartas e abre a seguinte. São 10 vazas até as mãos acabarem.',
+    '',
+    'BÍSCAS',
+    'Chamamos «bíscas» ao Ás e ao sete dos naipes que não são trunfo. No naipe de trunfo, o Ás e o sete são cartas fortes do corte — não contam como bíscas nesse sentido.',
+    '',
+    'RÉLE',
+    'Na mesma vaza, quando o sete de trunfo é jogado imediatamente antes do Ás de trunfo, diz-se que houve «réle»: a dupla que leva essa jogada marca 1 ponto extra na ronda (aparece no resumo).',
+    '',
+    'SETE DE ABERTURA',
+    'Se a primeira carta da primeira vaza for o sete de trunfo, conta como feito especial: a dupla correspondente marca 1 ponto extra na ronda.',
+    '',
+    'TROCA DO 2 PELO CORTE',
+    'Quem tiver o 2 do naipe de trunfo pode, no início da ronda, trocá-lo pela carta de trunfo que está virada no centro (a mesma que define o naipe).',
+    '',
+    'CONTAR A MESA E A RONDA',
+    'Soma-se o que cada dupla ganhou nas vazas. Quem tiver mais pontos vence na mesa e marca normalmente 1 ponto na partida. Empate a 60–60: ninguém marca nessa ronda; na próxima vitória por pontos na mesa, o vencedor leva 1 ponto extra por cada empate assim acumulado. Vitória 61–59 («ponta»): 1 ponto extra na ronda. Se a dupla perdedora fica com menos de 30 pontos («capote»), quem ganhou leva mais 1 ponto na partida.',
+    '',
+    'COPAS BATIDO',
+    'O cortador pode declarar «copas batido»: o trunfo passa a ser copas fixas e, se a dupla do cortador ganhar na mesa, essa vitória vale o dobro (2 pontos) na marcação — jogada de risco.',
+    '',
+    'FIM DA PARTIDA',
+    'A marcação sobe até uma dupla atingir 4 pontos. Se ambas estiverem com 4 ou mais, continua-se até haver desempate na mesa.',
+    '',
+    'Na sala real combinam-se sempre respeito, fair-play e boa disposição — isto é o espírito da mesa na Fucape.',
+  ].join('\n');
+
   var tabs = [
-    { id: 'rules', label: 'REGRAS', title: 'Regras', body: 'Pontuação, convénio, trunfo e variantes da bisca. Aqui vais poder rever o que vale em jogo e alinhar a mesa ao teu grupo — conteúdo editável em breve.' },
+    { id: 'rules', label: 'REGRAS', title: 'Regras', body: rulesBodyFucape },
     { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade', body: 'Ritmo das animações, feedback tátil, sons e opções de acessibilidade para uma experiência confortável em qualquer dispositivo — em breve.' },
-    { id: 'about', label: 'SOBRE', title: 'Sobre', body: 'Bisca Fucas é um jogo de cartas para jogar online ou contra IA. Créditos e informação legal aparecerão nesta secção — em breve.' },
+    {
+      id: 'about',
+      label: 'SOBRE',
+      title: 'Sobre',
+      body: [
+        'Apresentamos o Bisca Fucas, um jogo criado para alunos da Fucape — calouros, veteranos e até aqueles que já se formaram, mas continuam conectados à experiência. Mais do que um simples jogo de cartas, ele carrega uma tradição: as regras são exatamente aquelas que os veteranos passaram aos calouros ao longo dos anos, sendo transmitidas de geração em geração dentro da faculdade.',
+        '',
+        'O Bisca Fucas foi pensado para funcionar em qualquer ambiente: na sala de aula - o real propósito do jogo kkkkkkkk, no campus, em casa ou em encontros com amigos. A proposta é simples, mas consistente: recriar a dinâmica clássica da bisca dentro de um contexto que faz sentido para quem vive ou viveu a Fucape.',
+        '',
+        'O jogo conta com um modo contra bots, mas é importante deixar claro que eles não foram feitos para substituir a experiência real. Pelo contrário, são intencionalmente limitados, quase como um convite — ou uma leve provocação — para que você jogue com outras pessoas. Porque, na prática, nenhuma inteligência artificial consegue reproduzir o nível de estratégia, imprevisibilidade e, principalmente, as interações que acontecem em uma partida entre amigos.',
+        '',
+        'aproveitem! by: Ruivo',
+      ].join('\n'),
+    },
   ];
 
   var active = tabs[0];
@@ -3404,19 +3456,29 @@ function SettingsScreen(P){
           {
             type: 'button',
             onClick: onBack,
+            onMouseDown: function (e) {
+              e.currentTarget.style.transform = 'scale(0.96)';
+            },
+            onMouseUp: function (e) {
+              e.currentTarget.style.transform = '';
+            },
+            onMouseLeave: function (e) {
+              e.currentTarget.style.transform = '';
+            },
             style: {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
               padding: '10px 16px',
-              borderRadius: 10,
-              border: '1px solid ' + borderGold,
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,.42)',
               background: 'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
-              color: 'rgba(240,208,120,.95)',
+              color: 'rgba(255,255,255,.94)',
               fontSize: 14,
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 6px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06)',
+              boxShadow: '0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
+              transition: 'transform .15s ease, border-color .15s ease, box-shadow .15s ease',
             },
           },
           '\u2190 Menu'
@@ -3524,8 +3586,9 @@ function SettingsScreen(P){
               fontSize: 15,
               lineHeight: 1.68,
               color: 'rgba(236,228,218,.78)',
-              maxWidth: 640,
+              maxWidth: 720,
               fontWeight: 450,
+              whiteSpace: 'pre-line',
             },
           }, active.body)
         )
