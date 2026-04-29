@@ -3086,6 +3086,35 @@ function homeIconPeople() {
     })
   );
 }
+/** Ícone engrenagem / configurações (stroke). */
+function homeIconGear() {
+  return React.createElement(
+    'svg',
+    {
+      width: '1.15em',
+      height: '1.15em',
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      xmlns: 'http://www.w3.org/2000/svg',
+      'aria-hidden': true,
+      style: { display: 'block', flexShrink: 0 },
+    },
+    React.createElement('path', {
+      d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }),
+    React.createElement('path', {
+      d: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    })
+  );
+}
 
 function HomeScreen(P){
   var resumeTopPad = typeof P.resumeTopPad === "number" ? P.resumeTopPad : 0;
@@ -3132,6 +3161,33 @@ function HomeScreen(P){
   };
 
   return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,paddingTop:20+(resumeTopPad||0),position:'relative',overflow:'hidden',zIndex:0}},
+    React.createElement('button',{
+      type:'button',
+      onClick:function(){ if(typeof P.onOpenSettings==='function') P.onOpenSettings(); },
+      'aria-label':'Configurações',
+      title:'Configurações',
+      style:{
+        position:'fixed',
+        top:'max(12px, calc(8px + env(safe-area-inset-top)))',
+        right:'max(12px, calc(8px + env(safe-area-inset-right)))',
+        zIndex:60,
+        width:46,
+        height:46,
+        borderRadius:12,
+        border:'1px solid rgba(212,168,67,.35)',
+        background:'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
+        boxShadow:'0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
+        color:'rgba(240,208,120,.95)',
+        cursor:'pointer',
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center',
+        transition:'transform .15s ease, border-color .15s ease, box-shadow .15s ease',
+      },
+      onMouseDown:function(e){ e.currentTarget.style.transform='scale(0.96)'; },
+      onMouseUp:function(e){ e.currentTarget.style.transform=''; },
+      onMouseLeave:function(e){ e.currentTarget.style.transform=''; },
+    }, homeIconGear()),
     React.createElement('style',null,ACSS),
     floats.map(function(f,i){ return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s); }),
     React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:30,animation:'fadeIn .8s ease-out'}},
@@ -3205,6 +3261,276 @@ function HomeScreen(P){
       React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
     ) : null,
     React.createElement('div',{style:{position:'fixed',bottom:8,right:'max(14px, calc(10px + env(safe-area-inset-right)))',fontSize:10,opacity:0.2,whiteSpace:'nowrap',maxWidth:'calc(100vw - 20px)',overflow:'hidden',textOverflow:'ellipsis'}},'by: Ruivo')
+  );
+}
+
+/**
+ * Configurações — mesmo ADN visual do menu (gradiente #0a0a12 / #1a0a14, ouro #d4a843–#f0d078,
+ * vermelho Bisca #C41230), tipografia system-ui como em `globals.css`, painel com vidro e ouro.
+ */
+function SettingsScreen(P){
+  var resumeTopPad = typeof P.resumeTopPad === 'number' ? P.resumeTopPad : 0;
+  var narrow = useNarrowScreen();
+  var onBack = P.onBack || function(){};
+  var ts = useState('rules');
+  var tab = ts[0], setTab = ts[1];
+
+  var fontUi = 'system-ui, sans-serif';
+  var goldGrad = 'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)';
+  var navActiveGrad = 'linear-gradient(135deg,#c9a03a,#f0d078,#d4a843)';
+  var navActiveColor = '#1a0f06';
+  var borderGold = 'rgba(212,168,67,.32)';
+  var borderRuby = 'rgba(196,18,48,.38)';
+  var sidebarBg = 'linear-gradient(180deg, rgba(22,14,18,.96) 0%, rgba(10,8,14,.98) 100%)';
+  var panelBg =
+    'linear-gradient(165deg, rgba(60,18,24,.22) 0%, rgba(14,10,18,.94) 42%, rgba(8,8,14,.97) 100%)';
+  var accentBarGrad = 'linear-gradient(180deg,#f0d078,#d4a843,#8a6220)';
+
+  var floats = [
+    { s: '\u2660', x: 8, y: 10, a: 'float1', o: 0.06, z: 56 },
+    { s: '\u2665', x: 88, y: 6, a: 'float2', o: 0.07, z: 48 },
+    { s: '\u2666', x: 14, y: 78, a: 'float3', o: 0.045, z: 44 },
+    { s: '\u2663', x: 82, y: 72, a: 'float1', o: 0.055, z: 52 },
+  ];
+
+  var tabs = [
+    { id: 'rules', label: 'REGRAS', title: 'Regras', body: 'Pontuação, convénio, trunfo e variantes da bisca. Aqui vais poder rever o que vale em jogo e alinhar a mesa ao teu grupo — conteúdo editável em breve.' },
+    { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade', body: 'Ritmo das animações, feedback tátil, sons e opções de acessibilidade para uma experiência confortável em qualquer dispositivo — em breve.' },
+    { id: 'about', label: 'SOBRE', title: 'Sobre', body: 'Bisca Fucas é um jogo de cartas para jogar online ou contra IA. Créditos e informação legal aparecerão nesta secção — em breve.' },
+  ];
+
+  var active = tabs[0];
+  for (var ti = 0; ti < tabs.length; ti++) {
+    if (tabs[ti].id === tab) {
+      active = tabs[ti];
+      break;
+    }
+  }
+
+  function navBtn(t){
+    var sel = tab === t.id;
+    return React.createElement(
+      'button',
+      {
+        type: 'button',
+        key: t.id,
+        role: 'tab',
+        'aria-selected': sel,
+        onClick: function () {
+          setTab(t.id);
+        },
+        style: {
+          width: narrow ? 'auto' : '100%',
+          flex: narrow ? '1 1 0' : 'none',
+          minWidth: 0,
+          minHeight: narrow ? 50 : 54,
+          padding: narrow ? '10px 6px' : '17px 14px',
+          margin: 0,
+          border: 'none',
+          borderRadius: 0,
+          cursor: 'pointer',
+          fontFamily: fontUi,
+          fontSize: narrow ? 10 : 12,
+          fontWeight: 800,
+          letterSpacing: narrow ? 0.45 : 1.25,
+          lineHeight: narrow ? 1.15 : 1.2,
+          textTransform: 'uppercase',
+          background: sel ? navActiveGrad : 'transparent',
+          color: sel ? navActiveColor : 'rgba(248,236,220,.82)',
+          textAlign: 'center',
+          WebkitTapHighlightColor: 'transparent',
+          boxShadow: sel ? 'inset 0 1px 0 rgba(255,255,255,.42)' : 'none',
+          textShadow: sel ? '0 1px 0 rgba(255,255,255,.2)' : 'none',
+          transition: 'background .15s ease, color .15s ease, box-shadow .15s ease',
+        },
+      },
+      t.label
+    );
+  }
+
+  return React.createElement(
+    'div',
+    {
+      style: {
+        minHeight: '100vh',
+        background:
+          'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12), radial-gradient(ellipse 120% 70% at 50% -10%, rgba(196,18,48,.12) 0%, transparent 55%)',
+        fontFamily: fontUi,
+        color: '#fff',
+        position: 'relative',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        paddingTop: 14 + resumeTopPad,
+        paddingBottom: 44,
+        paddingLeft: 'max(12px, env(safe-area-inset-left))',
+        paddingRight: 'max(12px, env(safe-area-inset-right))',
+        boxSizing: 'border-box',
+        zIndex: 0,
+      },
+    },
+    React.createElement('style', null, ACSS),
+    floats.map(function (f, i) {
+      return React.createElement('span', {
+        key: i,
+        style: {
+          position: 'absolute',
+          left: f.x + '%',
+          top: f.y + '%',
+          fontSize: f.z,
+          opacity: f.o,
+          color: '#C81734',
+          animation: f.a + ' ' + (3.2 + i * 0.35) + 's ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 0,
+        },
+      }, f.s);
+    }),
+    React.createElement(
+      'div',
+      { style: { maxWidth: 1040, margin: '0 auto', width: '100%', position: 'relative', zIndex: 1 } },
+      React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            marginBottom: 16,
+            flexWrap: 'wrap',
+          },
+        },
+        React.createElement(
+          'button',
+          {
+            type: 'button',
+            onClick: onBack,
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 16px',
+              borderRadius: 10,
+              border: '1px solid ' + borderGold,
+              background: 'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
+              color: 'rgba(240,208,120,.95)',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 6px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06)',
+            },
+          },
+          '\u2190 Menu'
+        ),
+        React.createElement(
+          'h1',
+          {
+            style: {
+              margin: 0,
+              fontSize: narrow ? 17 : 22,
+              fontWeight: 900,
+              letterSpacing: narrow ? 2.5 : 3.5,
+              textTransform: 'uppercase',
+              background: goldGrad,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              animation: 'glow 3s ease-in-out infinite',
+              lineHeight: 1.15,
+            },
+          },
+          'Configuração'
+        )
+      ),
+      React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexDirection: narrow ? 'column' : 'row',
+            alignItems: 'stretch',
+            minHeight: narrow ? 'auto' : 428,
+            borderRadius: 14,
+            overflow: 'hidden',
+            border: '1px solid ' + borderRuby,
+            boxShadow:
+              '0 18px 52px rgba(0,0,0,.5), 0 0 40px rgba(196,18,48,.1), inset 0 1px 0 rgba(255,255,255,.06)',
+            backdropFilter: 'saturate(1.05) blur(10px)',
+            WebkitBackdropFilter: 'saturate(1.05) blur(10px)',
+          },
+        },
+        React.createElement(
+          'nav',
+          {
+            role: 'tablist',
+            'aria-label': 'Secções de configuração',
+            style: {
+              display: 'flex',
+              flexDirection: narrow ? 'row' : 'column',
+              flexShrink: 0,
+              width: narrow ? '100%' : 210,
+              background: sidebarBg,
+              borderBottom: narrow ? '1px solid ' + borderGold : 'none',
+              borderRight: narrow ? 'none' : '1px solid ' + borderGold,
+            },
+          },
+          tabs.map(navBtn)
+        ),
+        React.createElement(
+          'div',
+          {
+            role: 'tabpanel',
+            style: {
+              flex: 1,
+              background: panelBg,
+              padding: narrow ? 20 : 28,
+              minWidth: 0,
+              boxSizing: 'border-box',
+            },
+          },
+          React.createElement(
+            'div',
+            { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 } },
+            React.createElement('div', {
+              style: {
+                width: 4,
+                height: 34,
+                background: accentBarGrad,
+                borderRadius: 2,
+                flexShrink: 0,
+                boxShadow: '0 0 14px rgba(212,168,67,.35)',
+              },
+            }),
+            React.createElement(
+              'h2',
+              {
+                style: {
+                  margin: 0,
+                  fontSize: narrow ? 18 : 21,
+                  fontWeight: 900,
+                  letterSpacing: 1.6,
+                  textTransform: 'uppercase',
+                  background: goldGrad,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                },
+              },
+              active.title
+            )
+          ),
+          React.createElement('p', {
+            style: {
+              margin: 0,
+              fontSize: 15,
+              lineHeight: 1.68,
+              color: 'rgba(236,228,218,.78)',
+              maxWidth: 640,
+              fontWeight: 450,
+            },
+          }, active.body)
+        )
+      )
+    )
   );
 }
 
@@ -5427,6 +5753,7 @@ export default function App(){
     return React.createElement(React.Fragment,null,
       React.createElement(HomeScreen,{
         resumeTopPad: homeTopPad,
+        onOpenSettings:function(){ setScreen('settings'); },
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
         onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
@@ -5434,6 +5761,16 @@ export default function App(){
           setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
         }
       }),
+      resumeBanner,
+      roomClosedBanner
+    );
+  }
+
+  if(screen==='settings'){
+    var resumePadSt = resumeOffer ? 168 : 0;
+    var settingsTopPad = resumePadSt + (roomClosedNotice ? 118 : 0);
+    return React.createElement(React.Fragment,null,
+      React.createElement(SettingsScreen,{ resumeTopPad: settingsTopPad, onBack:function(){ setScreen('home'); } }),
       resumeBanner,
       roomClosedBanner
     );
