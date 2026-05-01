@@ -5481,28 +5481,30 @@ function GameScreen(props){
           React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a embaralhar…')
         )
       ) : null,
-      showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20}},
-        React.createElement('div',{style:{fontSize:13,opacity:0.72,fontWeight:500}},'escolha como cortar:'),
-        cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:12,fontWeight:500,textAlign:'center',padding:'0 12px',fontVariantNumeric:'tabular-nums',color:'rgba(255,255,255,.72)'}},
-          'tempo: ',
-          React.createElement('span',{style:{display:'inline-block',minWidth:'1.35em',textAlign:'right',fontVariantNumeric:'tabular-nums',color:timerAccent,fontWeight:700}},cutSec),
-          's \u00b7 se acabar, corta automático.'
-        ) : null,
+      showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
+        React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:420,width:'100%'}},
+          React.createElement('div',{style:{fontSize:mob?18:22,fontWeight:800,lineHeight:1.2,letterSpacing:'-0.02em',color:'rgba(255,252,245,.98)'}},'escolha como cortar'),
+          cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:mob?14:15,marginTop:10,opacity:0.92,fontWeight:600,lineHeight:1.45,fontVariantNumeric:'tabular-nums',color:'rgba(255,255,255,.88)'}},
+            'tempo: ',
+            React.createElement('span',{style:{display:'inline-block',minWidth:'1.35em',textAlign:'right',fontVariantNumeric:'tabular-nums',color:timerAccent,fontWeight:800}},cutSec),
+            's \u00b7 se acabar, corta automático.'
+          ) : null
+        ),
         React.createElement('div',{style:{display:'flex',gap:mob?16:28,alignItems:'flex-end',flexWrap:mob?'wrap':'nowrap',justifyContent:'center',maxWidth:'100%',boxSizing:'border-box'}},
           React.createElement('div',{onClick:function(){doCut('top');},onMouseEnter:function(){setHovHalf('top');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
             React.createElement('div',{style:{transform:cutAnim&&cutLift==='top'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
               deckPile(20,null,hovHalf==='top',mob,cbk,true)
             ),
-            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?600:500}},'metade de cima')
+            React.createElement('div',{style:{fontSize:mob?13:14,color:hovHalf==='top'?cutLblHi:cutLblLo,fontWeight:hovHalf==='top'?700:600,letterSpacing:'0.02em'}},'metade de cima')
           ),
           React.createElement('div',{onClick:function(){doCut('bottom');},onMouseEnter:function(){setHovHalf('bottom');},onMouseLeave:function(){setHovHalf(null);},style:{display:'flex',flexDirection:'column',alignItems:'center',gap:mob?10:8,cursor:'pointer'}},
             React.createElement('div',{style:{transform:cutAnim&&cutLift==='bottom'?'translateY(-14px)':'none',transition:'transform .55s cubic-bezier(.4,0,.2,1)'}},
               deckPile(20,null,hovHalf==='bottom',mob,cbk,true)
             ),
-            React.createElement('div',{style:{fontSize:mob?12:11,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?600:500}},'metade de baixo')
+            React.createElement('div',{style:{fontSize:mob?13:14,color:hovHalf==='bottom'?cutLblHi:cutLblLo,fontWeight:hovHalf==='bottom'?700:600,letterSpacing:'0.02em'}},'metade de baixo')
           )
         ),
-        React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:6,marginTop:4}},
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginTop:2}},
           React.createElement('button',{
             onClick:doBat,
             onPointerEnter:function(){ setHovHalf('bat'); },
@@ -5512,7 +5514,10 @@ function GameScreen(props){
               var batHi=hovHalf==='bat';
               var base=primaryButtonStyle(th);
               return Object.assign({},base,{
-                padding:'10px 32px',
+                padding:'12px 36px',
+                fontSize:mob?15:16,
+                fontWeight:800,
+                letterSpacing:'0.04em',
                 transition:'box-shadow .22s ease, transform .2s ease, border-color .2s ease',
                 border:batHi?'2px solid rgba(253,224,150,.88)':(base.border||'none'),
                 boxShadow:batHi
@@ -5522,7 +5527,7 @@ function GameScreen(props){
               });
             })()
           },'Bater!'),
-          React.createElement('div',{style:{fontSize:10,opacity:0.45}},'Bater = corte e copas, vencer vale 2 pts')
+          React.createElement('div',{style:{fontSize:mob?11:12,opacity:0.55,fontWeight:500,lineHeight:1.4,maxWidth:320}},'Bater = corte e copas, vencer vale 2 pts')
         )
       ) : null,
       aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
