@@ -28,12 +28,16 @@
       "presence": {
         "$code": {
           ".read": "$code.matches(/^[A-HJ-NP-Z]{4}$/)",
-          ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/)",
+          ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/) && !newData.exists()",
           "$playerId": {
-            ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/) && $playerId.matches(/^[a-zA-Z0-9_:.-]{2,80}$/)",
+            ".write": "$code.matches(/^[A-HJ-NP-Z]{4}$/) && $playerId.matches(/^[a-zA-Z0-9_:.-]{2,80}$/) && (!$playerId.beginsWith('g_') || (auth != null && auth.uid === $playerId))",
             ".validate": "!newData.exists() || newData.val() === true"
           }
         }
+      },
+      "users": {
+        ".read": false,
+        ".write": false
       }
     }
   }

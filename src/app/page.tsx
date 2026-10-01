@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
+import { useGoogleAuth, GoogleSignInButton } from "@/lib/googleAuth";
 
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
@@ -2934,12 +2935,58 @@ function homeIconGear() {
   );
 }
 
+/** Caixa de conta na tela inicial: botão Google (deslogado) ou foto + nome + Sair (logado). */
+function homeAccountBox(P){
+  var u = P.authUser;
+  if(!P.authReady) return React.createElement('div',{style:{minHeight:44}});
+  if(u){
+    return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:12,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)'}},
+      u.picture
+        ? React.createElement('img',{src:u.picture,alt:'',width:36,height:36,referrerPolicy:'no-referrer',style:{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0}})
+        : React.createElement('div',{style:{width:36,height:36,borderRadius:'50%',background:'#2a6a3a',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,flexShrink:0}},String(u.name||'?').charAt(0).toUpperCase()),
+      React.createElement('div',{style:{flex:1,minWidth:0}},
+        React.createElement('div',{style:{fontSize:14,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},u.name),
+        React.createElement('div',{style:{fontSize:11,opacity:0.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},P.loggedUid ? (u.email || 'Conta Google') : 'Conectando…')
+      ),
+      React.createElement('button',{type:'button',onClick:function(){ if(typeof P.onLogout==='function') P.onLogout(); },disabled:!!P.authBusy,style:{background:'transparent',color:'rgba(255,255,255,.85)',border:'1px solid rgba(255,255,255,.3)',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:13,fontWeight:600,flexShrink:0}},'Sair')
+    );
+  }
+  return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+    React.createElement(GoogleSignInButton,{onCredential:function(c){ if(typeof P.onGoogleCredential==='function') P.onGoogleCredential(c); },width:320}),
+    P.authError ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:12,textAlign:'center'}},P.authError) : null,
+    P.authBusy ? React.createElement('div',{style:{fontSize:12,opacity:0.6,textAlign:'center'}},'Entrando…') : null,
+    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Jogando como convidado — entre com Google para usar a sua conta')
+  );
+}
+
+/** Primeira tela para quem não está logado: entrar com Google ou seguir como convidado. */
+function homeLoginGate(P, divider){
+  return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:14,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
+    React.createElement('div',{style:{fontSize:15,fontWeight:700,textAlign:'center',opacity:0.85}},'Entre para jogar'),
+    P.authReady
+      ? React.createElement(GoogleSignInButton,{onCredential:function(c){ if(typeof P.onGoogleCredential==='function') P.onGoogleCredential(c); },width:320})
+      : React.createElement('div',{style:{minHeight:44,display:'flex',alignItems:'center',justifyContent:'center'}},
+          React.createElement('div',{style:{width:24,height:24,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
+        ),
+    P.authError ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:12,textAlign:'center'}},P.authError) : null,
+    P.authBusy ? React.createElement('div',{style:{fontSize:12,opacity:0.6,textAlign:'center'}},'Entrando…') : null,
+    divider('ou'),
+    React.createElement('button',{type:'button',onClick:function(){ if(typeof P.onGuest==='function') P.onGuest(); },style:{background:'rgba(255,255,255,.08)',color:'#fff',border:'1px solid rgba(255,255,255,.2)',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'Jogar como convidado'),
+    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Como convidado você joga só com um apelido.')
+  );
+}
+
 function HomeScreen(P){
   var resumeTopPad = typeof P.resumeTopPad === "number" ? P.resumeTopPad : 0;
   var ns=useState(''); var nm=ns[0], setNm=ns[1];
   var cs=useState(''); var cd=cs[0], setCd=cs[1];
   var es=useState(''); var er=es[0], setEr=es[1];
   var ls=useState(false); var ld=ls[0], setLd=ls[1];
+  var authUser = P.authUser || null;
+  var authName = authUser ? clampDisplayName(String(authUser.name || '')) : '';
+  useEffect(function(){
+    if(authName) setNm(function(cur){ return cur ? cur : authName; });
+  },[authName]);
 
   var floats = [
     {s:'\u2660',x:10,y:12,a:'float1',o:0.07,z:64},
@@ -2961,11 +3008,16 @@ function HomeScreen(P){
     var r = await RT.getRoom(cd.toUpperCase());
     if(!r){ setLd(false); setEr('Sala não encontrada'); return; }
     if(r.game){ setLd(false); setEr('Partida já começou'); return; }
-    var humanNJoin = r.players.filter(function(p){ return !p.isBot; }).length;
-    if(humanNJoin>=4){ setLd(false); setEr('Sala cheia'); return; }
-    var pid = uid();
-    r.players.push({id:pid,name:nameOk,seat:-1,team:null});
-    var ok = await RT.setRoom(cd.toUpperCase(), r);
+    /* Logado com Google: id fixo da conta; convidado: id aleatório como antes. */
+    var pid = P.loggedUid || uid();
+    var alreadyIn = !!playerInRoom(r, pid);
+    var ok = true;
+    if(!alreadyIn){
+      var humanNJoin = r.players.filter(function(p){ return !p.isBot; }).length;
+      if(humanNJoin>=4){ setLd(false); setEr('Sala cheia'); return; }
+      r.players.push({id:pid,name:nameOk,seat:-1,team:null});
+      ok = await RT.setRoom(cd.toUpperCase(), r);
+    }
     setLd(false);
     if(ok) P.onJoin(pid,nameOk,cd.toUpperCase(),r); else setEr('Erro');
   }
@@ -2978,7 +3030,24 @@ function HomeScreen(P){
     );
   };
 
-  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,paddingTop:20+(resumeTopPad||0),position:'relative',overflow:'hidden',zIndex:0}},
+  var logoBlock = React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:30,animation:'fadeIn .8s ease-out'}},
+      rLogoW(64),
+      React.createElement('div',{style:{fontSize:40,fontWeight:900,letterSpacing:2,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite',lineHeight:1.1,textAlign:'center'}},'BISCA FUCAS'),
+      React.createElement('div',{style:{fontSize:12,letterSpacing:5,opacity:0.4,textTransform:'uppercase'}},'Jogo de Baralho \u00b7 Online')
+    );
+  var pageStyle = {minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,paddingTop:20+(resumeTopPad||0),position:'relative',overflow:'hidden',zIndex:0};
+  var floatEls = floats.map(function(f,i){ return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s); });
+
+  if(!authUser && !P.guestMode){
+    return React.createElement('div',{style:pageStyle},
+      React.createElement('style',null,ACSS),
+      floatEls,
+      logoBlock,
+      homeLoginGate(P, divider)
+    );
+  }
+
+  return React.createElement('div',{style:pageStyle},
     React.createElement('button',{
       type:'button',
       onClick:function(){ if(typeof P.onOpenSettings==='function') P.onOpenSettings(); },
@@ -3007,13 +3076,10 @@ function HomeScreen(P){
       onMouseLeave:function(e){ e.currentTarget.style.transform=''; },
     }, homeIconGear()),
     React.createElement('style',null,ACSS),
-    floats.map(function(f,i){ return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s); }),
-    React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:30,animation:'fadeIn .8s ease-out'}},
-      rLogoW(64),
-      React.createElement('div',{style:{fontSize:40,fontWeight:900,letterSpacing:2,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite',lineHeight:1.1,textAlign:'center'}},'BISCA FUCAS'),
-      React.createElement('div',{style:{fontSize:12,letterSpacing:5,opacity:0.4,textTransform:'uppercase'}},'Jogo de Baralho \u00b7 Online')
-    ),
+    floatEls,
+    logoBlock,
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
+      homeAccountBox(P),
       React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:4}},
         React.createElement('input',{
           value:nm,
@@ -5477,6 +5543,15 @@ function GameScreen(props){
 
 /* ═══ APP ═══ */
 export default function App(){
+  var auth = useGoogleAuth();
+  var guestSt=useState(false); var guestMode=guestSt[0], setGuestMode=guestSt[1];
+  useEffect(function(){
+    try { if(sessionStorage.getItem('bf_guest')==='1') setGuestMode(true); } catch { void 0; }
+  },[]);
+  function chooseGuest(on){
+    setGuestMode(on);
+    try { if(on) sessionStorage.setItem('bf_guest','1'); else sessionStorage.removeItem('bf_guest'); } catch { void 0; }
+  }
   var ss=useState('home'); var screen=ss[0], setScreen=ss[1];
   var ids=useState(''); var myId=ids[0], setMyId=ids[1];
   var nms=useState(''); var myName=nms[0], setMyName=nms[1];
@@ -5959,7 +6034,8 @@ export default function App(){
       cancelled=true;
       void RT.detachRoomPresence();
     };
-  },[roomCode, myId, screen]);
+    /* auth.loggedUid: jogador Google só pode escrever presença depois de entrar no Firebase (regras). */
+  },[roomCode, myId, screen, auth.loggedUid]);
 
   /* Enquanto houver humanos na sala, renova carimbo para limpeza por TTL de salas órfãs. */
   useEffect(function(){
@@ -6259,6 +6335,21 @@ export default function App(){
       React.createElement(HomeScreen,{
         resumeTopPad: homeTopPad,
         onOpenSettings:function(){ setScreen('settings'); },
+        authUser: auth.user,
+        authReady: auth.ready,
+        authBusy: auth.busy,
+        authError: auth.error,
+        loggedUid: auth.loggedUid,
+        guestMode: guestMode,
+        onGuest: function(){ chooseGuest(true); },
+        onGoogleCredential: function(c){ void auth.loginWithCredential(c); },
+        onLogout: function(){
+          /* Sessão guardada de um jogador Google deixa de poder ser retomada sem login. */
+          var s = readBfSession();
+          if(s && String(s.playerId).indexOf('g_')===0){ clearBfSession(); setResumeOffer(null); }
+          chooseGuest(false);
+          void auth.logout();
+        },
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
         onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
@@ -6304,7 +6395,7 @@ export default function App(){
             return;
           }
           setCrBusy(true);
-          var c=mkCode(), pid=uid();
+          var c=mkCode(), pid=auth.loggedUid || uid();
           var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc,lastPresenceAt:Date.now()};
           var ok = await RT.setRoom(c, roomNew);
           setCrBusy(false);
