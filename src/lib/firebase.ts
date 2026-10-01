@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, type Database } from "firebase/database";
+import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,4 +18,10 @@ const databaseUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
 export const db: Database | null =
   typeof databaseUrl === "string" && databaseUrl.length > 0
     ? getDatabase(app)
+    : null;
+
+/** Auth do Firebase: só é usado por jogadores logados com Google (convidados não entram). */
+export const fbAuth: Auth | null =
+  typeof firebaseConfig.apiKey === "string" && firebaseConfig.apiKey.length > 0
+    ? getAuth(app)
     : null;

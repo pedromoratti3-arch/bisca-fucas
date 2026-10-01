@@ -2972,7 +2972,8 @@ function homeLoginGate(P, divider){
     P.authBusy ? React.createElement('div',{style:{fontSize:12,opacity:0.6,textAlign:'center'}},'Entrando…') : null,
     divider('ou'),
     React.createElement('button',{type:'button',onClick:function(){ if(typeof P.onGuest==='function') P.onGuest(); },style:{background:'rgba(255,255,255,.08)',color:'#fff',border:'1px solid rgba(255,255,255,.2)',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'Jogar como convidado'),
-    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Como convidado você joga só com um apelido.')
+    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Como convidado você joga só com um apelido.'),
+    React.createElement('a',{href:'/privacidade',style:{fontSize:11,opacity:0.55,textAlign:'center',color:'#93c5fd'}},'Política de Privacidade')
   );
 }
 
