@@ -973,7 +973,8 @@ function bfResolveEndTrick(pv, roomHostId, isOnline) {
     return h.length === 0;
   });
   var cs = false;
-  if (!over && pv.trickN <= 2 && pv.tc && pv.tc.v !== "2" && deck.some(function (c) {
+  /* Troca do 2 só até à 3.ª mão: pv.trickN é a mão que acabou (0 = 1.ª), logo a troca vale para a próxima mão (tN) só se tN <= 2. */
+  if (!over && tN <= 2 && pv.tc && pv.tc.v !== "2" && deck.some(function (c) {
     return c && c.id === pv.tc.id;
   })) {
     for (var si = 0; si < 4; si++) {
@@ -1118,51 +1119,6 @@ function stateBatidoFromCut(pv, lastActor){
   });
 }
 
-/* ═══ AI PRO ═══ */
-// Memory tracker — tracks played cards and void suits per player
-function makeMemory(){
-  return { played:[], voids:[[],[],[],[]] };
-}
-var aiMemory = makeMemory();
-
-function recordPlay(mem, player, card, trick, trump){
-  mem.played.push({player:player, card:card});
-  // If player didn't follow lead suit AND didn't play trump, they're void in lead suit
-  if(trick.length>0){
-    var leadSuit = trick[0].card.s;
-    if(card.s !== leadSuit && card.s !== trump){
-      if(mem.voids[player].indexOf(leadSuit)===-1) mem.voids[player].push(leadSuit);
-    }
-    // If they didn't follow lead and played trump instead of a non-trump, also void
-    if(card.s !== leadSuit && card.s === trump){
-      if(mem.voids[player].indexOf(leadSuit)===-1) mem.voids[player].push(leadSuit);
-    }
-  }
-}
-
-function countPlayed(mem, suit, val){
-  return mem.played.filter(function(p){ return p.card.s===suit && (val ? p.card.v===val : true); }).length;
-}
-
-function isOut(mem, suit, val){
-  return mem.played.some(function(p){ return p.card.s===suit && p.card.v===val; });
-}
-
-function isVoid(mem, player, suit){
-  return mem.voids[player].indexOf(suit) !== -1;
-}
-
-function cardsPlayedInSuit(mem, suit){
-  return mem.played.filter(function(p){ return p.card.s===suit; }).length;
-}
-
-function opponentsVoidIn(mem, mt, suit){
-  // Check if BOTH opponents are void in this suit
-  var opp1 = mt===0 ? 1 : 0;
-  var opp2 = mt===0 ? 3 : 2;
-  return isVoid(mem, opp1, suit) || isVoid(mem, opp2, suit);
-}
-
 /** 7 de corte como 4.ª carta só faz sentido com o Ás “presente”: na tua mão ou já na mesma vaza (ex.: parceiro jogou o Ás antes de seres o último a jogar). Na mão 10/10 (trickN===9) cada um tem uma carta — o 7 pode sair “de fundo” sem essa condição. */
 function mayPlaySevenTrumpFourth(trickLen, hand, trump, card, trick, trickN){
   if(trickN===9) return true;
@@ -1184,699 +1140,295 @@ function mayPlayAceTrump(trick, trump, trumpSevenOut, hand, card, trickN){
   return nLeft <= 1;
 }
 
-/**
- * Parceiro jogou o 7 de corte nesta vaza — a mesma dupla não joga o Ás de corte nessa vaza (evita desperdício).
- * Excepção: última mão da ronda (trickN===9), para o bot não ficar sem jogada legal / a travar a partida.
+/* ═══ IA — motor de simulação ═══
+ * Em vez de regras empilhadas, o bot avalia cada carta que pode jogar simulando o resto da ronda
+ * muitas vezes. As cartas que não vê são sorteadas de forma coerente com o que é público
+ * (cartas já jogadas, carta de corte no fundo do baralho, mão do parceiro mostrada no início e na mão 8/10).
+ * - Baralho vazio (últimas 3 mãos): em cada sorteio faz busca exata (minimax por dupla).
+ * - Antes disso: simula até ao fim com uma política rápida e sensata para os 4 jogadores.
+ * O valor de cada carta = pontos de partida esperados (vitória, capote, ponta 61, Réle, 7 de abertura)
+ * + um pequeno desempate pelos pontos na mesa. As regras da casa (Ás de corte só após o 7,
+ * 7 de corte como 4.ª carta) valem para todos os jogadores simulados.
  */
-function aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, card, trickN, mySeat) {
-  if (!card || card.v !== "A" || card.s !== trump) return true;
-  if (trickN === 9) return true;
-  if (!trump || !Array.isArray(trick) || mySeat == null || mySeat < 0) return true;
-  var partnerSevenHere = trick.some(function (t) {
-    return (
-      t &&
-      t.card &&
-      t.card.s === trump &&
-      t.card.v === "7" &&
-      pTm(t.player) === pTm(mySeat) &&
-      t.player !== mySeat
-    );
+var AI_TIME_BUDGET_MS = 220;
+var AI_MAX_SAMPLES = 600;
+var AI_MIN_SAMPLES = 24;
+var AI_ROLLOUT_RANDOM = 0.08;
+
+/** Mão do parceiro vista na revelação do início da ronda: { [seat]: { key, ids } } */
+var aiPartnerSeen = {};
+function aiRoundKey(pv){
+  var fd = Array.isArray(pv.fd) ? pv.fd : [];
+  return fd.slice(0, 8).map(function(c){ return c ? c.id : '-'; }).join(',') + '|' + pv.trump;
+}
+
+function aiLegal(hand, trick, trump, sevenOut, trickN){
+  var cards = hand.filter(function(c){ return !!c; });
+  var ok = cards.filter(function(c){
+    return mayPlayAceTrump(trick, trump, sevenOut, cards, c, trickN) &&
+      mayPlaySevenTrumpFourth(trick.length, cards, trump, c, trick, trickN);
   });
-  if (!partnerSevenHere) return true;
-  return false;
+  return ok.length ? ok : cards;
 }
 
-/** Bíscas = Ás e 7 nos naipes que não são o de corte. O Ás e o 7 de corte não são bíscas. */
-function isBiscaCard(card, trump){
-  return !!card && card.s !== trump && (card.v === 'A' || card.v === '7');
+function aiTrickPts(trick){
+  var s = 0;
+  for(var i=0;i<trick.length;i++) s += cPts(trick[i].card);
+  return s;
 }
 
-/** Vaza com muito em jogo: bísca na mesa, Ás/7 (10–11 pts) ou soma já alta — ao cortar, usar o maior corte que ganha para não deixarem ir por cima. */
-function trickNeedsStrongTrumpCut(trick, trump, trickPts){
-  if(trickPts >= 10) return true;
-  if(trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); })) return true;
-  if(trick.some(function(t){ return t.card && cPts(t.card) >= 10; })) return true;
-  return false;
+/** Custo de “gastar” a carta sem ganhar a vaza: pontos oferecidos + valor de guardar cortes e figuras. */
+function aiShedCost(c, trump){
+  if(c.s === trump) return 6 + cRnk(c) * 1.2 + cPts(c);
+  return cPts(c) + cRnk(c) * 0.1;
+}
+/** Custo de ganhar a vaza com esta carta: cortes custam (são poucos); ganhar no naipe com pontos é bom. */
+function aiWinCost(c, trump){
+  if(c.s === trump) return 5 + cRnk(c) + cPts(c) * 0.3;
+  return cRnk(c) * 0.1 - cPts(c) * 0.5;
+}
+function aiMinBy(cards, f){
+  var best = null, bv = Infinity;
+  for(var i=0;i<cards.length;i++){ var v = f(cards[i]); if(v < bv){ bv = v; best = cards[i]; } }
+  return best;
 }
 
-function aiPick(hand, trick, trump, mt, sevenOut, avoidLast, mem, tPts, trickN, mySeat){
-  /* Vocabulário Bisca Fucas (mesa): "corte" = corte; "rodada" = 4 cartas na mesa; "mão" = ganhar essa rodada;
-     "bísca" = Ás ou 7 fora do naipe de corte (Ás/7 de corte não são bíscas);
-     "encarte" = matar no mesmo naipe que a saída (inclui corte: ex. saída 2♥, pode subir com 3♥–6♥ se não houver bísca na mesa).
-     Com saída em corte e SEM bísca na mesa: não escalar K/J/Q (nem encarte “de mesa”) só para levar vaza fraca —
-     preferir perder com corte baixo se der. Na abertura, RULE 3 é só "sair baixo" num naipe onde há A/7 — não é encarte.
-     Dupla: (1) Dupla já a ganhar a mão (parceiro com corte ou encarte) → maximizar pontos na vaza com carta segura.
-     (2) Parceiro já segura com corte → não jogar corte mais baixo que o dele (não levas a mão; só gastas corte).
-     (3) Bísca ou 10/11 pts na mesa (ou vaza já alta) → ao cortar, maior corte que ganha, para fixar a vaza.
-     Réle: após o 7 de corte na mesa o próximo pode jogar o Ás — excepto 7 do parceiro na mesma vaza (excepto última mão, trickN 9, para não travar).
-     Bísca na mesa + dupla a perder → encarte/corte com a maior carta do naipe/corte que ganha.
-     Bísca + parceiro a ganhar com corte e ainda há quem jogar → subir ao máximo de corte; no último da vaza, não subir o corte do parceiro — só somar pontos fora de corte se der.
-     Abertura: não sair com Ás/7 de bísca (fora de corte) cedo na partida — o adversário pode cortar por cima e levar a mão sem sabermos o que têm.
-     Seguir: encartar no naipe de abertura quando dá para ganhar; se nenhum do naipe ganha, lixar 0 pts (fora desse naipe e do corte) em vez de “seguir” com figuras que só incham a vaza do adversário — exceto se der para cortar a vencer. */
+/** Política rápida usada nas simulações (não é a decisão final do bot). */
+function aiQuickPick(S, p){
+  var T = S.trump;
+  var legal = aiLegal(S.hands[p], S.trick, T, S.sevenOut, S.trickN);
+  if(legal.length <= 1) return legal[0];
+  if(Math.random() < AI_ROLLOUT_RANDOM) return legal[Math.floor(Math.random() * legal.length)];
+  var shed = function(c){ return aiShedCost(c, T); };
+  if(!S.trick.length) return aiMinBy(legal, shed);
+  var lead = S.trick[0].card.s;
+  var cw = getWin(S.trick, T);
+  var mt = pTm(p);
+  var last = S.trick.length === 3;
+  if(pTm(cw.player) === mt){
+    /* Dupla a ganhar: no fim da vaza (ou com a vaza bem segura) somar pontos fora de corte. */
+    var safe = last || (cw.card.s === T && cRnk(cw.card) >= RNK.K) || (cw.card.s !== T && cw.card.v === 'A');
+    if(safe){
+      var give = aiMinBy(legal, function(c){ return c.s === T ? 50 + cRnk(c) : -cPts(c); });
+      if(give && give.s !== T) return give;
+    }
+    return aiMinBy(legal, shed);
+  }
+  var pts = aiTrickPts(S.trick);
+  var wins = legal.filter(function(c){ return beats(c, cw.card, lead, T); });
+  if(wins.length){
+    var best = aiMinBy(wins, function(c){ return aiWinCost(c, T); });
+    var gain = pts + cPts(best);
+    if(best.s !== T || gain >= 10 || (last && gain >= 4) || (S.trickN >= 7 && gain >= 2)) return best;
+  }
+  return aiMinBy(legal, shed);
+}
+
+function aiCloneState(S){
+  return {
+    hands: [S.hands[0].slice(), S.hands[1].slice(), S.hands[2].slice(), S.hands[3].slice()],
+    deck: S.deck.slice(),
+    trick: S.trick.slice(),
+    cur: S.cur,
+    trickN: S.trickN,
+    sevenOut: S.sevenOut,
+    tPts: S.tPts.slice(),
+    ev: S.ev.slice(),
+    starter: S.starter,
+    trump: S.trump,
+  };
+}
+
+/** Aplica uma jogada no estado simulado (muta S). Fecha a vaza e compra cartas como na mesa real. */
+function aiApplyPlay(S, card){
+  var p = S.cur, T = S.trump;
+  var h = S.hands[p];
+  for(var i=0;i<h.length;i++){ if(h[i].id === card.id){ h.splice(i, 1); break; } }
+  var prev = S.trick.length ? S.trick[S.trick.length - 1].card : null;
+  if(prev && prev.s === T && prev.v === '7' && card.s === T && card.v === 'A') S.ev[pTm(p)]++; // Réle
+  S.trick.push({ player: p, card: card });
+  if(S.trick.length < 4){ S.cur = nxt(p); return; }
+  var w = getWin(S.trick, T);
+  S.tPts[pTm(w.player)] += aiTrickPts(S.trick);
+  var t0 = S.trick[0];
+  if(S.trickN === 0 && t0.player === S.starter && t0.card.s === T && t0.card.v === '7'){
+    var ot = 1 - pTm(t0.player);
+    if(!S.trick.some(function(x){ return x.card.s === T && x.card.v === 'A' && pTm(x.player) === ot; })) S.ev[pTm(t0.player)]++;
+  }
+  if(S.trick.some(function(x){ return x.card.s === T && x.card.v === '7'; })) S.sevenOut = true;
+  var wi = TORD.indexOf(w.player);
+  for(var j=0;j<4;j++){
+    if(S.deck.length) S.hands[TORD[(wi + j) % 4]].push(S.deck.shift());
+  }
+  S.trick = [];
+  S.trickN++;
+  S.cur = w.player;
+}
+
+function aiRoundOver(S){
+  return !S.trick.length && !S.hands[0].length && !S.hands[1].length && !S.hands[2].length && !S.hands[3].length;
+}
+
+/** Resultado da ronda em pontos de partida para a dupla mt (mesma contabilidade de bfResolveEndRound). */
+function aiRoundValue(S, mt, base, tieBonus){
+  var my = S.tPts[mt], op = S.tPts[1 - mt];
+  var v = S.ev[mt] - S.ev[1 - mt];
+  if(my > op) v += base + tieBonus + (my === 61 && op === 59 ? 1 : 0) + (op < 30 ? 1 : 0);
+  else if(op > my) v -= base + tieBonus + (op === 61 && my === 59 ? 1 : 0) + (my < 30 ? 1 : 0);
+  return v + 0.004 * (my - op);
+}
+
+function aiRollout(S, mt, base, tieBonus){
+  var guard = 0;
+  while(!aiRoundOver(S) && guard++ < 60){
+    var c = aiQuickPick(S, S.cur);
+    if(!c) break;
+    aiApplyPlay(S, c);
+  }
+  return aiRoundValue(S, mt, base, tieBonus);
+}
+
+/** Minimax exato (informação perfeita no sorteio), dupla mt maximiza. */
+function aiSearch(S, mt, base, tieBonus, alpha, beta){
+  if(aiRoundOver(S)) return aiRoundValue(S, mt, base, tieBonus);
+  var moves = aiLegal(S.hands[S.cur], S.trick, S.trump, S.sevenOut, S.trickN);
+  var maxing = pTm(S.cur) === mt;
+  var best = maxing ? -Infinity : Infinity;
+  for(var i=0;i<moves.length;i++){
+    var N = aiCloneState(S);
+    aiApplyPlay(N, moves[i]);
+    var v = aiSearch(N, mt, base, tieBonus, alpha, beta);
+    if(maxing){ if(v > best) best = v; if(best > alpha) alpha = best; }
+    else { if(v < best) best = v; if(best < beta) beta = best; }
+    if(beta <= alpha) break;
+  }
+  return best;
+}
+
+function aiShuffleInPlace(a){
+  for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+
+/**
+ * Prepara o sorteio: o que o bot sabe de certeza (pinned) e o conjunto de cartas desconhecidas.
+ * As cartas escondidas só são usadas como conjunto — é exatamente o que um jogador atento sabe
+ * (baralho completo menos a sua mão, as jogadas e a mesa).
+ */
+function aiBuildWorldSpec(pv, seat){
+  var mate = (seat + 2) % 4;
+  var pinned = [[], [], [], []];
+  var pinnedIds = {};
+  function pin(s, c){ pinned[s].push(c); pinnedIds[c.id] = true; }
+
+  // Parceiro: mão mostrada no início da ronda e de novo na mão 8/10 (trickN 7).
+  var key = aiRoundKey(pv);
+  var mateHand = (pv.hands[mate] || []).filter(Boolean);
+  if(pv.trickN === 0){
+    var ids0 = {};
+    mateHand.forEach(function(c){ ids0[c.id] = true; });
+    aiPartnerSeen[seat] = { key: key, ids: ids0 };
+  }
+  var seen = aiPartnerSeen[seat];
+  mateHand.forEach(function(c){
+    if(pv.trickN >= 7 || (seen && seen.key === key && seen.ids[c.id])) pin(mate, c);
+  });
+
+  // Carta de corte: está no fundo do baralho ou com quem a comprou (posição pública).
+  var deck = (pv.deck || []).filter(Boolean);
+  var tcBottom = null;
+  if(pv.tc && deck.length && deck[deck.length - 1].id === pv.tc.id){
+    tcBottom = deck[deck.length - 1];
+    pinnedIds[tcBottom.id] = true;
+  } else if(pv.tc){
+    for(var s=0;s<4;s++){
+      if(s === seat || s === mate) continue;
+      if((pv.hands[s] || []).some(function(c){ return c && c.id === pv.tc.id; })) pin(s, pv.tc);
+    }
+  }
+  // Ás de corte revelado com o 7 como 4.ª carta.
+  if(pv.aceReveal && pv.aceReveal.ace && pv.aceReveal.seat !== seat){
+    var rs = pv.aceReveal.seat;
+    var ac = (pv.hands[rs] || []).find(function(c){ return c && c.id === pv.aceReveal.ace.id; });
+    if(ac && !pinnedIds[ac.id]) pin(rs, ac);
+  }
+
+  var unknown = [];
+  var need = [0, 0, 0, 0];
+  for(var o=0;o<4;o++){
+    if(o === seat) continue;
+    var h = (pv.hands[o] || []).filter(Boolean);
+    need[o] = h.length - pinned[o].length;
+    h.forEach(function(c){ if(!pinnedIds[c.id]) unknown.push(c); });
+  }
+  deck.forEach(function(c){ if(!pinnedIds[c.id]) unknown.push(c); });
+  return { pinned: pinned, need: need, unknown: unknown, deckNeed: deck.length - (tcBottom ? 1 : 0), tcBottom: tcBottom };
+}
+
+function aiSampleWorld(pv, seat, spec){
+  var pool = aiShuffleInPlace(spec.unknown.slice());
+  var k = 0;
+  var hands = [[], [], [], []];
+  for(var o=0;o<4;o++){
+    if(o === seat){ hands[o] = (pv.hands[seat] || []).filter(Boolean); continue; }
+    hands[o] = spec.pinned[o].slice();
+    for(var n=0;n<spec.need[o];n++) hands[o].push(pool[k++]);
+  }
+  var deck = pool.slice(k, k + spec.deckNeed);
+  if(spec.tcBottom) deck.push(spec.tcBottom);
+  var st = parseSeat(pv.starter);
+  return {
+    hands: hands,
+    deck: deck,
+    trick: (pv.trick || []).slice(),
+    cur: seat,
+    trickN: pv.trickN || 0,
+    sevenOut: !!pv.trumpSevenOut,
+    tPts: (pv.tPts || [0, 0]).slice(),
+    ev: [0, 0],
+    starter: isNaN(st) ? 2 : st,
+    trump: pv.trump,
+  };
+}
+
+/** Decisão do bot: avalia cada carta jogável por simulação e escolhe a de maior valor esperado. */
+function aiChooseCard(pv, seat){
+  var hand = (pv.hands[seat] || []).filter(Boolean);
   if(!hand.length) return null;
-  if(!mem) mem = makeMemory();
-  if(mySeat==null || mySeat<0) mySeat = 0;
+  var cands = aiLegal(hand, pv.trick || [], pv.trump, !!pv.trumpSevenOut, pv.trickN || 0);
+  if(cands.length === 1) return cands[0];
 
-  var pool = hand.filter(function(c){
-    if(!c) return false;
-    if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
-    if(c.v==='A' && c.s===trump && !aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, c, trickN, mySeat)) return false;
-    if(!mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN)) return false;
-    return true;
-  });
-  if(!pool.length){
-    pool = hand.filter(function(c){ return !!c; }).filter(function(c){
-      if(c.v==='A' && c.s===trump && !mayPlayAceTrump(trick, trump, sevenOut, hand, c, trickN)) return false;
-      if(c.v==='A' && c.s===trump && !aiMayPlayAceTrumpNotWasteAfterPartnerSeven(trick, trump, hand, c, trickN, mySeat)) return false;
-      return mayPlaySevenTrumpFourth(trick.length, hand, trump, c, trick, trickN);
-    });
+  var mt = pTm(seat);
+  var base = pv.batido && pv.trump === 'copas' ? 2 : 1;
+  var tieBonus = pv.tieBonus || 0;
+  var spec = aiBuildWorldSpec(pv, seat);
+  var exact = !(pv.deck || []).filter(Boolean).length;
+  var totals = cands.map(function(){ return 0; });
+  var t0 = Date.now();
+  var n = 0;
+  while(n < AI_MAX_SAMPLES && (n < AI_MIN_SAMPLES || Date.now() - t0 < AI_TIME_BUDGET_MS)){
+    var W = aiSampleWorld(pv, seat, spec);
+    for(var i=0;i<cands.length;i++){
+      var S = aiCloneState(W);
+      aiApplyPlay(S, cands[i]);
+      totals[i] += exact ? aiSearch(S, mt, base, tieBonus, -Infinity, Infinity) : aiRollout(S, mt, base, tieBonus);
+    }
+    n++;
   }
-  if(!pool.length) return null;
-  if(avoidLast){ var ns=pool.filter(function(c){ return !(c.v==='7' && c.s===trump); }); if(ns.length) pool=ns; }
-
-  var trumpCards = pool.filter(function(c){ return c.s===trump; });
-  var nonTrump = pool.filter(function(c){ return c.s!==trump; });
-  var trickPts = trick.reduce(function(s,t){ return s+cPts(t.card); }, 0);
-  var hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
-  var strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
-
-  // Score awareness
-  var myScore = tPts ? tPts[mt] : 0;
-  var oppScore = tPts ? tPts[1-mt] : 0;
-  var losing = oppScore > myScore + 10;
-  var winning = myScore > oppScore + 20;
-  var endGame = trickN >= 7; // last 3 tricks
-  var earlyLead = trickN <= 2;
-
-  function byPtsAsc(a,b){ return cPts(a)-cPts(b) || cRnk(a)-cRnk(b); }
-  function byPtsDesc(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); }
-  function byRnkAsc(a,b){ return cRnk(a)-cRnk(b); }
-  function lowest(cards){ return cards.slice().sort(byPtsAsc)[0]; }
-  function highest(cards){ return cards.slice().sort(byPtsDesc)[0]; }
-  /** Com a mão perdida, não “oferecer” Ás/7 de bísca se houver outra carta jogável. */
-  function lowestPreferNoBisca(cards){
-    if(!cards||!cards.length) return null;
-    var nb = cards.filter(function(c){ return !isBiscaCard(c, trump); });
-    if(nb.length) return lowest(nb);
-    return lowest(cards);
+  // Empate técnico: guardar a carta mais valiosa (gastar a mais barata).
+  var best = 0;
+  for(var b=1;b<cands.length;b++){
+    var d = totals[b] - totals[best];
+    if(d > 1e-9 * n || (Math.abs(d) <= 1e-9 * n && aiShedCost(cands[b], pv.trump) < aiShedCost(cands[best], pv.trump))) best = b;
   }
-  /** Versão “global”: prefere não-bísca no conjunto jogável inteiro (não só fora de corte). */
-  function lowestPreferNoBiscaAny(cards){
-    if(!cards||!cards.length) return null;
-    var nb = cards.filter(function(c){ return !isBiscaCard(c, trump); });
-    if(nb.length) return lowest(nb);
-    return lowest(cards);
-  }
-  function winners(cards,cw,ld){ return cards.filter(function(c){ return beats(c,cw,ld,trump); }); }
-  function suitHigh(suit){ return pool.some(function(c){ return c.s===suit && (c.v==='A'||c.v==='7'); }); }
-  function suitLows(suit){ return pool.filter(function(c){ return c.s===suit && cPts(c)===0; }); }
-  function suitCount(suit){ return pool.filter(function(c){ return c.s===suit; }).length; }
-
-  // Is the Ás of this suit still out there (not played, not in my hand)?
-  function aceStillOut(suit){
-    if(hand.some(function(c){ return c && c.v==='A' && c.s===suit; })) return false;
-    return !isOut(mem, suit, 'A');
-  }
-  // Is the 7 still out there?
-  function sevenStillOut(suit){
-    if(hand.some(function(c){ return c && c.v==='7' && c.s===suit; })) return false;
-    return !isOut(mem, suit, '7');
-  }
-
-  // ══ LEADING ══
-  if(!trick.length){
-    /* Nunca abrir a vaza com bísca (Ás/7 fora de corte) se houver qualquer outra carta jogável — só bísca/corte na mão é exceção. */
-    var poolLead = pool.filter(function(c){ return !isBiscaCard(c, trump); });
-    if(poolLead.length) pool = poolLead;
-    trumpCards = pool.filter(function(c){ return c.s===trump; });
-    nonTrump = pool.filter(function(c){ return c.s!==trump; });
-    hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
-    strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
-
-    // RULE 1: na 1.ª mão (trickN===0), se abrir e tiver o 7 de corte, sai com ele (vale 1 pt na mesa).
-    // Nas mãos 2–10 não abrir com o 7 de corte: expõe demais o Ás de corte do adversário. O 7 de corte nas
-    // posições 2–4 da vaza (encarte, réle com Ás na mão, etc.) continua tratado no bloco FOLLOWING / mayPlaySevenTrumpFourth.
-    var my7t = pool.find(function(c){ return c.v==='7' && c.s===trump; });
-    if(my7t && trickN===0) return my7t;
-
-    // RULE 2: Force opponents to use trump — lead suit they're void in
-    // This is PRO strategy: if opponent is void in a suit, leading it forces them to trump or lose
-    // Forçar naipe “seco” no adversário: evitar nas primeiras mãos se a dupla vai mal — poupa A/7 e não despeja bísca à toa
-    if(!winning && (!earlyLead || losing) && !(losing && earlyLead && trickN<5)){
-      var forceSuits = SUITS.filter(function(s){
-        if(s===trump) return false;
-        // I have high card in this suit AND opponent is void
-        return suitHigh(s) && opponentsVoidIn(mem, mt, s);
-      });
-      if(forceSuits.length){
-        // Lead high card of that suit — force them to waste trump or give points
-        for(var fi=0; fi<forceSuits.length; fi++){
-          var fCards = pool.filter(function(c){ return c.s===forceSuits[fi]; }).sort(byPtsDesc);
-          if(fCards.length) return fCards[0];
-        }
-      }
-    }
-
-    // RULE 3 (abertura): sair baixo num naipe onde tens A ou 7 (trabalhar o naipe). Isto não é "encarte" na tua mesa.
-    var openLowSuits = SUITS.filter(function(s){
-      return s!==trump && suitHigh(s) && suitLows(s).length>0;
-    });
-    if(openLowSuits.length){
-      openLowSuits.sort(function(a,b){ return suitCount(b)-suitCount(a); });
-      var el = suitLows(openLowSuits[0]);
-      if(el.length) return el[0];
-    }
-
-    /* Ás/7 de bísca na abertura: já filtrados por poolLead; o que resta abaixo só corre com mão sem outras saídas. */
-
-    // RULE 6: If losing badly — K/J só quando a mesa já avançou (antes disso, RULE 7 lixo)
-    if(losing && trickN>=3){
-      var mids = nonTrump.filter(function(c){ return c.v==='K'||c.v==='J'; });
-      if(mids.length && hasTrumpBackup) return mids.sort(byPtsDesc)[0];
-    }
-
-    // RULE 7: Garbage — probe with zero-value cards
-    var garbage = nonTrump.filter(function(c){ return cPts(c)===0; });
-    if(garbage.length){
-      // Prefer suits where opponent has cards (won't trump)
-      var safeGarbage = garbage.filter(function(c){ return !opponentsVoidIn(mem, mt, c.s); });
-      if(safeGarbage.length) return safeGarbage[Math.floor(Math.random()*safeGarbage.length)];
-      // Prefer naipes onde não tens A/7 (guardar o setup da RULE 3)
-      var pureG = garbage.filter(function(c){ return !suitHigh(c.s); });
-      if(pureG.length) return pureG[Math.floor(Math.random()*pureG.length)];
-      return garbage[Math.floor(Math.random()*garbage.length)];
-    }
-
-    // RULE 8: Q is only 2 pts, acceptable loss
-    var queens = nonTrump.filter(function(c){ return c.v==='Q'; });
-    if(queens.length) return queens[0];
-
-    if(nonTrump.length){
-      var lnb = lowestPreferNoBisca(nonTrump);
-      if(lnb) return lnb;
-    }
-    var trumpLead = trumpCards;
-    /* Abertura: evitar K/J/Q de corte sem bísca na rodada (não existe bísca na mesa ao abrir),
-       salvo quando não há alternativa de corte mais baixo. */
-    var noHighTrumpLead = trumpLead.filter(function (c) {
-      return !(c.s === trump && (c.v === "K" || c.v === "J" || c.v === "Q"));
-    });
-    if (noHighTrumpLead.length) trumpLead = noHighTrumpLead;
-    if (trickN > 0 && trumpLead.length > 1) {
-      var noSevenTrumpLead = trumpLead.filter(function (c) {
-        return !(c.v === "7" && c.s === trump);
-      });
-      if (noSevenTrumpLead.length) trumpLead = noSevenTrumpLead;
-    }
-    return lowest(trumpLead);
-  }
-
-  // ══ FOLLOWING ══
-  var lead = trick[0].card.s;
-  var curWin = getWin(trick, trump);
-  var partnerWinning = pTm(curWin.player)===mt;
-  var isLast = trick.length===3;
-  var is2nd = trick.length===1;
-  var is3rd = trick.length===2;
-  var poolAll = pool.slice();
-  var followOpts = poolAll.filter(function(c){ return c.s===lead; });
-  var voidLead = followOpts.length===0;
-  var followWinners = winners(followOpts, curWin.card, lead);
-  /* Com cartas do naipe de abertura: se alguma ganha → só encarte (esse naipe). Se nenhuma ganha →
-     adversário a ganhar: lixar 0 pts (não corte) se não der para cortar a vencer; senão mão livre para cortar/lixar.
-     Parceiro a ganhar: lixar 0 pts que não roube a vaza; senão seguir no naipe (mesmo a perder).
-     Excepção: parceiro já ganha de corte e só tens no naipe de saída bíscas/figuras altas (≥10 pts) que não mudam
-     quem leva — não “empilhar” Ás/7 só por cumprir naipe se houver lixo 0 pts fora de corte que mantém a vaza
-     (house rule / heurística; na bisca de mesa costuma ser obrigatório seguir o naipe). */
-  if(followOpts.length){
-    if(followWinners.length){
-      var loseFollow = followOpts.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
-      /* Parceiro já vai ganhar no naipe de abertura: não restringir ao Ás (ou outras que batem o 7 dele) — lixar corte mais baixo se houver. */
-      if(partnerWinning && loseFollow.length) pool = loseFollow;
-      else if(
-        partnerWinning &&
-        curWin.card.v==='7' &&
-        curWin.card.s===trump &&
-        pTm(curWin.player)===mt
-      ){
-        /* Só o Ás de corte ganha por cima do 7: nunca roubar a vaza ao parceiro com o Ás se houver outra carta do naipe de saída. */
-        var noAceOverMate7 = followOpts.filter(function(c){ return !(c.v==='A' && c.s===trump); });
-        pool = noAceOverMate7.length ? noAceOverMate7 : followWinners;
-      } else if(
-        !partnerWinning &&
-        lead === trump &&
-        loseFollow.length &&
-        !trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); }) &&
-        !trickNeedsStrongTrumpCut(trick, trump, trickPts) &&
-        trickPts <= 8 &&
-        curWin.card &&
-        curWin.card.s === trump &&
-        curWin.card.v !== 'A' &&
-        curWin.card.v !== '7'
-      ){
-        pool = followOpts.slice();
-      } else pool = followWinners;
-    } else {
-      var twCut = poolAll.filter(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
-      function trickStillOurs(card){
-        return pTm(getWin(trick.concat([{player:mySeat,card:card}]), trump).player)===mt;
-      }
-      var dumpZeroSafe = function(c){
-        return c.s!==lead && c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump);
-      };
-      if(!partnerWinning){
-        var d0 = poolAll.filter(dumpZeroSafe);
-        /* Último a jogar, vaza já perdida: não “oferecer” Ás/7/bísca no naipe de saída — só aumenta o que os adversários levam.
-           Mesmo com corte que ganhava, preferir lixo 0 pts (house rule pedida; na mesa real muitos cortam para levar a mão). */
-        var onlyHighLosingFollow =
-          isLast &&
-          followOpts.length &&
-          !followWinners.length &&
-          followOpts.every(function (c) {
-            return isBiscaCard(c, trump) || cPts(c) >= 10;
-          });
-        if ((!twCut.length && d0.length) || (d0.length && onlyHighLosingFollow)) pool = d0;
-        else pool = poolAll;
-      } else {
-        /* Parceiro já ganha de corte: em geral manter pool completo (ex.: empilhar 7♠ na vaza quando faz sentido).
-           Se só tens no naipe de saída cartas muito valiosas que não mudam o vencedor, preferir lixo 0 pts. */
-        var teammateTrumpWinning = curWin.card.s===trump && pTm(curWin.player)===mt;
-        var dm = poolAll.filter(function(c){ return dumpZeroSafe(c) && trickStillOurs(c); });
-        var allFollowHigh =
-          followOpts.length > 0 &&
-          followOpts.every(function (c) {
-            return isBiscaCard(c, trump) || cPts(c) >= 10;
-          });
-        if (teammateTrumpWinning && dm.length && allFollowHigh) pool = dm;
-        else if (teammateTrumpWinning) pool = poolAll;
-        else if (dm.length) pool = dm;
-        else pool = followOpts;
-      }
-    }
-    trumpCards = pool.filter(function(c){ return c.s===trump; });
-    nonTrump = pool.filter(function(c){ return c.s!==trump; });
-    strongTrumps = trumpCards.filter(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; });
-    hasTrumpBackup = trumpCards.length>=2 || (trumpCards.length>=1 && trumpCards.some(function(c){ return c.v==='A'||c.v==='7'||c.v==='K'; }));
-  }
-  var followSuit = pool.filter(function(c){ return c.s===lead; });
-  var anyBiscaTableGlobal = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
-  var lowStakeOppTrumpWins =
-    !anyBiscaTableGlobal &&
-    !partnerWinning &&
-    curWin.card.s===trump &&
-    pTm(curWin.player)!==mt &&
-    !trickNeedsStrongTrumpCut(trick, trump, trickPts) &&
-    !trick.some(function(t){ return t.card && t.card.v==='7' && t.card.s===trump; });
-
-  /* Evita “queimar” corte à toa: se o adversário já vai ganhando com corte e eu não consigo passar por cima,
-     descarto fora de corte sempre que possível. */
-  if(curWin.card.s===trump && pTm(curWin.player)!==mt){
-    var canOverTrump = pool.some(function(c){ return c.s===trump && beats(c, curWin.card, lead, trump); });
-    if(!canOverTrump){
-      var dumpNt0 = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)===0; });
-      if(dumpNt0.length) return lowest(dumpNt0);
-      var dumpNtSafe = pool.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump); });
-      if(dumpNtSafe.length) return lowest(dumpNtSafe);
-      /* Já perdemos para corte adversário e não dá para passar: antes de “oferecer” bísca/figura fora de corte,
-         preferir morrer com corte baixo que não ganha (ex.: 2♥ abaixo de 3♥). */
-      var loseTrumpLow = pool.filter(function(c){
-        return (
-          c.s===trump &&
-          !beats(c, curWin.card, lead, trump) &&
-          c.v!=="A" &&
-          c.v!=="7" &&
-          c.v!=="K" &&
-          c.v!=="J" &&
-          c.v!=="Q"
-        );
-      });
-      if(loseTrumpLow.length) return lowest(loseTrumpLow);
-      var loseTrumpAny = pool.filter(function(c){
-        return c.s===trump && !beats(c, curWin.card, lead, trump) && c.v!=="A" && c.v!=="7";
-      });
-      if(loseTrumpAny.length) return lowest(loseTrumpAny);
-      var dumpNtAny = pool.filter(function(c){ return c.s!==trump; });
-      if(dumpNtAny.length) return lowestPreferNoBisca(dumpNtAny) || lowest(dumpNtAny);
-    }
-  }
-
-  /* Adversário já ganha só com corte, sem bísca nem vaza pesada, e não há 7 de corte em jogo: não “subir” corte (encartar corte) — perder com o menor corte / lixo possível. */
-  if(lowStakeOppTrumpWins){
-    /* Preferir lixo fora de corte a partir da mão completa: com saída em corte e adversário a ganhar,
-       não “queimar” 3♥–6♥ se ainda há 0 pts noutro naipe (ex.: 2♥, 6♥ na mesa e na mão só perdes com 3♥). */
-    var shedNt0Ls = poolAll.filter(function(c){ return c.s!==trump && cPts(c)===0 && !isBiscaCard(c, trump); });
-    if(shedNt0Ls.length) return lowest(shedNt0Ls);
-    var loseFollowLs = pool.filter(function(c){ return c.s===lead && !beats(c, curWin.card, lead, trump); });
-    if(loseFollowLs.length) return lowest(loseFollowLs);
-    var loseTrumpLs = pool.filter(function(c){ return c.s===trump && !beats(c, curWin.card, lead, trump); });
-    if(loseTrumpLs.length) return lowest(loseTrumpLs);
-    var shedNtSoftLs = poolAll.filter(function(c){ return c.s!==trump && !isBiscaCard(c, trump) && cPts(c)<=4; });
-    if(shedNtSoftLs.length) return lowest(shedNtSoftLs);
-  }
-
-  // Réle: Ás logo a seguir ao 7 de corte — não forçar se o parceiro já pôs o 7 nesta vaza, excepto na última mão (trickN 9) para não deixar o pool sem jogada útil.
-  if(trick.length>0){
-    var partnerPlayedSevenTrump = trick.some(function(t){
-      return t && t.card && t.card.s===trump && t.card.v==='7' && pTm(t.player)===mt && t.player!==mySeat;
-    });
-    if(!partnerPlayedSevenTrump || trickN===9){
-      var lastTr = trick[trick.length-1];
-      if(lastTr && lastTr.card && lastTr.card.v==='7' && lastTr.card.s===trump){
-        var skipReleAce = trickN!==9 && pTm(lastTr.player)===mt && partnerWinning;
-        if(!skipReleAce){
-          var aceRele = pool.find(function(c){ return c.v==='A' && c.s===trump; });
-          if(aceRele) return aceRele;
-        }
-      }
-    }
-  }
-
-  // ── PARTNER WINNING (dupla vai ganhando a rodada): maximizar pontos na vaza quando a mão é segura; nunca “corte morto” abaixo do corte do parceiro ──
-  if(partnerWinning){
-    function teamWinsWith(card){
-      var w = getWin(trick.concat([{player:mySeat,card:card}]), trump);
-      return pTm(w.player)===mt;
-    }
-    var safePool = pool.filter(function(c){ return teamWinsWith(c); });
-    if(!safePool.length) return lowest(pool);
-
-    var mateWinsTrump = curWin.card.s===trump;
-    /* Bísca na mesa, parceiro vai ganhando com corte e ainda há quem jogar: subir ao máximo de corte para não deixarem roubar a vaza. */
-    if(anyBiscaTableGlobal && mateWinsTrump && !isLast){
-      var raiseTrump = pool.filter(function(c){
-        if(!(c.s===trump && beats(c, curWin.card, lead, trump) && teamWinsWith(c))) return false;
-        if(curWin.card.v==='7' && curWin.card.s===trump && pTm(curWin.player)===mt && c.v==='A' && c.s===trump) return false;
-        return true;
-      });
-      if(raiseTrump.length){
-        return raiseTrump.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
-      }
-    }
-    var winCard = curWin.card;
-    var candidates = safePool;
-    if(mateWinsTrump){
-      var ntOnly = safePool.filter(function(c){ return c.s!==trump; });
-      if(ntOnly.length) candidates = ntOnly;
-    } else if(curWin.card.s===lead && curWin.card.s!==trump){
-      /* Dupla já vai ganhando no naipe (ex.: encartou Ás); não cortar por cima — somar bísca/lixo fora de corte. */
-      var ntLeadWin = safePool.filter(function(c){ return c.s!==trump; });
-      if(ntLeadWin.length) candidates = ntLeadWin;
-    }
-    /* Quem leva a vaza: em geral não “roubar” ao parceiro no meio da vaza (mantém o mesmo assento vencedor).
-       Em último jogador, basta a dupla continuar a ganhar — pode somar bísca/corte ainda que o vencedor
-       passe de tu para o parceiro (ex.: tu encartaste e o parceiro fecha com 7♥ de corte na mesa). */
-    function winnerSeatIfPlay(card){
-      return getWin(trick.concat([{ player: mySeat, card: card }]), trump).player;
-    }
-    if(isLast){
-      var teamStillWinsLast = candidates.filter(function(c){ return pTm(winnerSeatIfPlay(c)) === mt; });
-      if(teamStillWinsLast.length) candidates = teamStillWinsLast;
-    } else {
-      var keepPartnerAsWinner = candidates.filter(function(c){ return winnerSeatIfPlay(c) === curWin.player; });
-      if(keepPartnerAsWinner.length) candidates = keepPartnerAsWinner;
-      else {
-        var dumpLose = pool.filter(function(c){ return !teamWinsWith(c) && c.s !== trump && cPts(c) <= 2; });
-        if(dumpLose.length) return lowest(dumpLose);
-      }
-    }
-    /* Último a jogar, bísca na mesa, parceiro já vai ganhando com corte: não “subir” o corte do parceiro — somar fora de corte se der. */
-    if(isLast && anyBiscaTableGlobal && mateWinsTrump && pTm(curWin.player)===mt){
-      var noTrumpOverMate = candidates.filter(function(c){
-        if(c.s!==trump) return true;
-        return !beats(c, curWin.card, lead, trump);
-      });
-      if(noTrumpOverMate.length) candidates = noTrumpOverMate;
-    }
-    // Parceiro já largou bísca (Ás/7 fora de corte): não empilhar outra bísca se uma carta fraca ainda deixa a dupla ganhar.
-    var matePlayedBisca = trick.some(function(t){
-      return pTm(t.player)===mt && isBiscaCard(t.card, trump);
-    });
-    if(matePlayedBisca){
-      var cheapWin = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
-      if(cheapWin.length) return cheapWin.slice().sort(byPtsAsc)[0];
-    }
-    if(curWin.card.v==='7' && curWin.card.s===trump && pTm(curWin.player)===mt){
-      var sansAceOverMate7 = candidates.filter(function(c){ return !(c.v==='A' && c.s===trump); });
-      if(sansAceOverMate7.length) candidates = sansAceOverMate7;
-    }
-    /* Parceiro a ganhar no naipe (não corte) e ainda falta adversário jogar:
-       não “entregar” bísca/figuras cedo. Prioriza descarte seguro; se houver corte baixo, usa-o
-       em vez de largar Ás/7 fora de corte. */
-    if(!mateWinsTrump && !isLast){
-      var safeZero = candidates.filter(function(c){ return cPts(c)===0 && !isBiscaCard(c, trump); });
-      var safeZeroTrump = safeZero.filter(function(c){ return c.s===trump; });
-      if(safeZeroTrump.length) return lowest(safeZeroTrump);
-      if(safeZero.length) return lowest(safeZero);
-      var noBiscaSafe = candidates.filter(function(c){ return !isBiscaCard(c, trump); });
-      var noBiscaTrumpSafe = noBiscaSafe.filter(function(c){ return c.s===trump; });
-      if(noBiscaTrumpSafe.length) return lowest(noBiscaTrumpSafe);
-      if(noBiscaSafe.length) return lowest(noBiscaSafe);
-    }
-    // Parceiro com corte (ou tu só podes somar no naipe): somar o máximo de pontos possível na vaza.
-    return candidates.slice().sort(function(a,b){ return cPts(b)-cPts(a) || cRnk(b)-cRnk(a); })[0];
-  }
-
-  // Parceiro já pôs bísca (Ás/7 fora de corte): recuperar esses pontos pesa mais que poupar corte baixo
-  var partnerPutBisca = trick.some(function(t){
-    return pTm(t.player)===mt && isBiscaCard(t.card, trump);
-  });
-
-  /* Adversário já ganha com corte (ex.: 4 de copas), vaza sem bísca — nunca descartar Ás/7 fora de corte se houver lixo. */
-  var anyBiscaOnTableEarly = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
-  if(
-    voidLead &&
-    !partnerWinning &&
-    pTm(curWin.player) !== mt &&
-    curWin.card.s === trump &&
-    !anyBiscaOnTableEarly &&
-    trickPts <= 10
-  ){
-    var shedNoBisca = pool.filter(function(c){ return c.s !== trump && !isBiscaCard(c, trump); });
-    if(shedNoBisca.length) return shedNoBisca.slice().sort(byPtsAsc)[0];
-  }
-
-  // ── OPPONENT WINNING ──
-
-  // Encarte (mesa): matar no mesmo naipe a carta que vai ganhando — menor carta que ainda ganha (menos pontos, depois menor força).
-  var suitW = winners(followSuit, curWin.card, lead);
-  if(suitW.length){
-    if(lead===trump){
-      var loseTrumpFollow = followSuit.filter(function(c){ return !beats(c, curWin.card, lead, trump); });
-      function isHeavyTrump(c){ return c.v==='A' || c.v==='7' || c.v==='K' || c.v==='J' || c.v==='Q'; }
-      var lightWinTrump = suitW.filter(function(c){ return !isHeavyTrump(c); });
-      /* corte puxado sem bísca na mesa: não gastar figuras (K/J/Q) nem A/7 só para “encartar” vaza fraca.
-         Ex.: saída 2♥, 6♥, J♥ — o último não deve pôr R♥ se ainda pode perder com corte baixo. */
-      if(!anyBiscaTableGlobal && !trickNeedsStrongTrumpCut(trick, trump, trickPts)){
-        if(loseTrumpFollow.length){
-          if(!isLast) return lowest(loseTrumpFollow);
-          if(isLast && trickPts<=10) return lowest(loseTrumpFollow);
-        }
-        if(isLast && lightWinTrump.length) return lowest(lightWinTrump);
-      }
-    }
-    /* Com bísca na mesa e a dupla a perder a vaza: matar com a MAIOR carta do naipe (fixar pontos), não a mínima. */
-    if(anyBiscaTableGlobal && !partnerWinning && pTm(curWin.player)!==mt){
-      return suitW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
-    }
-    var cw = suitW.slice().sort(byPtsAsc);
-    // Vaza muito fraca: não gastar A/7 se houver carta intermédia que já ganha
-    if(trickPts<=2){
-      var cnb = cw.filter(function(c){ return c.v!=='A' && c.v!=='7'; });
-      if(cnb.length) return cnb[0];
-      var partnerNotInTrick = !trick.some(function(t){ return pTm(t.player)===mt; });
-      // Só A/7 ganham e a rodada está fraca: só deixa de encartar se o parceiro ainda vai jogar (pode salvar sem gastar figuras)
-      if(partnerNotInTrick && !isLast && nonTrump.filter(function(c){ return cPts(c)===0; }).length>0){
-        return lowest(nonTrump.filter(function(c){ return cPts(c)===0; }));
-      }
-    }
-    return cw[0];
-  }
-
-  // Should I trump?
-  var trumpW = winners(trumpCards, curWin.card, lead);
-  if(trumpW.length){
-    var stakeHigh = trickNeedsStrongTrumpCut(trick, trump, trickPts);
-    var anyBiscaOnTable = trick.some(function(t){ return t.card && isBiscaCard(t.card, trump); });
-    /* Bísca na mesa e adversários a ganhar: sempre o maior corte que ganha (não deixar escapar a vaza). */
-    if(anyBiscaOnTable && !partnerWinning && pTm(curWin.player)!==mt){
-      return trumpW.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
-    }
-    function isKQJTrumpCard(c){ return c.s===trump && (c.v==='K'||c.v==='J'||c.v==='Q'); }
-    function highTrumpAllowedNow(){
-      /* Regra pedida: K/J/Q de corte só quando há bísca na rodada. */
-      return anyBiscaOnTable;
-    }
-    /** Menor corte que ainda ganha, mas evita K/J/Q se houver 2–7 (poupa figuras de corte). */
-    function pickWinningTrumpPreferLow(){
-      var esc = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
-      if(esc.length) return lowest(esc);
-      /* Se só houver K/J/Q para ganhar e não houver alternativa legal, joga o menor deles. */
-      return lowest(trumpW);
-    }
-    /** Bísca / vaza pesada: maior corte que ganha (força, depois pontos). */
-    function pickWinningTrumpPreferHigh(){
-      var src = highTrumpAllowedNow()
-        ? trumpW
-        : trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
-      if(!src.length) src = trumpW;
-      return src.slice().sort(function(a,b){ return cRnk(b)-cRnk(a) || cPts(b)-cPts(a); })[0];
-    }
-    function pickWinningTrumpChosen(){
-      return stakeHigh ? pickWinningTrumpPreferHigh() : pickWinningTrumpPreferLow();
-    }
-    var partnerNotYetPlayed = !trick.some(function(t){ return pTm(t.player)===mt; });
-
-    if(partnerPutBisca){
-      var srcBisca = highTrumpAllowedNow()
-        ? trumpW
-        : trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
-      if(!srcBisca.length) srcBisca = trumpW;
-      return srcBisca.slice().sort(function(a,b){ return cRnk(b)-cRnk(a); })[0];
-    }
-    /* Adversário já vai ganhando com corte em vaza sem bísca e quase sem pontos: não gastar Dama/Rei/Valete só para isso — lixar se ainda der. */
-    if(
-      !stakeHigh &&
-      !anyBiscaOnTable &&
-      trickPts <= 4 &&
-      curWin.card.s === trump &&
-      pTm(curWin.player) !== mt
-    ){
-      var winTrumpNoFig = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
-      if(!winTrumpNoFig.length){
-        var lixoNt = nonTrump.filter(function(c){ return cPts(c) === 0; });
-        if(lixoNt.length && !isLast) return lowest(lixoNt);
-      }
-    }
-    if(endGame && !sevenOut && trickN < 9){
-      var trumpSevenWin = trumpW.find(function(c){ return c.v==='7' && c.s===trump; });
-      if(trumpSevenWin) return trumpSevenWin;
-    }
-    // Parceiro ainda joga: vaza sem grande valor — não abrir cortes em cadeia; lixo fora de corte
-    if(!stakeHigh && partnerNotYetPlayed && !isLast && !partnerPutBisca && voidLead && !losing){
-      if(trickPts<=8){
-        var shed0 = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
-        if(shed0.length) return lowest(shed0);
-      }
-      if(trickPts<=5){
-        var shed1 = pool.filter(function(c){ return c.s!==trump && cPts(c)<=2; });
-        if(shed1.length) return lowest(shed1);
-      }
-    }
-    // Adversário já vai ganhando de corte, rodada fraca/média, ainda não és o último: deixa o parceiro poupar cortes
-    if(!stakeHigh && voidLead && !isLast && curWin.card.s===trump && trickPts<=10 && !losing && !partnerPutBisca){
-      var duckOff = pool.filter(function(c){ return c.s!==trump && cPts(c)===0; });
-      if(duckOff.length) return lowest(duckOff);
-    }
-
-    // Vaza fraca: não cortar só com K/J/Q (ou sem “corte baixo” que ganhe) se dá para lixar
-    if(!stakeHigh && !partnerPutBisca && !losing){
-      var trumpNoKQJ = trumpW.filter(function(c){ return !isKQJTrumpCard(c); });
-      var onlyKQJWins = !trumpNoKQJ.length;
-      if((trickPts<=3 && strongTrumps.length===0) || (trickPts<=7 && onlyKQJWins && !endGame)){
-        var gb = nonTrump.filter(function(c){ return cPts(c)===0; });
-        if(gb.length) return lowest(gb);
-        if(trickPts<=5 && nonTrump.length){
-          var midNb = lowestPreferNoBisca(nonTrump);
-          if(midNb) return midNb;
-          return nonTrump.slice().sort(byPtsAsc)[0];
-        }
-      }
-    }
-
-    // Last to play: trump if trick has value
-    if(isLast && trickPts>=4) return pickWinningTrumpChosen();
-
-    // High value trick: always trump
-    if(trickPts>=10) return pickWinningTrumpChosen();
-
-    // Medium value: cortar só se compensa (evita gastar figuras de corte em vazas médias)
-    if(trickPts>=4 && (strongTrumps.length>=1 || trumpCards.length>=3)){
-      if(!stakeHigh && !losing && !endGame && trickPts<8){
-        var minWin = pickWinningTrumpPreferLow();
-        if(isKQJTrumpCard(minWin) && trickPts<=6){
-          var gbMid = nonTrump.filter(function(c){ return cPts(c)===0; });
-          if(gbMid.length) return lowest(gbMid);
-        }
-      }
-      return pickWinningTrumpChosen();
-    }
-
-    // Losing badly? Be more aggressive with trumping
-    if(losing && trickPts>=3) return pickWinningTrumpChosen();
-
-    // Endgame (last 3 tricks): trump more aggressively
-    if(endGame && trickPts>=3) return pickWinningTrumpChosen();
-
-    /* Sem o naipe de saída: se não há lixo 0 pts fora de bísca para descartar, cortar com o menor
-       corte que ganha — senão a heurística “não vale cortar” deixa a IA “chutar” Ás/7 (bísca) na vaza
-       perdida (ex.: 7♦ com K♣ a ganhar e 3♥ na mão). */
-    if(voidLead && !partnerPutBisca){
-      var cheapDumpVoid = nonTrump.filter(function(c){
-        return !isBiscaCard(c, trump) && cPts(c)===0;
-      });
-      if(!cheapDumpVoid.length){
-        return pickWinningTrumpPreferLow();
-      }
-    }
-
-    // Not worth trumping — mínimo de perda; nunca bísca fora de corte se houver outra carta
-    var gb2 = nonTrump.filter(function(c){ return cPts(c)===0; });
-    if(gb2.length) return lowest(gb2);
-    if(nonTrump.length){
-      var nbb = lowestPreferNoBisca(nonTrump);
-      if(nbb) return nbb;
-      return nonTrump.slice().sort(byPtsAsc)[0];
-    }
-    return pickWinningTrumpChosen();
-  }
-
-  // Can't win — minimize loss
-  // IMPORTANT: if partner still hasn't played, throw low — partner might win!
-  var partnerStillToPlay = !trick.some(function(t){ return pTm(t.player)===mt; });
-  if(partnerStillToPlay){
-    var safeAny0 = pool.filter(function(c){ return !isBiscaCard(c, trump) && cPts(c)===0; });
-    if(safeAny0.length) return lowest(safeAny0);
-    var safeAny = lowestPreferNoBiscaAny(pool);
-    if(safeAny) return safeAny;
-    var zeros = nonTrump.filter(function(c){ return cPts(c)===0; });
-    if(zeros.length) return lowest(zeros);
-    if(nonTrump.length){
-      var pnb = lowestPreferNoBisca(nonTrump);
-      if(pnb) return pnb;
-      return nonTrump.slice().sort(byPtsAsc)[0];
-    }
-    return lowest(pool);
-  }
-
-  // Dupla adversária vai ganhando: não dar pontos — lixo mínimo, depois damos o mínimo de valor possível
-  var zeros2 = nonTrump.filter(function(c){ return cPts(c)===0; });
-  if(zeros2.length) return lowest(zeros2);
-  var safeAny2 = pool.filter(function(c){ return !isBiscaCard(c, trump) && cPts(c)===0; });
-  if(safeAny2.length) return lowest(safeAny2);
-  var safeAnyPick = lowestPreferNoBiscaAny(pool);
-  if(safeAnyPick) return safeAnyPick;
-  var qs = nonTrump.filter(function(c){ return c.v==='Q'; });
-  if(qs.length) return qs[0];
-  if(nonTrump.length){
-    var lpb2 = lowestPreferNoBisca(nonTrump);
-    if(lpb2) return lpb2;
-    return nonTrump.slice().sort(byPtsAsc)[0];
-  }
-  var lpb3 = lowestPreferNoBisca(pool);
-  if(lpb3) return lpb3;
-  return pool.slice().sort(byPtsAsc)[0];
+  return cands[best];
 }
 
 /** Jogada do bot na mesa (host online ou solo). Usado pelo timer normal e pelo watchdog. */
 function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
   if (!pv || pv.phase !== "playing" || pv.curP !== seat) return pv;
-  var isLT = pv.deck.length === 0 && pv.hands.every(function (h) {
-    return h.length <= 1;
-  });
-  var avL = isLT && pv.trick.length === 3;
-  var card = aiPick(pv.hands[seat], pv.trick, pv.trump, pTm(seat), pv.trumpSevenOut, avL, aiMemory, pv.tPts, pv.trickN, seat);
+  var card = aiChooseCard(pv, seat);
   if (!card) return pv;
-  recordPlay(aiMemory, seat, card, pv.trick, pv.trump);
   var hands = pv.hands.map(function (h) {
     return h.filter(function (c) {
       return c && c.id !== card.id;
@@ -2035,6 +1587,8 @@ function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
     var ph = sumHandCards(prev);
     var ih = sumHandCards(incoming);
     if (ph !== ih) return ph < ih ? prev : incoming;
+    /* Troca do 2 feita por outro jogador: não muda vaza nem nº de cartas, só tira a carta de corte (tc) da mesa. */
+    if (prev.tc && !incoming.tc) return incoming;
     /* Mesma “forma” da mão: snapshot duplicado ou atrasado com curP errado — mantém o estado local do host. */
     return prev;
   }
@@ -4628,8 +4182,6 @@ function GameScreen(props){
   // Sem isto o host avançava para cut localmente mas não gravava no RT → outros clientes ficavam em embaralhar para sempre.
   useEffect(function(){
     if(g.phase!=='shuffle') return;
-    if(isSolo) aiMemory = makeMemory();
-    if(isOnline && isRoomHost) aiMemory = makeMemory();
     if(isOnline && roomCode && isRoomHost) RT.setChat(roomCode, []);
     setSh(true);
     if(isOnline && !isRoomHost){
@@ -4868,7 +4420,6 @@ function GameScreen(props){
     setPlayDenied(null);
     var revealAceTrump = g.trick.length===3 && card.v==='7' && card.s===g.trump && hand.some(function(c){ return c && c.v==='A' && c.s===g.trump; });
     var aceCardReveal = revealAceTrump ? hand.find(function(c){ return c && c.v==='A' && c.s===g.trump; }) : null;
-    if(isSolo) recordPlay(aiMemory, seat, card, g.trick, g.trump);
     sg(function(p){
       if(p.curP!==seat || p.phase!=='playing') return p;
       var hands=p.hands.map(function(h){ return h.filter(function(c){ return c && c.id!==card.id; }); });
