@@ -1,8 +1,7 @@
 import "server-only";
 import { OAuth2Client } from "google-auth-library";
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, importPKCS8, jwtVerify } from "jose";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
 
 export const SESSION_COOKIE = "bf_session";
@@ -51,6 +50,17 @@ export async function verifyGoogleIdToken(idToken: string) {
 
 // ---------- Firebase Admin ----------
 
+/**
+ * Chave privada da conta de serviço. Aceita quebras de linha reais ou escritas como "\n", e com ou sem
+ * aspas em volta (painéis como o da Vercel às vezes guardam as aspas coladas do .env).
+ */
+function adminPrivateKey(): string {
+  return requireEnv("FIREBASE_ADMIN_PRIVATE_KEY")
+    .trim()
+    .replace(/^"([\s\S]*)"$/, "$1")
+    .replace(/\\n/g, "\n");
+}
+
 function adminApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
@@ -58,12 +68,7 @@ function adminApp(): App {
     credential: cert({
       projectId: requireEnv("FIREBASE_ADMIN_PROJECT_ID"),
       clientEmail: requireEnv("FIREBASE_ADMIN_CLIENT_EMAIL"),
-      // Aceita a chave com quebras de linha reais ou escritas como "\n", e com ou sem aspas em volta
-      // (painéis como o da Vercel às vezes guardam as aspas coladas do .env).
-      privateKey: requireEnv("FIREBASE_ADMIN_PRIVATE_KEY")
-        .trim()
-        .replace(/^"([\s\S]*)"$/, "$1")
-        .replace(/\\n/g, "\n"),
+      privateKey: adminPrivateKey(),
     }),
     databaseURL: requireEnv("NEXT_PUBLIC_FIREBASE_DATABASE_URL"),
   });
@@ -87,9 +92,25 @@ export async function upsertUser(u: SessionUser): Promise<void> {
   }));
 }
 
-/** Passe para o navegador entrar no Firebase com auth.uid = uid do jogador. */
+const CUSTOM_TOKEN_AUD = "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit";
+
+/**
+ * Passe para o navegador entrar no Firebase com auth.uid = uid do jogador.
+ * Assinado aqui com a chave da conta de serviço (formato oficial de custom token) em vez de
+ * firebase-admin/auth, cujo jwks-rsa quebra na Vercel com ERR_REQUIRE_ESM ao carregar o jose.
+ */
 export async function createFirebaseToken(uid: string): Promise<string> {
-  return getAuth(adminApp()).createCustomToken(uid);
+  const email = requireEnv("FIREBASE_ADMIN_CLIENT_EMAIL");
+  const key = await importPKCS8(adminPrivateKey(), "RS256");
+  const now = Math.floor(Date.now() / 1000);
+  return new SignJWT({ uid })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setIssuer(email)
+    .setSubject(email)
+    .setAudience(CUSTOM_TOKEN_AUD)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(key);
 }
 
 // ---------- Sessão (cookie httpOnly com JWT assinado) ----------
