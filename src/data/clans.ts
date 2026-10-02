@@ -3,7 +3,7 @@
  * com o nome indicado em `logo`; se o arquivo não existir, o jogo desenha o emblema em SVG.
  * Clãs criados por jogadores ficam no banco (bisca/clans) e não aqui.
  */
-export type ClanEmblemKind = "club-arrow" | "cards-crown" | "square" | "grad-cap" | "club-crown" | "shield" | "star" | "bolt" | "flame" | "spade" | "heart";
+export type ClanEmblemKind = "club-arrow" | "cards-crown" | "square" | "grad-cap" | "club-crown" | "club-bbc" | "shield" | "star" | "bolt" | "flame" | "spade" | "heart";
 
 export type OfficialClan = {
   id: string;
@@ -86,6 +86,20 @@ export const OFFICIAL_CLANS: OfficialClan[] = [
     motto: "Onde o paus é rei.",
     official: true,
   },
+  {
+    // Clube DIFERENTE do Reis de Paus. Emblema provisório até o logo oficial ser colocado em public/assets/clubes/reis-de-paus-bbc.png
+    id: "reis-de-paus-bbc",
+    name: "Reis de Paus BBC",
+    short: "Reis de Paus BBC",
+    tag: "RPB",
+    color: "#2a2a36",
+    color2: "#0b0b14",
+    fg: "#f0d078",
+    emblem: "club-bbc",
+    logo: "/assets/clubes/reis-de-paus-bbc.png",
+    motto: "Paus na mesa, BBC no coração.",
+    official: true,
+  },
 ];
 
 export const OFFICIAL_CLAN_BY_ID: Record<string, OfficialClan> = Object.fromEntries(OFFICIAL_CLANS.map((c) => [c.id, c]));
@@ -97,6 +111,7 @@ export const CLAN_ID_BY_TABLE_NAME: Record<string, string> = {
   "Legends Academy": "legends-academy",
   "Tribo de Aracruz": "tribo-de-aracruz",
   "Divas Labubônicas": "divas-labubonicas",
+  "Reis de Paus BBC": "reis-de-paus-bbc",
 };
 
 /** Emblemas disponíveis para clãs criados por jogadores. */

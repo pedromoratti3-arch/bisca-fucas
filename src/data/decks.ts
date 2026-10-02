@@ -147,6 +147,7 @@ export const DECKS: DeckDef[] = [
   clanDeck("legends", 0),
   clanDeck("legends-academy", 0),
   clanDeck("reis-de-paus", 0),
+  clanDeck("reis-de-paus-bbc", 0),
   {
     id: "terrafe",
     name: "Terrafé",

@@ -100,6 +100,22 @@ function EmblemArt(props: { kind: ClanEmblemKind; color: string; color2: string;
           </g>
         </svg>
       );
+    case "club-bbc":
+      // Provisório: escudo hexagonal escuro, paus dourado e as letras BBC. Diferente do Reis de Paus (círculo branco com coroa).
+      return (
+        <svg viewBox="0 0 64 64" width="100%" height="100%">
+          {bgDefs}
+          <path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill={`url(#${gid})`} />
+          <path d="M32 9l20 11.6v22.8L32 55 12 43.4V20.6z" fill="none" stroke={fg} strokeOpacity=".55" strokeWidth="1.5" />
+          <g fill={fg}>
+            <circle cx="32" cy="22" r="6.2" />
+            <circle cx="24.6" cy="30.5" r="6.2" />
+            <circle cx="39.4" cy="30.5" r="6.2" />
+            <path d="M30.2 29c.4 3.6-.5 6.6-2.6 9.4h8.8c-2.1-2.8-3-5.8-2.6-9.4z" />
+          </g>
+          <text x="32" y="50" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="9" fill={fg} letterSpacing="1.5">BBC</text>
+        </svg>
+      );
     case "star":
       return <svg viewBox="0 0 64 64" width="100%" height="100%">{bgDefs}<circle cx="32" cy="32" r="30" fill={`url(#${gid})`} /><path d="M32 12l6 13 14 1.6-10.5 9.6 3 14L32 43l-12.5 7.2 3-14L12 26.6 26 25z" fill={fg} /></svg>;
     case "bolt":
