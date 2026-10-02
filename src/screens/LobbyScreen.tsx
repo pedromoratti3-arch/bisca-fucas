@@ -107,7 +107,7 @@ export function LobbyScreen(props: {
           {/* código */}
           <div className="bf-panel bf-panel--gold bf-panel--pad" style={{ textAlign: "center", background: `${theme.pattern}, ${theme.bg}` }}>
             <div className="bf-label">Código da sala · {theme.name}</div>
-            <button type="button" onClick={() => void copyCode()} className="bf-display bf-gold-text" style={{ letterSpacing: ".35em", fontSize: 44, background: "none", border: 0, cursor: "pointer", marginTop: 4, textShadow: "0 0 24px rgba(227,183,74,.4)" }} title="Copiar código">
+            <button type="button" onClick={() => void copyCode()} className="bf-display bf-gold-text" style={{ letterSpacing: ".35em", fontSize: 44, border: 0, cursor: "pointer", marginTop: 4, padding: 0, filter: "drop-shadow(0 0 14px rgba(227,183,74,.35))" }} title="Copiar código">
               {room.code}
             </button>
             <div className="bf-row" style={{ justifyContent: "center", gap: 8, marginTop: 6 }}>
@@ -124,6 +124,19 @@ export function LobbyScreen(props: {
               </div>
             ))}
           </div>
+
+          {/* quem ainda não escolheu dupla */}
+          {humans.filter((p) => !p.team).length ? (
+            <div className="bf-panel bf-panel--accent bf-panel--pad" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="bf-label" style={{ color: "var(--bf-accent-3)" }}>Na sala, ainda sem dupla</div>
+              <div className="bf-row" style={{ flexWrap: "wrap", gap: 8 }}>
+                {humans.filter((p) => !p.team).map((p) => (
+                  <Chip key={p.id} tone={p.id === myId ? "accent" : "neutral"} icon="user">{p.name}{p.id === myId ? " (você)" : ""}{p.id === room.hostId ? " · anfitrião" : ""}</Chip>
+                ))}
+              </div>
+              {me && !me.team ? <div className="bf-caption">Escolha a Dupla A ou B abaixo para poder começar.</div> : null}
+            </div>
+          ) : null}
 
           {/* duplas */}
           <div className="bf-grid-2" style={{ gap: 12 }}>
