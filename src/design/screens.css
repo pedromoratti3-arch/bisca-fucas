@@ -83,7 +83,7 @@
 .bf-playopt__desc { font-size: 12px; color: var(--bf-text-3); margin-top: 2px; }
 
 /* ── Seções ───────────────────────────────────────────────────────────── */
-.bf-section { animation: bf-section-in var(--bf-dur-md) var(--bf-ease-out) both; }
+.bf-section { animation: bf-section-in var(--bf-dur-md) var(--bf-ease-out) backwards; }
 .bf-section__body { padding-bottom: calc(32px + var(--bf-safe-bottom)); }
 @keyframes bf-section-in { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
 

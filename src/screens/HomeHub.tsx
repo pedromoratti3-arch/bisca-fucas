@@ -37,6 +37,9 @@ export type HomeHubProps = {
   hideTiles?: boolean;
   /** incrementa para abrir as opções de jogo (botão JOGAR da barra) */
   playRequest?: number;
+  /** código vindo do link de convite (?sala=ABCD): entra direto na sala */
+  pendingJoinCode?: string | null;
+  onPendingJoinConsumed?: () => void;
 };
 
 const GUEST_NAME_KEY = "bf_guest_name_v1";
@@ -72,6 +75,33 @@ export function HomeHub(P: HomeHubProps) {
   const user = P.authUser;
   const fixedName = user && user.nickname ? cleanName(user.nickname) : "";
   const playReq = P.playRequest || 0;
+  // Convite por link: com nome pronto entra direto; sem nome abre a janela do código já preenchida.
+  const pending = P.pendingJoinCode || "";
+  useEffect(() => {
+    if (!pending || !P.authReady) return;
+    if (user && !user.nickname) return; // primeiro escolhe o apelido
+    const t = setTimeout(() => {
+      const n = fixedName || cleanName(name);
+      setCode(pending.toUpperCase());
+      if (n) {
+        setBusy(true);
+        void P.onJoinCode(pending.toUpperCase(), n).then((e) => {
+          setBusy(false);
+          if (e) {
+            setErr(e);
+            setJoinOpen(true);
+          }
+          P.onPendingJoinConsumed?.();
+        });
+      } else {
+        setJoinOpen(true);
+        setErr("Digite seu nome para entrar na sala");
+        P.onPendingJoinConsumed?.();
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, P.authReady, user && user.nickname, fixedName]);
   useEffect(() => {
     if (!playReq) return;
     const t = setTimeout(() => {
@@ -125,6 +155,13 @@ export function HomeHub(P: HomeHubProps) {
         <div className="bf-home__body">
           <Logo />
           <div className="bf-stack" style={{ width: "100%", maxWidth: 340, alignItems: "stretch" }}>
+            {pending ? (
+              <div className="bf-panel bf-panel--gold bf-panel--pad" style={{ textAlign: "center" }}>
+                <div className="bf-label">Convite para a sala</div>
+                <div className="bf-display bf-gold-text" style={{ letterSpacing: ".3em" }}>{pending.toUpperCase()}</div>
+                <div className="bf-caption">Entre com Google ou como convidado para ir direto para a sala.</div>
+              </div>
+            ) : null}
             <div className="bf-h3" style={{ textAlign: "center" }}>Entre para jogar</div>
             {P.authReady ? (
               <GoogleSignInButton onCredential={P.onGoogleCredential} width={320} />
@@ -276,7 +313,10 @@ export function HomeHub(P: HomeHubProps) {
         }
       >
         <div className="bf-stack">
-          <Input code placeholder="ABCD" value={code} maxLength={4} autoFocus aria-label="Código da sala" onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4)); if (err) setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") void join(); }} />
+          {!fixedName ? (
+            <Input value={name} maxLength={NAME_MAX} placeholder="Seu nome" aria-label="Seu nome" autoComplete="nickname" onChange={(e) => { setName(e.target.value.replace(/s+/g, " ").replace(/^s+/, "")); if (err) setErr(""); }} style={{ textAlign: "center", fontWeight: 700 }} />
+          ) : null}
+          <Input code placeholder="ABCD" value={code} maxLength={4} autoFocus={!!fixedName} aria-label="Código da sala" onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4)); if (err) setErr(""); }} onKeyDown={(e) => { if (e.key === "Enter") void join(); }} />
           {err ? <div className="bf-field__error" role="alert">{err}</div> : <div className="bf-field__hint">Peça o código de 4 letras para quem criou a sala.</div>}
         </div>
       </Modal>

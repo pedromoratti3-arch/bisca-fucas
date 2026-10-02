@@ -4129,6 +4129,28 @@ function App(props){
     return function(){ clearTimeout(t); };
   },[screen]);
   var playReqSt = useState(0); var playReq = playReqSt[0], setPlayReq = playReqSt[1];
+  /* convite por link: /?sala=ABCD */
+  var pendingJoinSt = useState(/** @type {string|null} */ (null));
+  var pendingJoin = pendingJoinSt[0], setPendingJoin = pendingJoinSt[1];
+  useEffect(function(){
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      var c = (sp.get('sala') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+      if (c.length === 4) {
+        setPendingJoin(c);
+        try { if (!guestMode && !auth.user) sessionStorage.setItem('bf_pending_sala', c); } catch (e) { void e; }
+      } else {
+        var saved = sessionStorage.getItem('bf_pending_sala');
+        if (saved) setPendingJoin(saved);
+      }
+    } catch (e) { void e; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+  function consumePendingJoin(){
+    setPendingJoin(null);
+    try { sessionStorage.removeItem('bf_pending_sala'); } catch (e) { void e; }
+    try { if (window.location.search) window.history.replaceState(null, '', window.location.pathname); } catch (e) { void e; }
+  }
   var navBadges = { missions: progressCtx.claimable, collection: progressCtx.unseenDecks.length };
   var gameNavEl = React.createElement(GameNav, {
     current: screen === 'missions' || screen === 'collection' || screen === 'clan' || screen === 'ranking' ? screen : 'home',
@@ -4769,6 +4791,7 @@ function App(props){
     }
     writeBfSession({ code: cd, playerId: pid, playerName: nameOk });
     setMyId(pid); setMyName(nameOk); setRoomCode(cd); setRoom(r); if(r.themeId) setLocId(r.themeId); setScreen('lobby');
+    consumePendingJoin();
     return null;
   }
 
@@ -4949,7 +4972,9 @@ function App(props){
         onCreateRoom: function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoinCode: joinRoomByCode,
         hideTiles: true,
-        playRequest: playReq
+        playRequest: playReq,
+        pendingJoinCode: pendingJoin,
+        onPendingJoinConsumed: consumePendingJoin
       }),
       (auth.user || guestMode) && !(auth.user && !auth.user.nickname) ? gameNavEl : null,
       React.createElement(LoadingOverlay,{ active: auth.ready && progressCtx.loading, label: 'Carregando' }),

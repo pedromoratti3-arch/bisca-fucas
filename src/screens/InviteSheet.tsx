@@ -3,9 +3,11 @@
 import { Button, Icon, Modal } from "@/design";
 
 export function InviteSheet(props: { open: boolean; onClose: () => void; roomCode?: string; onCreateRoom?: () => void; onCopied?: () => void }) {
-  const url = typeof window !== "undefined" ? window.location.origin : "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  /** Link direto: quem abrir entra na sala sem digitar o código. */
+  const url = props.roomCode ? `${origin}/?sala=${props.roomCode}` : origin;
   const text = props.roomCode
-    ? `Bora uma bisca? Entra na minha sala do Bisca Fucas com o código ${props.roomCode}: ${url}`
+    ? `Bora uma bisca? Entra na minha sala do Bisca Fucas (código ${props.roomCode}): ${url}`
     : `Bora uma bisca? Joga comigo no Bisca Fucas: ${url}`;
 
   async function share() {
@@ -36,6 +38,7 @@ export function InviteSheet(props: { open: boolean; onClose: () => void; roomCod
           <div className="bf-panel bf-panel--gold bf-panel--pad" style={{ textAlign: "center" }}>
             <div className="bf-label">Código da sala</div>
             <div className="bf-display bf-gold-text" style={{ letterSpacing: ".3em", marginTop: 4 }}>{props.roomCode}</div>
+            <div className="bf-caption" style={{ marginTop: 6 }}>Quem abrir o link entra direto nesta sala.</div>
           </div>
         ) : (
           <p className="bf-body-sm" style={{ color: "var(--bf-text-2)" }}>Mande o link para a galera. Para jogar junto, crie uma sala e compartilhe o código de 4 letras.</p>
