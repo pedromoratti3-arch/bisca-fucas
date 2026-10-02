@@ -282,7 +282,7 @@ function Showcase() {
           </Panel>
         </Section>
 
-        <Section id="cartas" title="Cartas" hint="Padrão de baralho profissional: índice + naipe nos cantos, centro limpo. Três estilos de frente; o Clássico é o padrão. Cada baralho colecionável escolhe estilo, fonte e cores.">
+        <Section id="cartas" title="Cartas" hint="Padrão de baralho profissional: só o valor nos cantos (na cor do naipe), centro limpo. Três estilos de frente; o Clássico é o padrão. Cada baralho colecionável escolhe estilo, fonte e cores.">
           <Panel pad="lg" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {CARD_PROPOSALS.map((p) => (
               <div key={p.deck.id}>
