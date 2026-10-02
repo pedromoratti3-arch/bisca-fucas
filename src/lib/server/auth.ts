@@ -58,8 +58,12 @@ function adminApp(): App {
     credential: cert({
       projectId: requireEnv("FIREBASE_ADMIN_PROJECT_ID"),
       clientEmail: requireEnv("FIREBASE_ADMIN_CLIENT_EMAIL"),
-      // Aceita a chave com quebras de linha reais ou escritas como "\n".
-      privateKey: requireEnv("FIREBASE_ADMIN_PRIVATE_KEY").replace(/\\n/g, "\n"),
+      // Aceita a chave com quebras de linha reais ou escritas como "\n", e com ou sem aspas em volta
+      // (painéis como o da Vercel às vezes guardam as aspas coladas do .env).
+      privateKey: requireEnv("FIREBASE_ADMIN_PRIVATE_KEY")
+        .trim()
+        .replace(/^"([\s\S]*)"$/, "$1")
+        .replace(/\\n/g, "\n"),
     }),
     databaseURL: requireEnv("NEXT_PUBLIC_FIREBASE_DATABASE_URL"),
   });
