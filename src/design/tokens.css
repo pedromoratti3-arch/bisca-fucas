@@ -1,0 +1,193 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   BISCA FUCAS — DESIGN TOKENS
+   Fonte única de cores, tipografia, espaçamentos, raios, sombras e movimento.
+   Tudo aqui vira variável CSS (--bf-*) usada pelos componentes e pelas telas.
+   Para mudar a cara do jogo inteiro, mude aqui.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Cores base (fundo escuro, igual ao atual) ───────────────────────── */
+  --bf-bg-0: #07070e;            /* fundo mais profundo (atrás de tudo) */
+  --bf-bg-1: #0a0a12;            /* fundo padrão das telas (já era o atual) */
+  --bf-bg-2: #12121f;            /* superfície elevada (cards, listas) */
+  --bf-bg-3: #1a1a2c;            /* superfície mais alta (modais, menus) */
+  --bf-bg-gradient: radial-gradient(ellipse 120% 80% at 50% -10%, rgba(139, 92, 246, 0.16) 0%, transparent 55%),
+    linear-gradient(170deg, #0c0a16 0%, #0a0a12 45%, #0b0912 100%);
+
+  /* Vidro escuro (painéis "piano glass") */
+  --bf-glass: rgba(18, 18, 31, 0.72);
+  --bf-glass-strong: rgba(14, 14, 26, 0.9);
+  --bf-glass-border: rgba(255, 255, 255, 0.08);
+  --bf-glass-border-strong: rgba(255, 255, 255, 0.14);
+  --bf-glass-highlight: rgba(255, 255, 255, 0.07); /* linha de luz no topo */
+
+  /* Texto */
+  --bf-text: #f4f1ea;
+  --bf-text-2: rgba(244, 241, 234, 0.72);
+  --bf-text-3: rgba(244, 241, 234, 0.48);
+  --bf-text-4: rgba(244, 241, 234, 0.3);
+  --bf-text-on-gold: #231a05;
+  --bf-text-on-accent: #ffffff;
+
+  /* ── Roxo: cor de destaque (identidade da tabela de atributos) ─────── */
+  --bf-accent: #8b5cf6;
+  --bf-accent-2: #a78bfa;
+  --bf-accent-3: #c4b5fd;
+  --bf-accent-deep: #5b21b6;
+  --bf-accent-soft: rgba(139, 92, 246, 0.16);
+  --bf-accent-glow: rgba(139, 92, 246, 0.45);
+
+  /* ── Dourado: títulos, 1.º lugar, botão principal ────────────────────── */
+  --bf-gold: #e3b74a;
+  --bf-gold-2: #f0d078;
+  --bf-gold-3: #a17c2f;
+  --bf-gold-soft: rgba(227, 183, 74, 0.14);
+  --bf-gold-glow: rgba(227, 183, 74, 0.4);
+  --bf-gold-gradient: linear-gradient(135deg, #d4a843 0%, #f3d98a 48%, #b8922f 100%);
+  --bf-gold-text-gradient: linear-gradient(135deg, #d4a843, #f0d078, #a17c2f);
+
+  /* ── Vermelho da marca (logo Fucas, Sala de Aula, perigo) ───────────── */
+  --bf-brand-red: #c41230;
+  --bf-brand-red-deep: #8a0e22;
+
+  /* ── Raridades (cartas de jogador, baralhos) ─────────────────────────── */
+  --bf-rar-bronze: #c77d44;
+  --bf-rar-bronze-2: #e9a46e;
+  --bf-rar-bronze-deep: #6b3d1c;
+  --bf-rar-silver: #c3c9d4;
+  --bf-rar-silver-2: #eef1f6;
+  --bf-rar-silver-deep: #5c6470;
+  --bf-rar-gold: #e3b74a;
+  --bf-rar-gold-2: #f6e3a0;
+  --bf-rar-gold-deep: #7a5a14;
+  --bf-rar-special: #a855f7;
+  --bf-rar-special-2: #f0abfc;
+  --bf-rar-special-deep: #3b0764;
+  --bf-rar-special-gradient: linear-gradient(135deg, #7c3aed 0%, #c026d3 45%, #f472b6 75%, #8b5cf6 100%);
+
+  /* ── Semânticas ──────────────────────────────────────────────────────── */
+  --bf-success: #4ade80;
+  --bf-success-soft: rgba(74, 222, 128, 0.16);
+  --bf-warning: #fbbf24;
+  --bf-warning-soft: rgba(251, 191, 36, 0.16);
+  --bf-danger: #f87171;
+  --bf-danger-soft: rgba(248, 113, 113, 0.16);
+  --bf-info: #60a5fa;
+  --bf-info-soft: rgba(96, 165, 250, 0.16);
+  --bf-online: #4ade80;
+  --bf-offline: #64748b;
+
+  /* Duplas na mesa (mantidas do jogo atual) */
+  --bf-team-a: #22c55e;
+  --bf-team-b: #f59e0b;
+
+  /* ── Tipografia ──────────────────────────────────────────────────────── */
+  /* As famílias vêm do next/font (ver src/design/fonts.ts e app/layout.tsx). */
+  --bf-font-display: var(--font-display, system-ui), system-ui, sans-serif;
+  --bf-font-body: var(--font-body, system-ui), system-ui, sans-serif;
+  --bf-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bf-fs-hero: clamp(34px, 9vw, 48px);  /* "BISCA FUCAS" */
+  --bf-fs-display: clamp(26px, 7vw, 34px);
+  --bf-fs-title: 22px;
+  --bf-fs-h2: 18px;
+  --bf-fs-h3: 16px;
+  --bf-fs-body: 15px;
+  --bf-fs-body-sm: 14px;
+  --bf-fs-caption: 12px;
+  --bf-fs-micro: 11px;
+
+  --bf-lh-tight: 1.1;
+  --bf-lh-snug: 1.25;
+  --bf-lh-normal: 1.45;
+
+  --bf-ls-display: 0.04em;
+  --bf-ls-label: 0.12em; /* rótulos em caixa alta */
+
+  /* ── Espaçamento (base 4px) ──────────────────────────────────────────── */
+  --bf-sp-1: 4px;
+  --bf-sp-2: 8px;
+  --bf-sp-3: 12px;
+  --bf-sp-4: 16px;
+  --bf-sp-5: 20px;
+  --bf-sp-6: 24px;
+  --bf-sp-7: 32px;
+  --bf-sp-8: 40px;
+  --bf-sp-9: 48px;
+  --bf-sp-10: 64px;
+
+  /* Margem lateral das telas e larguras máximas */
+  --bf-gutter: 16px;
+  --bf-max-phone: 420px;   /* conteúdo "coluna de celular" */
+  --bf-max-tablet: 720px;
+  --bf-max-desktop: 1080px;
+
+  /* Alvo mínimo de toque (dedão) */
+  --bf-tap: 44px;
+
+  /* Áreas seguras (notch, barra de gestos) */
+  --bf-safe-top: env(safe-area-inset-top, 0px);
+  --bf-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --bf-safe-left: env(safe-area-inset-left, 0px);
+  --bf-safe-right: env(safe-area-inset-right, 0px);
+
+  /* ── Raios ───────────────────────────────────────────────────────────── */
+  --bf-r-sm: 8px;
+  --bf-r-md: 12px;
+  --bf-r-lg: 16px;
+  --bf-r-xl: 22px;
+  --bf-r-pill: 999px;
+  --bf-r-card: 10px; /* carta de baralho */
+
+  /* ── Sombras ─────────────────────────────────────────────────────────── */
+  --bf-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --bf-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --bf-shadow-3: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --bf-shadow-inset-top: inset 0 1px 0 var(--bf-glass-highlight);
+  --bf-glow-accent: 0 0 24px var(--bf-accent-glow);
+  --bf-glow-gold: 0 0 28px var(--bf-gold-glow);
+
+  /* ── Camadas (z-index) ───────────────────────────────────────────────── */
+  --bf-z-base: 0;
+  --bf-z-raised: 10;
+  --bf-z-hud: 50;
+  --bf-z-nav: 60;
+  --bf-z-overlay: 900;
+  --bf-z-modal: 1000;
+  --bf-z-toast: 9000;
+
+  /* ── Movimento ───────────────────────────────────────────────────────── */
+  /* Durações */
+  --bf-dur-xs: 120ms;  /* botão pressionado, toggle */
+  --bf-dur-sm: 180ms;  /* hover, foco, chips */
+  --bf-dur-md: 320ms;  /* transição de tela, carta jogada */
+  --bf-dur-lg: 500ms;  /* recolher vaza, abrir modal grande */
+  --bf-dur-xl: 900ms;  /* celebração (nível, vitória) */
+  /* Curvas */
+  --bf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);     /* padrão: entra rápido, assenta suave */
+  --bf-ease-in: cubic-bezier(0.4, 0, 1, 1);           /* sair de cena */
+  --bf-ease-in-out: cubic-bezier(0.45, 0, 0.2, 1);    /* mover de A para B */
+  --bf-ease-card: cubic-bezier(0.2, 0.9, 0.2, 1);     /* cartas (já usada na mesa) */
+  --bf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* "pulo" de recompensa */
+}
+
+/* Reduzir movimento (configuração do sistema): tudo fica instantâneo. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bf-dur-xs: 0ms;
+    --bf-dur-sm: 0ms;
+    --bf-dur-md: 0ms;
+    --bf-dur-lg: 0ms;
+    --bf-dur-xl: 0ms;
+  }
+}
+
+/* Telas maiores: um pouco mais de ar e tipografia. */
+@media (min-width: 768px) {
+  :root {
+    --bf-gutter: 24px;
+    --bf-fs-title: 24px;
+    --bf-fs-h2: 20px;
+    --bf-fs-body: 16px;
+  }
+}

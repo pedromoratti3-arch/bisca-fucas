@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { fontClassName } from "@/design/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
+  themeColor: "#0a0a12",
 };
 
 export default function RootLayout({
@@ -19,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={fontClassName}>
       <body>{children}</body>
     </html>
   );
