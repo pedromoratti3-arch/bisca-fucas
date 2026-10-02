@@ -127,7 +127,7 @@ export function PlayingCard(props: PlayingCardProps) {
           {clan ? (
             <ClanEmblem kind={clan.emblem} color={clan.color} color2={clan.color2} fg={clan.fg} logo={clan.logo} size={Math.round(S.w * 0.5)} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.4))" }} />
           ) : bk.pattern === "zero" ? (
-            <span className="bf-card__zero" style={{ fontSize: Math.round(S.w * 0.46) }}>0</span>
+            <span className="bf-card__zero" style={{ fontSize: Math.round(S.w * 0.42) }}>01</span>
           ) : bk.pattern === "emblem" ? (
             <SuitGlyph suit="espadas" size={Math.round(S.w * 0.4)} tone="gold" />
           ) : S.w >= 60 ? (

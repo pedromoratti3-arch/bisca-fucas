@@ -208,8 +208,8 @@ export const DECKS: DeckDef[] = [
   },
   {
     id: "zero",
-    name: "0",
-    description: "O baralho de quem venceu 100 partidas. Preto absoluto, tinta branca e vermelho neon, reflexo holográfico e um 0 que pulsa no verso.",
+    name: "01",
+    description: "O baralho de quem venceu 100 partidas. Preto absoluto, tinta branca e vermelho neon, reflexo holográfico e o 01 que pulsa no verso.",
     rarity: "lendario",
     unlock: { type: "mission", missionId: "ach_win_100", label: "Vença 100 partidas" },
     front: { paper: "radial-gradient(ellipse at 50% 35%, #1c1c24 0%, #050507 70%)", edge: "#f4f1ea", red: "#ff2a4d", dark: "#f7f7fa", font: "bebas", face: "index", accent: "#f0d078" },
