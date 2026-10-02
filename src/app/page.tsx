@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { useGoogleAuth, GoogleSignInButton } from "@/lib/googleAuth";
+import ProfileScreen, { NicknameSetup, Avatar } from "./ProfileScreen";
 
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
@@ -2940,15 +2941,14 @@ function homeAccountBox(P){
   var u = P.authUser;
   if(!P.authReady) return React.createElement('div',{style:{minHeight:44}});
   if(u){
-    return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:12,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)'}},
-      u.picture
-        ? React.createElement('img',{src:u.picture,alt:'',width:36,height:36,referrerPolicy:'no-referrer',style:{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0}})
-        : React.createElement('div',{style:{width:36,height:36,borderRadius:'50%',background:'#2a6a3a',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,flexShrink:0}},String(u.name||'?').charAt(0).toUpperCase()),
+    var openProfile = function(){ if(typeof P.onOpenProfile==='function') P.onOpenProfile(); };
+    return React.createElement('div',{onClick:openProfile,role:'button',title:'Abrir meu perfil',style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:12,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',cursor:'pointer'}},
+      React.createElement(Avatar,{src:u.picture,name:u.name,size:40}),
       React.createElement('div',{style:{flex:1,minWidth:0}},
-        React.createElement('div',{style:{fontSize:14,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},u.name),
-        React.createElement('div',{style:{fontSize:11,opacity:0.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},P.loggedUid ? (u.email || 'Conta Google') : 'Conectando…')
+        React.createElement('div',{style:{fontSize:15,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},u.name),
+        React.createElement('div',{style:{fontSize:11,opacity:0.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},P.loggedUid ? 'Toque para ver seu perfil' : 'Conectando…')
       ),
-      React.createElement('button',{type:'button',onClick:function(){ if(typeof P.onLogout==='function') P.onLogout(); },disabled:!!P.authBusy,style:{background:'transparent',color:'rgba(255,255,255,.85)',border:'1px solid rgba(255,255,255,.3)',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:13,fontWeight:600,flexShrink:0}},'Sair')
+      React.createElement('button',{type:'button',onClick:function(e){ e.stopPropagation(); openProfile(); },style:{background:'transparent',color:'rgba(255,255,255,.85)',border:'1px solid rgba(255,255,255,.3)',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:13,fontWeight:600,flexShrink:0}},'Perfil')
     );
   }
   return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
@@ -2984,10 +2984,9 @@ function HomeScreen(P){
   var es=useState(''); var er=es[0], setEr=es[1];
   var ls=useState(false); var ld=ls[0], setLd=ls[1];
   var authUser = P.authUser || null;
-  var authName = authUser ? clampDisplayName(String(authUser.name || '')) : '';
-  useEffect(function(){
-    if(authName) setNm(function(cur){ return cur ? cur : authName; });
-  },[authName]);
+  /* Logado: o nome é o apelido fixo do perfil (troca só na aba Perfil). Convidado: digita o nome. */
+  var fixedName = authUser && authUser.nickname ? clampDisplayName(String(authUser.nickname)) : '';
+  var playName = fixedName || nm;
 
   var floats = [
     {s:'\u2660',x:10,y:12,a:'float1',o:0.07,z:64},
@@ -3001,7 +3000,7 @@ function HomeScreen(P){
   var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
 
   async function join(){
-    var nameOk = clampDisplayName(nm);
+    var nameOk = clampDisplayName(playName);
     if(!nameOk){ setEr('Digite seu nome'); return; }
     if(cd.length!==4){ setEr('Código: 4 letras'); return; }
     if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
@@ -3048,6 +3047,15 @@ function HomeScreen(P){
     );
   }
 
+  if(authUser && !authUser.nickname){
+    return React.createElement('div',{style:pageStyle},
+      React.createElement('style',null,ACSS),
+      floatEls,
+      logoBlock,
+      React.createElement(NicknameSetup,{user:authUser,onUser:P.onUser,onLogout:P.onLogout})
+    );
+  }
+
   return React.createElement('div',{style:pageStyle},
     React.createElement('button',{
       type:'button',
@@ -3081,7 +3089,7 @@ function HomeScreen(P){
     logoBlock,
     React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
       homeAccountBox(P),
-      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:4}},
+      fixedName ? null : React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:4}},
         React.createElement('input',{
           value:nm,
           maxLength:DISPLAY_NAME_MAX,
@@ -3118,7 +3126,7 @@ function HomeScreen(P){
       ),
       er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
       React.createElement('button',{onClick:function(){
-        var sn = clampDisplayName(nm);
+        var sn = clampDisplayName(playName);
         if(!sn){setEr('Digite seu nome');return;}
         setEr('');
         P.onSolo(sn);
@@ -3128,7 +3136,7 @@ function HomeScreen(P){
       ),
       divider('ou jogue com amigos'),
       React.createElement('button',{onClick:function(){
-        var cn = clampDisplayName(nm);
+        var cn = clampDisplayName(playName);
         if(!cn){ setEr('Digite seu nome'); return; }
         if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
         setEr('');
@@ -3837,7 +3845,8 @@ function LobbyScreen(P){
     var reconnecting = !online && !!rc && secLeft > 0;
     return React.createElement('div',{key:p.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,.05)',borderRadius:8,marginBottom:6}},
       React.createElement('div',{style:{position:'relative',width:30,height:30,flexShrink:0}},
-        React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}},p.name[0]),
+        React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,boxSizing:'border-box',padding:String(p.id).indexOf('g_')===0?2:0}},
+          String(p.id).indexOf('g_')===0 ? React.createElement(Avatar,{src:'/api/avatar/'+p.id,name:p.name,size:26}) : p.name[0]),
         React.createElement('div',{title:online?'Na rede':'Sem ligação (pode voltar)',style:{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:online?'#4ade80':'#64748b',border:'2px solid #14141c',boxSizing:'border-box'}}),
         reconnecting
           ? React.createElement('span',{
@@ -5553,6 +5562,13 @@ export default function App(){
     setGuestMode(on);
     try { if(on) sessionStorage.setItem('bf_guest','1'); else sessionStorage.removeItem('bf_guest'); } catch { void 0; }
   }
+  function doLogout(){
+    /* Sessão guardada de um jogador Google deixa de poder ser retomada sem login. */
+    var s = readBfSession();
+    if(s && String(s.playerId).indexOf('g_')===0){ clearBfSession(); setResumeOffer(null); }
+    chooseGuest(false);
+    void auth.logout();
+  }
   var ss=useState('home'); var screen=ss[0], setScreen=ss[1];
   var ids=useState(''); var myId=ids[0], setMyId=ids[1];
   var nms=useState(''); var myName=nms[0], setMyName=nms[1];
@@ -6344,13 +6360,9 @@ export default function App(){
         guestMode: guestMode,
         onGuest: function(){ chooseGuest(true); },
         onGoogleCredential: function(c){ void auth.loginWithCredential(c); },
-        onLogout: function(){
-          /* Sessão guardada de um jogador Google deixa de poder ser retomada sem login. */
-          var s = readBfSession();
-          if(s && String(s.playerId).indexOf('g_')===0){ clearBfSession(); setResumeOffer(null); }
-          chooseGuest(false);
-          void auth.logout();
-        },
+        onLogout: doLogout,
+        onUser: auth.applyUser,
+        onOpenProfile: function(){ setScreen('profile'); },
         onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
         onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
         onJoin:function(id,name,code,roomSnap){
@@ -6361,6 +6373,16 @@ export default function App(){
       resumeBanner,
       roomClosedBanner
     );
+  }
+
+  if(screen==='profile'){
+    if(!auth.user){ return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12'}}); }
+    return React.createElement(ProfileScreen,{
+      user: auth.user,
+      onUser: auth.applyUser,
+      onBack: function(){ setScreen('home'); },
+      onLogout: function(){ doLogout(); setScreen('home'); }
+    });
   }
 
   if(screen==='settings'){
