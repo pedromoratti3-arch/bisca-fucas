@@ -46,3 +46,16 @@ A mesa de jogo continua em `src/app/page.tsx` (lógica intocada). Ela agora usa 
 
 - `/design` mostra todas as peças, as cartas, a coleção, o carregamento, o fundo vivo e simula vitória/derrota e abertura de pacote.
 - `/design/phone?p=/` mostra qualquer tela numa moldura de celular (ex.: `?p=/design`).
+
+## Navegação (estilo Clash Royale)
+
+- Barra fixa embaixo com 5 botões: Coleção · Missões · **JOGAR** (maior, dourado, no centro) · Clã · Ranking. O botão da seção aberta fica maior e com o nome visível; bolinhas vermelhas mostram missões para resgatar e baralhos novos.
+- Perfil (faixa do jogador) e Configurações (engrenagem) ficam no topo.
+- No notebook a mesma barra aparece centralizada, com largura limitada.
+- Arquivos: `src/screens/GameNav.tsx` (barra), `src/design/navIcons.tsx` (ícones com volume), `src/design/rooms.css` (estilos).
+
+## Salas de jogo
+
+- Ambientação por sala em `src/screens/RoomAmbience.tsx` (Terrafé: luminária, vapor e poeira; HUB: grade, varredura e LEDs; Floresta: feixes de luz, folhas e vagalumes; Sala de Aula: foco de luz, pó de giz). Referências pesquisadas em `04-salas-referencias.md`.
+- Mesa com feltro texturizado e borda; carta de corte com brilho dourado; assento de cada jogador com avatar, nome, nível e emblema do clã, e anel dourado em quem está na vez. Nível/clã dos outros jogadores logados vêm de `/api/player/{uid}`.
+- Entrada na sala com a animação dos naipes (nome da sala no rótulo).

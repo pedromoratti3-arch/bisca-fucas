@@ -2,6 +2,7 @@
 @import "../design/tokens.css";
 @import "../design/components.css";
 @import "../design/screens.css";
+@import "../design/rooms.css";
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html {

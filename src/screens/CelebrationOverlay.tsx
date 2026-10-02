@@ -4,7 +4,7 @@
  * Mostra uma de cada vez: subiu de nível → baralho desbloqueado (pacote).
  */
 import { useEffect, useMemo, useState } from "react";
-import { Button, Chip, useToast } from "@/design";
+import { Button, Chip, prefersReducedMotion, useToast } from "@/design";
 import { tierForLevel } from "@/data/progression";
 import { DECK_BY_ID } from "@/data/decks";
 import { useProgress } from "@/lib/progress/useProgress";
@@ -14,6 +14,13 @@ export function CelebrationOverlay(props: { active: boolean }) {
   const prog = useProgress();
   const toast = useToast();
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(null);
+  const [shake, setShake] = useState(false);
+  useEffect(() => {
+    if (!levelUp || prefersReducedMotion()) return;
+    setShake(true);
+    const t = setTimeout(() => setShake(false), 450);
+    return () => clearTimeout(t);
+  }, [levelUp]);
   const [deckQueue, setDeckQueue] = useState<string[]>([]);
   const first = prog.celebrations[0];
 
@@ -43,8 +50,13 @@ export function CelebrationOverlay(props: { active: boolean }) {
   if (!props.active) return null;
   if (levelUp && tier) {
     return (
-      <div className="bf-levelup" role="dialog" aria-label="Subiu de nível">
-        <div className="bf-levelup__box">
+      <div className={["bf-levelup", shake ? "bf-shake-screen" : ""].join(" ")} role="dialog" aria-label="Subiu de nível" style={{ ["--res-glow" as string]: "rgba(139,92,246,.28)" }}>
+        <div className="bf-result__rays" />
+        <div className="bf-result__flash" />
+        {Array.from({ length: 10 }).map((_, i) => (
+          <span key={i} className="bf-result__coin" style={{ left: `${6 + ((i * 53) % 88)}%`, ["--d" as string]: `${0.2 + ((i * 0.23) % 1.2)}s`, ["--sz" as string]: `${12 + (i % 3) * 4}px` }} />
+        ))}
+        <div className="bf-levelup__box" style={{ position: "relative" }}>
           <div className="bf-label" style={{ color: "var(--bf-accent-3)" }}>Subiu de nível!</div>
           <div className="bf-levelup__ring">{levelUp.to}</div>
           <div className="bf-title">Nível {levelUp.to}</div>

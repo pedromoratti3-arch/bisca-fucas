@@ -1,0 +1,70 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   BISCA FUCAS — barra inferior (estilo Clash Royale), ambientação das salas e assentos
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Barra inferior ───────────────────────────────────────────────────── */
+.bf-gnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--bf-z-nav); display: flex; justify-content: center; padding: 0 8px calc(6px + var(--bf-safe-bottom)); pointer-events: none; }
+.bf-gnav__bar { pointer-events: auto; position: relative; display: grid; grid-template-columns: 1fr 1fr 1.45fr 1fr 1fr; align-items: end; width: 100%; max-width: 520px; height: 64px; padding: 0 6px; border-radius: 20px; background: linear-gradient(180deg, #1f1f30 0%, #121220 100%); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.05) inset, 0 10px 30px rgba(0, 0, 0, 0.55), 0 4px 0 #0a0a14; }
+.bf-gnav__item { -webkit-tap-highlight-color: transparent; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 56px; margin-bottom: 4px; border: 0; border-radius: 14px; background: transparent; color: var(--bf-text-3); font-family: var(--bf-font-display); font-weight: 800; font-size: 10px; letter-spacing: 0.02em; cursor: pointer; transition: transform 220ms var(--bf-ease-spring), background var(--bf-dur-sm), color var(--bf-dur-sm); }
+.bf-gnav__icon { display: flex; filter: saturate(0.55) brightness(0.8) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5)); transition: transform 220ms var(--bf-ease-spring), filter var(--bf-dur-sm); }
+.bf-gnav__label { max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--bf-dur-md) var(--bf-ease-out), opacity var(--bf-dur-md); }
+.bf-gnav__item.is-active { color: var(--bf-gold-2); background: linear-gradient(180deg, rgba(227, 183, 74, 0.18), rgba(227, 183, 74, 0.04)); }
+.bf-gnav__item.is-active .bf-gnav__icon { filter: none; transform: translateY(-3px) scale(1.12); }
+.bf-gnav__item.is-active .bf-gnav__label { max-height: 14px; opacity: 1; }
+.bf-gnav__item:active { transform: scale(0.94); }
+.bf-gnav__item .bf-badge-count { top: 4px; right: calc(50% - 22px); }
+.bf-gnav__play { -webkit-tap-highlight-color: transparent; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 78px; margin-bottom: 8px; border-radius: 20px; border: 1px solid rgba(255, 240, 200, 0.6); background: linear-gradient(180deg, #ffe08a 0%, #f2c552 40%, #e0ad35 72%, #d19e2a 100%); color: #fffaf0; font-family: var(--bf-font-display); font-weight: 900; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; text-shadow: 0 1.5px 0 #7a5410; cursor: pointer; box-shadow: 0 5px 0 #8a6212, 0 12px 24px rgba(212, 160, 50, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5); transform: translateY(-10px); transition: transform 240ms var(--bf-ease-spring), box-shadow 240ms var(--bf-ease-spring); animation: bf-btn-pulse 3.4s var(--bf-ease-in-out) infinite; }
+.bf-gnav__play:active { transform: translateY(-6px) scale(0.97); box-shadow: 0 1px 0 #8a6212, 0 4px 10px rgba(212, 160, 50, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3); transition-duration: 70ms; }
+.bf-gnav__play-icon { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
+.bf-gnav__play-label { margin-top: -2px; }
+/* espaço para a barra */
+.bf-home--nav .bf-home__body { padding-bottom: calc(104px + var(--bf-safe-bottom)); }
+.bf-section__body { padding-bottom: calc(104px + var(--bf-safe-bottom)); }
+@media (min-width: 960px) { .bf-gnav__bar { max-width: 560px; } }
+@media (prefers-reduced-motion: reduce) { .bf-gnav__play { animation: none; } }
+
+/* ── Ambientação das salas (atrás da mesa) ────────────────────────────── */
+.bf-amb { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.bf-amb__mote, .bf-amb__led, .bf-amb__firefly, .bf-amb__chalk { position: absolute; border-radius: 50%; will-change: transform, opacity; }
+/* Terrafé */
+.bf-amb__lamp { position: absolute; left: 50%; top: -40vmax; width: 120vmax; height: 90vmax; transform: translateX(-50%); background: radial-gradient(ellipse at 50% 100%, rgba(255, 190, 110, 0.22) 0%, rgba(255, 160, 80, 0.08) 30%, transparent 60%); animation: bf-amb-flicker 6s ease-in-out infinite; }
+.bf-amb__wood { position: absolute; inset: 0; background: repeating-linear-gradient(95deg, rgba(255, 220, 180, 0.035) 0 2px, transparent 2px 13px, rgba(0, 0, 0, 0.07) 13px 15px, transparent 15px 28px); opacity: 0.8; }
+.bf-amb__steam { position: absolute; left: calc(58% + var(--i) * 4%); bottom: 22%; width: 26px; height: 60px; border-radius: 50%; background: radial-gradient(ellipse, rgba(255, 245, 230, 0.16), transparent 70%); filter: blur(4px); opacity: 0; animation: bf-amb-steam 5.5s ease-out calc(var(--i) * 1.6s) infinite; }
+.bf-amb__mote { width: 3px; height: 3px; background: #ffd9a0; box-shadow: 0 0 6px rgba(255, 217, 160, 0.7); opacity: 0; animation: bf-bd-mote 19s ease-in-out calc(var(--i) * -3s) infinite; }
+@keyframes bf-amb-flicker { 0%, 100% { opacity: 0.9; } 48% { opacity: 0.75; } 52% { opacity: 0.95; } 70% { opacity: 0.82; } }
+@keyframes bf-amb-steam { 0% { opacity: 0; transform: translate3d(0, 10px, 0) scaleX(1); } 20% { opacity: 0.9; } 100% { opacity: 0; transform: translate3d(14px, -120px, 0) scaleX(1.6); } }
+/* HUB */
+.bf-amb__grid { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(96, 165, 250, 0.06) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(96, 165, 250, 0.06) 0 1px, transparent 1px 28px); mask-image: radial-gradient(ellipse at 50% 60%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 50% 60%, #000 20%, transparent 75%); }
+.bf-amb__scan { position: absolute; left: -20%; top: 0; width: 140%; height: 14%; background: linear-gradient(180deg, transparent, rgba(96, 165, 250, 0.14), transparent); animation: bf-amb-scan 9s ease-in-out infinite; will-change: transform; }
+.bf-amb__led { width: 4px; height: 4px; background: #93c5fd; box-shadow: 0 0 8px rgba(147, 197, 253, 0.9); animation: bf-amb-blink 3.2s ease-in-out calc(var(--i) * -0.45s) infinite; }
+@keyframes bf-amb-scan { 0% { transform: translate3d(0, -20%, 0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate3d(0, 720%, 0); opacity: 0; } }
+@keyframes bf-amb-blink { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+/* Floresta */
+.bf-amb__shaft { position: absolute; top: -20%; width: 18vmax; height: 140%; background: linear-gradient(180deg, rgba(187, 247, 208, 0.14), rgba(187, 247, 208, 0.03) 60%, transparent); transform: skewX(-16deg); filter: blur(10px); animation: bf-amb-shaft 8s ease-in-out infinite; }
+.bf-amb__shaft--a { left: 12%; }
+.bf-amb__shaft--b { left: 62%; width: 10vmax; animation-delay: -3.5s; }
+.bf-amb__leaf { position: absolute; top: -8%; width: 12px; height: 7px; border-radius: 50% 0 50% 0; background: linear-gradient(135deg, #86efac, #166534); opacity: 0; animation: bf-amb-leaf 11s linear calc(var(--i) * -2.8s) infinite; will-change: transform, opacity; }
+.bf-amb__firefly { width: 4px; height: 4px; background: #fde68a; box-shadow: 0 0 8px 2px rgba(253, 230, 138, 0.6); animation: bf-amb-firefly 6s ease-in-out calc(var(--i) * -1.3s) infinite; }
+@keyframes bf-amb-shaft { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.95; } }
+@keyframes bf-amb-leaf { 0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0); } 8% { opacity: 0.8; } 100% { opacity: 0; transform: translate3d(60px, 110vh, 0) rotate(560deg); } }
+@keyframes bf-amb-firefly { 0%, 100% { opacity: 0; transform: translate3d(0, 0, 0); } 30% { opacity: 1; } 60% { opacity: 0.3; transform: translate3d(18px, -14px, 0); } 80% { opacity: 0.9; } }
+/* Sala de Aula */
+.bf-amb__spot { position: absolute; left: -10%; top: -30%; width: 60vmax; height: 60vmax; border-radius: 50%; background: radial-gradient(circle, rgba(255, 210, 210, 0.14), transparent 60%); animation: bf-amb-spot 16s ease-in-out infinite alternate; will-change: transform; }
+.bf-amb__chalklines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 26px); mask-image: linear-gradient(180deg, transparent, #000 25%, #000 75%, transparent); -webkit-mask-image: linear-gradient(180deg, transparent, #000 25%, #000 75%, transparent); }
+.bf-amb__chalk { width: 3px; height: 3px; background: #fde2e2; box-shadow: 0 0 5px rgba(253, 226, 226, 0.6); opacity: 0; animation: bf-bd-mote 21s ease-in-out calc(var(--i) * -4s) infinite; }
+@keyframes bf-amb-spot { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(50vmax, 10vmax, 0); } }
+html[data-bf-hidden] .bf-amb *, html[data-bf-paused] .bf-amb * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .bf-amb * { animation: none !important; } .bf-amb__leaf, .bf-amb__steam { display: none; } }
+
+/* ── Assentos da mesa: avatar com nível e clã, anel de vez ───────────── */
+.bf-seat { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 3px 8px 3px 3px; border-radius: 999px; background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(255, 255, 255, 0.1); }
+.bf-seat--turn { border-color: rgba(240, 208, 120, 0.75); animation: bf-seat-turn 1.6s ease-in-out infinite; }
+.bf-seat--me { border-color: rgba(167, 139, 250, 0.55); }
+.bf-seat__name { font-family: var(--bf-font-display); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
+.bf-seat__lvl { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 5px; background: linear-gradient(145deg, #7c3aed, #4c1d95); color: #fff; font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; }
+@keyframes bf-seat-turn { 0%, 100% { box-shadow: 0 0 0 1px rgba(240, 208, 120, 0.35), 0 0 10px rgba(240, 208, 120, 0.35); } 50% { box-shadow: 0 0 0 2px rgba(240, 208, 120, 0.6), 0 0 18px rgba(240, 208, 120, 0.6); } }
+@media (prefers-reduced-motion: reduce) { .bf-seat--turn { animation: none; } }
+
+/* ── Mesa: feltro com textura e luz ───────────────────────────────────── */
+.bf-table-felt { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, 0.09), transparent 60%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px); pointer-events: none; }
+.bf-table-rim { position: absolute; inset: -6px; border-radius: inherit; border: 6px solid rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 14px 40px rgba(0, 0, 0, 0.5); pointer-events: none; }

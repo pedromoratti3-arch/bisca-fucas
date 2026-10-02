@@ -22,7 +22,10 @@ import { IntroSplash, shouldShowIntro } from "@/screens/IntroSplash";
 import { ResultScreen, RoundSummary } from "@/screens/ResultScreen";
 import { ProgressProvider, useProgress } from "@/lib/progress/useProgress";
 import { newTracker, trackerObserve, trackerTakeReport } from "@/lib/progress/matchTracker";
-import { ToastProvider, PlayingCard, cardSize, Button as DsButton, Modal as DsModal, LoadingOverlay, SuitLoader } from "@/design";
+import { ToastProvider, PlayingCard, cardSize, Button as DsButton, Modal as DsModal, LoadingOverlay, SuitLoader, ClanEmblem as DsClanEmblem } from "@/design";
+import { RoomAmbience } from "@/screens/RoomAmbience";
+import { GameNav } from "@/screens/GameNav";
+import { OFFICIAL_CLAN_BY_ID } from "@/data/clans";
 
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
@@ -1929,8 +1932,11 @@ function venueNameChip(th, fs){
 
 /** Fundo em camadas + vignete (mesa online / solo). */
 function gameBackdropLayer(th){
-  if(!th || !th.vignette) return null;
-  return React.createElement('div',{'aria-hidden':true,style:{position:'absolute',inset:0,pointerEvents:'none',background:th.vignette,zIndex:0}});
+  if(!th) return null;
+  return React.createElement(React.Fragment, null,
+    React.createElement(RoomAmbience, { roomId: th.id || 'sala' }),
+    th.vignette ? React.createElement('div',{'aria-hidden':true,style:{position:'absolute',inset:0,pointerEvents:'none',background:th.vignette,zIndex:0}}) : null
+  );
 }
 
 /* === LOCATION MARKS (SVG) === */
@@ -2580,6 +2586,8 @@ function GameScreen(props){
   var reconnectingBySeat = props.reconnectingBySeat || {};
   /** Foto dos jogadores logados por assento (0..3); convidados e IA não têm. */
   var avatarBySeat = props.avatarBySeat || {};
+  /** Nível e clã por assento (meus dados locais + /api/player dos outros logados). */
+  var metaBySeat = props.metaBySeat || {};
   var reconnectNow = typeof props.reconnectNow === "number" ? props.reconnectNow : Date.now();
   var seatHandoffUiSt = useState(
     /** @type {null | { seat: number; phase: string; prevName: string; botName: string }} */ (null)
@@ -3300,7 +3308,7 @@ function GameScreen(props){
                 }
               },
             },
-            rCard(c, null, false, true, false, ab, mob, cbk)
+            rCard(c, null, false, true, false, ab, false, cbk)
           );
         }
         var draggingThis = handGhost && handGhost.card && handGhost.card.id === c.id;
@@ -3341,10 +3349,10 @@ function GameScreen(props){
               }
             },
           },
-          rCard(c, null, false, true, false, ab, mob, cbk)
+          rCard(c, null, false, true, false, ab, false, cbk)
         );
       }
-      return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,ab,mob,cbk));
+      return React.createElement(React.Fragment,{key:c.id},rCard(c,null,false,false,false,ab,false,cbk));
     });
   }
 
@@ -3359,11 +3367,20 @@ function GameScreen(props){
   /** Nome com a foto (se houver) — compacto para caber no celular. */
   function rSeatNameWithAvatar(absSeat) {
     var src = avatarBySeat[absSeat];
-    var nameEl = React.createElement('span', { style: { lineHeight: 1, display: 'block', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, NAMES[absSeat]);
-    if (!src) return nameEl;
-    return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: mob ? 4 : 6, minWidth: 0, maxWidth: '100%' } },
-      React.createElement(Avatar, { src: src, name: NAMES[absSeat], size: mob ? 16 : 20 }),
-      nameEl
+    var meta = metaBySeat[absSeat] || null;
+    var clan = meta && meta.clanId ? OFFICIAL_CLAN_BY_ID[meta.clanId] : null;
+    var isTurn = g.curP === absSeat && g.phase === 'playing';
+    var isMeSeat = absSeat === mySeat;
+    var isBotSeat = !!botSeats[absSeat] || (isSolo && absSeat !== 0);
+    var nameEl = React.createElement('span', { className: 'bf-seat__name', style: { fontSize: mob ? 10 : 12 } }, NAMES[absSeat]);
+    var av = src
+      ? React.createElement(Avatar, { src: src, name: NAMES[absSeat], size: mob ? 18 : 22 })
+      : React.createElement('span', { style: { width: mob ? 18 : 22, height: mob ? 18 : 22, borderRadius: '50%', background: isBotSeat ? 'rgba(255,255,255,.1)' : '#2a6a3a', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 } }, isBotSeat ? 'IA' : String(NAMES[absSeat] || '?').charAt(0).toUpperCase());
+    return React.createElement('span', { className: 'bf-seat' + (isTurn ? ' bf-seat--turn' : '') + (isMeSeat ? ' bf-seat--me' : '') },
+      av,
+      nameEl,
+      meta && typeof meta.level === 'number' ? React.createElement('span', { className: 'bf-seat__lvl', title: 'Nível ' + meta.level }, meta.level) : null,
+      clan ? React.createElement(DsClanEmblem, { kind: clan.emblem, color: clan.color, color2: clan.color2, fg: clan.fg, logo: clan.logo, size: mob ? 14 : 16, title: clan.short }) : null
     );
   }
 
@@ -3925,10 +3942,10 @@ function GameScreen(props){
     isLastHand && g.trickN===7 && partnerCount>0 ? React.createElement('div',{style:{background:'#C41230',borderRadius:6,padding:'4px 12px',marginBottom:8,fontSize:12,textAlign:'center',fontWeight:'bold',animation:'pls 2s infinite'}},'\u00daltima m\u00e3o!') : null,
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}},
       React.createElement('span',{style:{fontSize:11,opacity:0.58}},'corte:'),
-      g.tc ? rCard(g.tc,null,false,false,true,false,mob,cbk)
+      g.tc ? rCard(g.tc,null,false,true,true,false,mob,cbk)
         : isCB ? React.createElement('span',{style:{color:'#fca5a5',fontSize:14,fontWeight:'bold'}},'\u2665 copas batido')
         : g.rawTc ? React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}},
-            rCard(g.rawTc,null,false,false,true,false,mob,cbk),
+            rCard(g.rawTc,null,false,true,true,false,mob,cbk),
             React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:11}},'\u2192 corte: '+SYM[g.trump]+' '+g.trump),
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
@@ -3945,6 +3962,8 @@ function GameScreen(props){
         React.createElement('div',{ref:handAreaRefW,style:{display:'flex',gap:mob?1:2,flexWrap:'wrap',justifyContent:'center',maxWidth:'100%'}},rHand(dW,false,false))
       ),
       React.createElement('div',{ref:tableDropRef,style:{gridArea:'c',position:'relative',width:tblW,height:tblH,maxWidth:'100%',minWidth:0,background:th.tableColor,borderRadius:th.id==='terrafe'?'50%':14,border:th.tableBorder,boxShadow:th.tableShadow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,overflow:th.id==='terrafe'?'hidden':'visible'}},
+        React.createElement('div',{className:'bf-table-rim'}),
+        React.createElement('div',{className:'bf-table-felt'}),
         th.decor ? th.decor(mob) : null,
         React.createElement('div',{style:{position:'absolute',top:edge,left:'50%',transform:'translateX(-50%)',zIndex:2}},rPlaced(dN)),
         React.createElement('div',{style:{position:'absolute',left:edge,top:'50%',transform:'translateY(-50%)',zIndex:2}},rPlaced(dW)),
@@ -4082,6 +4101,41 @@ function App(props){
   if((screen==='lobby' || screen==='online') && room && room.themeId) themeKey = room.themeId;
   if(!THEMES[themeKey]) themeKey = 'sala';
   var theme = THEMES[themeKey];
+  /* nível/clã dos jogadores logados na sala (para a mesa) */
+  var peerMetaSt = useState(/** @type {any} */ ({}));
+  var peerMeta = peerMetaSt[0], setPeerMeta = peerMetaSt[1];
+  var peerKey = room && Array.isArray(room.players) ? room.players.filter(function(p){ return p && !p.isBot && String(p.id).indexOf('g_')===0; }).map(function(p){ return p.id; }).sort().join(',') : '';
+  useEffect(function(){
+    if(!peerKey) return;
+    var ids = peerKey.split(',');
+    var cancelled = false;
+    ids.forEach(function(id){
+      if(peerMeta[id]) return;
+      fetch('/api/player/'+id, { cache: 'no-store' }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+        if(cancelled || !j) return;
+        setPeerMeta(function(prev){ var n = Object.assign({}, prev); n[id] = { level: j.level, clanId: j.clanId }; return n; });
+      }).catch(function(){ void 0; });
+    });
+    return function(){ cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[peerKey]);
+  var myMeta = progressCtx.progress ? { level: progressCtx.progress.level, clanId: progressCtx.progress.clanId } : null;
+  /* loader dos naipes ao entrar na mesa */
+  var roomEnterSt = useState(false); var roomEnter = roomEnterSt[0], setRoomEnter = roomEnterSt[1];
+  useEffect(function(){
+    if(screen !== 'solo' && screen !== 'online') return;
+    setRoomEnter(true);
+    var t = setTimeout(function(){ setRoomEnter(false); }, 900);
+    return function(){ clearTimeout(t); };
+  },[screen]);
+  var playReqSt = useState(0); var playReq = playReqSt[0], setPlayReq = playReqSt[1];
+  var navBadges = { missions: progressCtx.claimable, collection: progressCtx.unseenDecks.length };
+  var gameNavEl = React.createElement(GameNav, {
+    current: screen === 'missions' || screen === 'collection' || screen === 'clan' || screen === 'ranking' ? screen : 'home',
+    badges: navBadges,
+    onSelect: function(sec){ setScreen(sec); },
+    onPlay: function(){ setScreen('home'); setPlayReq(function(n){ return n + 1; }); }
+  });
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
   var roomCodeRef=useRef(roomCode);
@@ -4893,18 +4947,21 @@ function App(props){
         onOpen: function(sec){ setScreen(sec); },
         onSolo: function(name){ setMyName(name); setScreen('pickLoc'); },
         onCreateRoom: function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
-        onJoinCode: joinRoomByCode
+        onJoinCode: joinRoomByCode,
+        hideTiles: true,
+        playRequest: playReq
       }),
+      (auth.user || guestMode) && !(auth.user && !auth.user.nickname) ? gameNavEl : null,
       React.createElement(LoadingOverlay,{ active: auth.ready && progressCtx.loading, label: 'Carregando' }),
       React.createElement(CelebrationOverlay,{ active: true }),
       resumeBanner,
       roomClosedBanner
     );
   }
-  if(screen==='missions') return React.createElement(MissionsScreen,{ onBack: function(){ setScreen('home'); } });
-  if(screen==='collection') return React.createElement(CollectionScreen,{ onBack: function(){ setScreen('home'); } });
-  if(screen==='clan') return React.createElement(ClanScreen,{ onBack: function(){ setScreen('home'); } });
-  if(screen==='ranking') return React.createElement(RankingScreen,{ onBack: function(){ setScreen('home'); } });
+  if(screen==='missions') return React.createElement(React.Fragment,null,React.createElement(MissionsScreen,{ onBack: function(){ setScreen('home'); } }),gameNavEl);
+  if(screen==='collection') return React.createElement(React.Fragment,null,React.createElement(CollectionScreen,{ onBack: function(){ setScreen('home'); } }),gameNavEl);
+  if(screen==='clan') return React.createElement(React.Fragment,null,React.createElement(ClanScreen,{ onBack: function(){ setScreen('home'); } }),gameNavEl);
+  if(screen==='ranking') return React.createElement(React.Fragment,null,React.createElement(RankingScreen,{ onBack: function(){ setScreen('home'); } }),gameNavEl);
 
   if(screen==='profile'){
     if(!auth.user){
@@ -5042,17 +5099,19 @@ function App(props){
       }
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{deckId:progressCtx.equippedDeck.id,humansCount:room.players.filter(function(p){ return !p.isBot; }).length,g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,avatarBySeat:avatarBySeatOnline,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{metaBySeat:(function(){ var m = {}; room.players.forEach(function(p){ if(!p || typeof p.seat!=='number' || p.seat<0) return; if(p.id===myId && myMeta) m[p.seat]=myMeta; else if(peerMeta[p.id]) m[p.seat]=peerMeta[p.id]; }); return m; })(),deckId:progressCtx.equippedDeck.id,humansCount:room.players.filter(function(p){ return !p.isBot; }).length,g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,avatarBySeat:avatarBySeatOnline,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
-      onlineLeaveToastEl
+      onlineLeaveToastEl,
+      React.createElement(LoadingOverlay, { active: roomEnter, label: theme.name })
     );
   }
 
   if(screen==='solo' && g){
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{deckId:progressCtx.equippedDeck.id,humansCount:1,g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',avatarBySeat:(auth.user && auth.user.picture) ? {0:auth.user.picture} : null,roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
-      exitBtn, exitModal
+      React.createElement(GameScreen,{metaBySeat:myMeta?{0:myMeta}:{},deckId:progressCtx.equippedDeck.id,humansCount:1,g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',avatarBySeat:(auth.user && auth.user.picture) ? {0:auth.user.picture} : null,roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
+      exitBtn, exitModal,
+      React.createElement(LoadingOverlay, { active: roomEnter, label: theme.name })
     );
   }
 

@@ -33,6 +33,10 @@ export type HomeHubProps = {
   onJoinCode: (code: string, name: string) => Promise<string | null>;
   onOpen: (s: HomeSection) => void;
   topPad?: number;
+  /** barra inferior cuida das seções: esconde os atalhos */
+  hideTiles?: boolean;
+  /** incrementa para abrir as opções de jogo (botão JOGAR da barra) */
+  playRequest?: number;
 };
 
 const GUEST_NAME_KEY = "bf_guest_name_v1";
@@ -67,6 +71,17 @@ export function HomeHub(P: HomeHubProps) {
 
   const user = P.authUser;
   const fixedName = user && user.nickname ? cleanName(user.nickname) : "";
+  const playReq = P.playRequest || 0;
+  useEffect(() => {
+    if (!playReq) return;
+    const t = setTimeout(() => {
+      const n = fixedName || cleanName(name);
+      if (n) setPlayOpen(true);
+      else setErr("Digite seu nome para jogar");
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playReq]);
   const playName = fixedName || cleanName(name);
   const p = prog.progress;
   const level = p ? p.level : 1;
@@ -158,7 +173,7 @@ export function HomeHub(P: HomeHubProps) {
   ];
 
   return (
-    <div className="bf-home bf-live-bg" style={{ paddingTop: P.topPad || 0 }}>
+    <div className={"bf-home bf-live-bg" + (P.hideTiles ? " bf-home--nav" : "")} style={{ paddingTop: P.topPad || 0 }}>
       <SuitBackdrop />
       <div className="bf-home__top">
         <PlayerStrip name={displayName} picture={picture} progress={p} onClick={() => P.onOpen("profile")} compact />
@@ -224,7 +239,12 @@ export function HomeHub(P: HomeHubProps) {
           </div>
         </div>
 
-        <div className="bf-home__tiles">
+        {P.hideTiles ? (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Button variant="ghost" icon="share" onClick={() => setInviteOpen(true)}>Convidar amigos</Button>
+          </div>
+        ) : null}
+        {P.hideTiles ? null : <div className="bf-home__tiles">
           {tiles.map((t) => (
             <button key={t.id} type="button" className={`bf-tile ${t.tone}`} onClick={() => (t.id === "invite" ? setInviteOpen(true) : P.onOpen(t.id))}>
               <span className="bf-tile__icon"><Icon name={t.icon} /></span>
@@ -232,7 +252,7 @@ export function HomeHub(P: HomeHubProps) {
               <CountBadge count={t.badge || 0} />
             </button>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Opções de jogo */}
