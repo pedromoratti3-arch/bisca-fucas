@@ -74,9 +74,14 @@ function adminApp(): App {
   });
 }
 
+/** Banco (Admin SDK) já inicializado. */
+export function adminDb() {
+  return getDatabase(adminApp());
+}
+
 /** Ref de bisca/users/{uid}. Só o servidor escreve aqui (as regras bloqueiam o navegador). */
 export function userRef(uid: string) {
-  return getDatabase(adminApp()).ref("bisca/users/" + uid);
+  return adminDb().ref("bisca/users/" + uid);
 }
 
 /** Cria ou atualiza os dados vindos do Google; preserva apelido e foto escolhidos no perfil. */

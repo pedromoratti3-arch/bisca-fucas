@@ -796,8 +796,11 @@
   transition: transform 0.9s var(--bf-ease-out);
   will-change: transform;
 }
-.bf-bd__layer[data-depth="3"] { filter: blur(3px); opacity: calc(0.55 * var(--bd-i)); }
-.bf-bd__layer[data-depth="2"] { filter: blur(0.6px); opacity: calc(0.75 * var(--bd-i)); }
+/* Desfoque por profundidade vai no SVG (conteúdo estático, pintado uma vez), nunca na camada que contém elementos em movimento. */
+.bf-bd__layer[data-depth="3"] { opacity: calc(0.55 * var(--bd-i)); }
+.bf-bd__layer[data-depth="3"] .bf-bd__suit > svg { filter: blur(3px); }
+.bf-bd__layer[data-depth="2"] { opacity: calc(0.75 * var(--bd-i)); }
+.bf-bd__layer[data-depth="2"] .bf-bd__suit > svg { filter: blur(0.6px); }
 .bf-bd__layer[data-depth="1"] { opacity: calc(1 * var(--bd-i)); }
 .bf-bd__suit {
   position: absolute;
@@ -810,22 +813,24 @@
   will-change: transform;
 }
 .bf-bd__suit > svg { width: 100%; height: 100%; }
-.bf-bd__suit--red > svg { opacity: 0.16; filter: drop-shadow(0 0 1px rgba(255, 120, 130, 0.45)); }
-.bf-bd__suit--gold > svg { opacity: 0.12; filter: drop-shadow(0 0 1px rgba(255, 225, 150, 0.5)); }
+.bf-bd__suit--red > svg { opacity: 0.16; }
+.bf-bd__suit--gold > svg { opacity: 0.12; }
 .bf-bd__layer[data-depth="1"] .bf-bd__suit--red > svg { opacity: 0.26; }
 .bf-bd__layer[data-depth="1"] .bf-bd__suit--gold > svg { opacity: 0.2; }
-/* brilho discreto de vez em quando (um por camada) */
-.bf-bd__layer[data-depth="1"] .bf-bd__suit:nth-child(2) > svg { animation: bf-bd-twinkle 11s ease-in-out 4s infinite; }
-.bf-bd__layer[data-depth="2"] .bf-bd__suit:nth-child(3) > svg { animation: bf-bd-twinkle 14s ease-in-out 9s infinite; }
+/* brilho discreto de vez em quando (um por camada): só opacity de um halo estático */
+.bf-bd__suit::after { content: ""; position: absolute; inset: -30%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 235, 170, 0.35) 0%, transparent 60%); opacity: 0; pointer-events: none; }
+.bf-bd__layer[data-depth="1"] .bf-bd__suit:nth-child(2)::after { animation: bf-bd-twinkle 11s ease-in-out 4s infinite; }
+.bf-bd__layer[data-depth="2"] .bf-bd__suit:nth-child(3)::after { animation: bf-bd-twinkle 14s ease-in-out 9s infinite; }
 @keyframes bf-bd-drift {
   0% { transform: translate3d(0, 0, 0) rotate(var(--r)) scale(1); }
   50% { transform: translate3d(calc(var(--dx) * 0.6), calc(var(--dy) * 1.1), 0) rotate(calc(var(--r) + 6deg)) scale(1.04); }
   100% { transform: translate3d(var(--dx), var(--dy), 0) rotate(calc(var(--r) - 5deg)) scale(0.98); }
 }
-@keyframes bf-bd-twinkle {
-  0%, 88%, 100% { filter: drop-shadow(0 0 1px rgba(255, 225, 150, 0.4)); opacity: inherit; }
-  93% { filter: drop-shadow(0 0 14px rgba(255, 235, 170, 0.9)) brightness(1.6); }
-}
+@keyframes bf-bd-twinkle { 0%, 88%, 100% { opacity: 0; } 93% { opacity: 1; } }
+/* Sobre fundo animado, vidro com backdrop-filter obriga a re-desfocar a cada quadro: aqui os painéis ficam sólidos. */
+.bf-live-bg .bf-panel, .bf-live-bg .bf-tile, .bf-live-bg .bf-playerstrip, .bf-live-bg .bf-btn--secondary, .bf-live-bg .bf-topbar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.bf-live-bg .bf-panel { background: rgba(16, 16, 28, 0.9); }
+.bf-live-bg .bf-tile, .bf-live-bg .bf-playerstrip { background: rgba(16, 16, 28, 0.88); }
 /* carta que passa girando ao fundo, a cada ~18 s */
 .bf-bd__card { position: absolute; left: -12%; top: 62%; width: 54px; height: 76px; animation: bf-bd-card-fly 18s linear 6s infinite; opacity: 0; will-change: transform, opacity; }
 .bf-bd__card-inner { width: 100%; height: 100%; border-radius: 7px; background: linear-gradient(160deg, #7b1010, #3a0606); border: 2px solid rgba(240, 208, 120, 0.5); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); animation: bf-bd-card-spin 2.6s linear infinite; }

@@ -1,134 +1,28 @@
 "use client";
+/**
+ * Perfil: avatar com moldura da faixa, nome e título, nível/XP, estatísticas, baralho equipado,
+ * clã e conquistas. Mantém foto (câmera/galeria) e apelido (troca a cada 30 dias).
+ * Também exporta NicknameSetup (primeiro login) e Avatar (compatibilidade com page.tsx).
+ */
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/googleAuth";
+import { Avatar as DsAvatar, Button, Chip, Icon, Input, LevelBadge, Modal, Panel, PlayingCard, ProgressBar, useToast } from "@/design";
+import { useProgressOptional } from "@/lib/progress/useProgress";
+import { TIERS, levelFromXp, nextTier, tierForLevel } from "@/data/progression";
+import { ACHIEVEMENTS } from "@/data/missions";
+import { DECK_BY_ID } from "@/data/decks";
+import { OFFICIAL_CLAN_BY_ID } from "@/data/clans";
+import { FramedAvatar, TierName } from "@/screens/common";
 
 /** Lado da foto salva (px). Pequena para caber no banco e carregar rápido. */
 const AVATAR_SIZE = 256;
 const NICK_MAX = 16;
 
-const page: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)",
-  color: "white",
-  fontFamily: "system-ui,sans-serif",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  padding: "max(20px, env(safe-area-inset-top)) 16px 40px",
-  boxSizing: "border-box",
-};
-const card: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 360,
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-};
-const input: React.CSSProperties = {
-  background: "rgba(255,255,255,.08)",
-  border: "1px solid rgba(255,255,255,.15)",
-  borderRadius: 10,
-  padding: "12px 16px",
-  color: "#fff",
-  fontSize: 16,
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};
-const btn: React.CSSProperties = {
-  background: "rgba(255,255,255,.08)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,.2)",
-  borderRadius: 10,
-  padding: "11px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 700,
-};
-const primary: React.CSSProperties = {
-  ...btn,
-  background: "linear-gradient(135deg,#2a6a3a,#1a4a2a)",
-  border: "none",
-};
-const label: React.CSSProperties = { fontSize: 12, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1.5 };
-const iconBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8 };
-
-/** Ícones em SVG (traço branco), no mesmo estilo dos ícones do jogo. */
-function SvgIcon(props: { children: React.ReactNode }) {
-  return (
-    <svg
-      width={18}
-      height={18}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      style={{ display: "block", flexShrink: 0 }}
-    >
-      {props.children}
-    </svg>
-  );
-}
-function CameraIcon() {
-  return (
-    <SvgIcon>
-      <path d="M4 8h3l1.6-2.4A1.5 1.5 0 0 1 9.9 5h4.2a1.5 1.5 0 0 1 1.3.6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </SvgIcon>
-  );
-}
-function ImageIcon() {
-  return (
-    <SvgIcon>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <circle cx="8.5" cy="9.5" r="1.6" />
-      <path d="M21 16l-5-5-8 9" />
-    </SvgIcon>
-  );
-}
-const errStyle: React.CSSProperties = { color: "#ff6b6b", fontSize: 13, textAlign: "center" };
-
+/** Compatibilidade: a mesa usa <Avatar src name size /> */
 export function Avatar(props: { src?: string; name?: string; size: number }) {
-  const [broken, setBroken] = useState(false);
-  const s = props.size;
-  if (props.src && !broken) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={props.src}
-        alt=""
-        width={s}
-        height={s}
-        referrerPolicy="no-referrer"
-        onError={() => setBroken(true)}
-        style={{ width: s, height: s, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: s,
-        height: s,
-        borderRadius: "50%",
-        background: "#2a6a3a",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 800,
-        fontSize: s * 0.42,
-        flexShrink: 0,
-      }}
-    >
-      {String(props.name || "?").charAt(0).toUpperCase()}
-    </div>
-  );
+  return <DsAvatar src={props.src} name={props.name} size={props.size} />;
 }
 
-/** Corta o centro em quadrado e reduz para AVATAR_SIZE, devolvendo JPEG em data URL. */
 function squareJpeg(source: CanvasImageSource, w: number, h: number): string {
   const side = Math.min(w, h);
   const canvas = document.createElement("canvas");
@@ -162,11 +56,7 @@ function fileToSquareJpeg(file: File): Promise<string> {
 }
 
 async function postJson(url: string, method: string, body?: unknown) {
-  const r = await fetch(url, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => null);
   return { ok: r.ok, data: j as { user?: AuthUser; error?: string } | null };
 }
@@ -186,7 +76,6 @@ function CameraModal(props: { onCapture: (dataUrl: string) => void; onClose: () 
   useEffect(() => {
     unavailableRef.current = props.onUnavailable;
   });
-
   useEffect(() => {
     let stream: MediaStream | null = null;
     let cancelled = false;
@@ -215,45 +104,21 @@ function CameraModal(props: { onCapture: (dataUrl: string) => void; onClose: () 
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
   }, []);
-
   function capture() {
     const v = videoRef.current;
     if (!v || !v.videoWidth) return;
     props.onCapture(squareJpeg(v, v.videoWidth, v.videoHeight));
   }
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.85)",
-        zIndex: 200,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        padding: 16,
-      }}
-    >
-      <div style={{ width: "min(80vw, 320px)", aspectRatio: "1", borderRadius: "50%", overflow: "hidden", background: "#111" }}>
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          onLoadedData={() => setReady(true)}
-          style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
-        />
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button type="button" style={btn} onClick={props.onClose}>
-          Cancelar
-        </button>
-        <button type="button" style={{ ...primary, ...iconBtn }} onClick={capture} disabled={!ready}>
-          <CameraIcon />
-          Tirar foto
-        </button>
+    <div className="bf-backdrop bf-backdrop--center" style={{ zIndex: 1100 }}>
+      <div className="bf-modal" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ width: "min(70vw, 300px)", aspectRatio: "1", borderRadius: "50%", overflow: "hidden", background: "#111" }}>
+          <video ref={videoRef} playsInline muted onLoadedData={() => setReady(true)} style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
+        </div>
+        <div className="bf-row">
+          <Button variant="secondary" onClick={props.onClose}>Cancelar</Button>
+          <Button variant="primary" icon="camera" onClick={capture} disabled={!ready}>Tirar foto</Button>
+        </div>
       </div>
     </div>
   );
@@ -264,7 +129,6 @@ export function NicknameSetup(props: { user: AuthUser; onUser: (u: AuthUser) => 
   const [nick, setNick] = useState(props.user.googleName.slice(0, NICK_MAX));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-
   async function save() {
     setBusy(true);
     setErr("");
@@ -273,45 +137,26 @@ export function NicknameSetup(props: { user: AuthUser; onUser: (u: AuthUser) => 
     if (r.ok && r.data && r.data.user) props.onUser(r.data.user);
     else setErr((r.data && r.data.error) || "Não foi possível salvar");
   }
-
   return (
-    <div style={{ ...card, alignItems: "stretch" }}>
+    <Panel pad="lg" tone="raised" className="bf-anim-scale-in" style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" }}>
       <div style={{ display: "flex", justifyContent: "center" }}>
-        <Avatar src={props.user.picture} name={props.user.googleName} size={72} />
+        <DsAvatar src={props.user.picture} name={props.user.googleName} size={72} ring="accent" />
       </div>
-      <div style={{ fontSize: 18, fontWeight: 800, textAlign: "center" }}>Escolha seu nome no jogo</div>
-      <div style={{ fontSize: 13, opacity: 0.65, textAlign: "center", lineHeight: 1.45 }}>
-        É assim que os outros jogadores vão te ver. Depois de escolher, você só pode trocar a cada 30 dias.
-      </div>
-      <input
-        value={nick}
-        maxLength={NICK_MAX}
-        onChange={(e) => setNick(e.target.value.replace(/\s+/g, " ").replace(/^\s+/, ""))}
-        placeholder="Seu nome no jogo"
-        style={{ ...input, fontSize: 17, textAlign: "center" }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void save();
-        }}
-      />
-      {err ? <div style={errStyle}>{err}</div> : null}
-      <button type="button" style={{ ...primary, padding: 14, fontSize: 16 }} onClick={() => void save()} disabled={busy}>
-        {busy ? "Salvando…" : "Confirmar nome"}
-      </button>
-      <button type="button" style={{ ...btn, background: "transparent", border: "none", opacity: 0.6 }} onClick={props.onLogout}>
-        Sair
-      </button>
-    </div>
+      <div className="bf-h2" style={{ textAlign: "center" }}>Escolha seu nome no jogo</div>
+      <p className="bf-body-sm" style={{ color: "var(--bf-text-2)", textAlign: "center" }}>É assim que os outros jogadores vão te ver. Depois de escolher, você só pode trocar a cada 30 dias.</p>
+      <Input value={nick} maxLength={NICK_MAX} onChange={(e) => setNick(e.target.value.replace(/\s+/g, " ").replace(/^\s+/, ""))} placeholder="Seu nome no jogo" style={{ textAlign: "center", fontSize: 18, fontWeight: 700 }} onKeyDown={(e) => { if (e.key === "Enter") void save(); }} invalid={!!err} />
+      {err ? <div className="bf-field__error" style={{ textAlign: "center" }}>{err}</div> : null}
+      <Button variant="primary" size="lg" block loading={busy} onClick={() => void save()}>Confirmar nome</Button>
+      <Button variant="ghost" onClick={props.onLogout}>Sair</Button>
+    </Panel>
   );
 }
 
-/** Aba da conta: foto, apelido (com tempo de espera para trocar), e-mail e sair. */
-export default function ProfileScreen(props: {
-  user: AuthUser;
-  onUser: (u: AuthUser) => void;
-  onBack: () => void;
-  onLogout: () => void;
-}) {
+/** Tela de perfil completa. */
+export default function ProfileScreen(props: { user: AuthUser; onUser: (u: AuthUser) => void; onBack: () => void; onLogout: () => void }) {
   const u = props.user;
+  const prog = useProgressOptional();
+  const toast = useToast();
   const [nick, setNick] = useState(u.nickname || "");
   const [nickBusy, setNickBusy] = useState(false);
   const [nickMsg, setNickMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -319,17 +164,28 @@ export default function ProfileScreen(props: {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState("");
   const [camera, setCamera] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const captureRef = useRef<HTMLInputElement | null>(null);
-
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60 * 1000);
     return () => clearInterval(id);
   }, []);
-
   const waitMs = u.nextNicknameChangeAt ? u.nextNicknameChangeAt - now : 0;
   const nickLocked = waitMs > 0;
+
+  const p = prog?.progress || null;
+  const level = p ? p.level : 1;
+  const lf = levelFromXp(p ? p.xp : 0);
+  const tier = tierForLevel(level);
+  const nt = nextTier(level);
+  const deck = p ? DECK_BY_ID[p.decks.equipped] : undefined;
+  const clan = p && p.clanId ? OFFICIAL_CLAN_BY_ID[p.clanId] : null;
+  const achDone = p ? Object.values(p.missions.achievements).filter((a) => a.done).length : 0;
+  const stats = p ? p.stats : {};
+  const winRate = p && p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
 
   async function saveNick() {
     setNickBusy(true);
@@ -337,10 +193,11 @@ export default function ProfileScreen(props: {
     const r = await postJson("/api/profile/nickname", "POST", { nickname: nick });
     setNickBusy(false);
     if (r.data && r.data.user) props.onUser(r.data.user);
-    if (r.ok) setNickMsg({ ok: true, text: "Nome atualizado!" });
-    else setNickMsg({ ok: false, text: (r.data && r.data.error) || "Não foi possível salvar" });
+    if (r.ok) {
+      setNickMsg({ ok: true, text: "Nome atualizado!" });
+      toast.show({ text: "Nome atualizado!", tone: "success", icon: "check" });
+    } else setNickMsg({ ok: false, text: (r.data && r.data.error) || "Não foi possível salvar" });
   }
-
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -352,7 +209,6 @@ export default function ProfileScreen(props: {
       setPhotoErr(er instanceof Error ? er.message : "Não foi possível abrir essa imagem");
     }
   }
-
   async function savePhoto() {
     if (!preview) return;
     setPhotoBusy(true);
@@ -362,9 +218,9 @@ export default function ProfileScreen(props: {
     if (r.ok && r.data && r.data.user) {
       props.onUser(r.data.user);
       setPreview(null);
+      toast.show({ text: "Foto salva!", tone: "success", icon: "check" });
     } else setPhotoErr((r.data && r.data.error) || "Não foi possível salvar a foto");
   }
-
   async function resetPhoto() {
     setPhotoBusy(true);
     setPhotoErr("");
@@ -374,104 +230,159 @@ export default function ProfileScreen(props: {
     else setPhotoErr((r.data && r.data.error) || "Não foi possível remover a foto");
   }
 
+  const statRows: { label: string; value: number | string; icon: React.ComponentProps<typeof Icon>["name"] }[] = [
+    { label: "Partidas", value: p ? p.matches : 0, icon: "cards" },
+    { label: "Vitórias", value: p ? p.wins : 0, icon: "trophy" },
+    { label: "Aproveitamento", value: `${winRate}%`, icon: "target" },
+    { label: "Melhor sequência", value: p ? p.bestStreak : 0, icon: "fire" },
+    { label: "Vazas com corte", value: stats.trump_tricks || 0, icon: "sword" },
+    { label: "Capotes", value: stats.capotes || 0, icon: "bolt" },
+    { label: "Réles", value: stats.reles || 0, icon: "spark" },
+    { label: "Com amigos", value: stats.played_friends || 0, icon: "people" },
+  ];
+
   return (
-    <div style={page}>
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button type="button" style={{ ...btn, padding: "8px 12px" }} onClick={props.onBack}>
-            ← Voltar
-          </button>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Meu perfil</div>
-          <div style={{ width: 80 }} />
-        </div>
-
-        {/* Foto */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginTop: 8 }}>
-          <Avatar src={preview || u.picture} name={u.name} size={120} />
-          {preview ? (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" style={btn} onClick={() => setPreview(null)} disabled={photoBusy}>
-                Cancelar
-              </button>
-              <button type="button" style={primary} onClick={() => void savePhoto()} disabled={photoBusy}>
-                {photoBusy ? "Salvando…" : "Salvar foto"}
-              </button>
+    <div className="bf-screen bf-section">
+      <header className="bf-topbar">
+        <Button variant="ghost" size="sm" icon="arrow-left" iconOnly aria-label="Voltar" onClick={props.onBack} />
+        <div className="bf-topbar__title">Meu perfil</div>
+        <Button variant="secondary" size="sm" icon="gear" onClick={() => setEditOpen(true)}>Editar</Button>
+      </header>
+      <main className="bf-container bf-section__body">
+        <div className="bf-stack bf-stack--lg">
+          {/* cabeçalho */}
+          <Panel pad="lg" tone="raised" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+            <FramedAvatar src={preview || u.picture} name={u.name} size={112} frame={tier.frame} />
+            <div>
+              <div className="bf-title"><TierName name={u.name} level={level} /></div>
+              <div className="bf-caption" style={{ color: tier.nameColor, fontWeight: 700 }}>{tier.title}</div>
             </div>
-          ) : (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              <button type="button" style={{ ...btn, ...iconBtn }} onClick={() => setCamera(true)}>
-                <CameraIcon />
-                Tirar foto
-              </button>
-              <button type="button" style={{ ...btn, ...iconBtn }} onClick={() => galleryRef.current && galleryRef.current.click()}>
-                <ImageIcon />
-                Escolher imagem
-              </button>
-              {u.hasCustomAvatar ? (
-                <button type="button" style={btn} onClick={() => void resetPhoto()} disabled={photoBusy}>
-                  Usar foto do Google
-                </button>
-              ) : null}
+            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
+              <LevelBadge level={level} size="lg" />
+              <div style={{ flex: 1 }}>
+                <div className="bf-row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+                  <span className="bf-label" style={{ color: "var(--bf-accent-3)" }}>Nível {level}</span>
+                  <span className="bf-caption bf-num">{lf.into} / {lf.need} XP</span>
+                </div>
+                <ProgressBar value={lf.into} max={lf.need || 1} shine />
+                {nt ? <div className="bf-caption" style={{ marginTop: 4 }}>Próxima faixa: <b style={{ color: nt.nameColor }}>{nt.name}</b> no nível {nt.minLevel}</div> : null}
+              </div>
             </div>
-          )}
-          {photoErr ? <div style={errStyle}>{photoErr}</div> : null}
-          <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => void onFile(e)} />
-          <input
-            ref={captureRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            style={{ display: "none" }}
-            onChange={(e) => void onFile(e)}
-          />
-        </div>
-
-        {/* Apelido */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-          <div style={label}>Nome no jogo</div>
-          <input
-            value={nick}
-            maxLength={NICK_MAX}
-            disabled={nickLocked}
-            onChange={(e) => {
-              setNick(e.target.value.replace(/\s+/g, " ").replace(/^\s+/, ""));
-              setNickMsg(null);
-            }}
-            style={{ ...input, opacity: nickLocked ? 0.6 : 1 }}
-          />
-          {nickLocked ? (
-            <div style={{ fontSize: 12, color: "rgba(212,168,67,.8)" }}>
-              Você poderá trocar o nome em {formatWait(waitMs)}.
+            <div className="bf-row" style={{ gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+              {clan ? <Chip tone="accent" icon="shield">{clan.short}</Chip> : <Chip icon="shield">Sem clã</Chip>}
+              <Chip tone="gold" icon="medal">{achDone} conquistas</Chip>
             </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 12, opacity: 0.5 }}>Depois de trocar, só poderá mudar de novo em 30 dias.</div>
-              <button
-                type="button"
-                style={primary}
-                onClick={() => void saveNick()}
-                disabled={nickBusy || nick.trim() === (u.nickname || "")}
-              >
-                {nickBusy ? "Salvando…" : "Salvar nome"}
-              </button>
-            </>
-          )}
-          {nickMsg ? <div style={{ ...errStyle, color: nickMsg.ok ? "#4ade80" : "#ff6b6b" }}>{nickMsg.text}</div> : null}
-        </div>
+          </Panel>
 
-        {/* Conta */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-          <div style={label}>Conta Google</div>
-          <div style={{ fontSize: 14, opacity: 0.8, wordBreak: "break-all" }}>{u.email}</div>
-        </div>
+          {/* estatísticas */}
+          <div>
+            <div className="bf-label" style={{ marginBottom: 8 }}>Estatísticas</div>
+            <div className="bf-grid-2" style={{ gap: 8 }}>
+              {statRows.map((s) => (
+                <Panel key={s.label} pad="none" style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 32, height: 32, borderRadius: 10, background: "var(--bf-accent-soft)", color: "var(--bf-accent-3)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name={s.icon} size={16} /></span>
+                  <span style={{ minWidth: 0 }}>
+                    <div className="bf-h3 bf-num" style={{ lineHeight: 1.1 }}>{s.value}</div>
+                    <div className="bf-caption">{s.label}</div>
+                  </span>
+                </Panel>
+              ))}
+            </div>
+          </div>
 
-        <button type="button" style={{ ...btn, marginTop: 14, color: "#fca5a5" }} onClick={props.onLogout}>
-          Sair da conta
-        </button>
-        <a href="/privacidade" style={{ fontSize: 12, color: "#93c5fd", textAlign: "center", opacity: 0.7 }}>
-          Política de Privacidade
-        </a>
-      </div>
+          {/* baralho equipado */}
+          {deck ? (
+            <Panel style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="bf-row" style={{ gap: 4 }}>
+                <PlayingCard back size="sm" deck={deck} />
+                <PlayingCard card={{ s: "copas", v: "A" }} size="sm" deck={deck} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="bf-label">Baralho em uso</div>
+                <div className="bf-h3">{deck.name}</div>
+                <div className="bf-caption">{p ? p.decks.unlocked.length : 1} baralhos desbloqueados</div>
+              </div>
+            </Panel>
+          ) : null}
+
+          {/* faixas */}
+          <div>
+            <div className="bf-label" style={{ marginBottom: 8 }}>Faixas de nível</div>
+            <div className="bf-stack" style={{ gap: 6 }}>
+              {TIERS.map((t) => {
+                const reached = level >= t.minLevel;
+                return (
+                  <Panel key={t.id} pad="none" style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, opacity: reached ? 1 : 0.55, borderColor: t.id === tier.id ? t.nameColor + "88" : undefined }}>
+                    <span className={`bf-frame bf-frame--${t.frame}`} style={{ width: 28, height: 28 }}><span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--bf-bg-2)" }} /></span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontFamily: "var(--bf-font-display)", color: t.nameColor, fontSize: 14 }}>{t.name} <span className="bf-caption">· nível {t.minLevel}+</span></div>
+                      <div className="bf-caption">{t.description}</div>
+                    </span>
+                    {reached ? <Icon name="check" size={18} style={{ color: "var(--bf-success)" }} /> : <Icon name="lock" size={16} style={{ color: "var(--bf-text-4)" }} />}
+                  </Panel>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* conquistas recentes */}
+          <div>
+            <div className="bf-label" style={{ marginBottom: 8 }}>Conquistas</div>
+            <div className="bf-row" style={{ gap: 6, flexWrap: "wrap" }}>
+              {ACHIEVEMENTS.filter((a) => p && p.missions.achievements[a.id]?.done).slice(0, 12).map((a) => (
+                <Chip key={a.id} tone="gold" icon={a.icon} size="sm">{a.title}</Chip>
+              ))}
+              {achDone === 0 ? <span className="bf-caption">Nenhuma ainda. Jogue uma partida para começar.</span> : null}
+            </div>
+          </div>
+
+          <div className="bf-caption" style={{ textAlign: "center" }}>
+            Conta Google: {u.email} · <a href="/privacidade" style={{ color: "var(--bf-info)" }}>Privacidade</a>
+          </div>
+          <Button variant="outline-danger" block icon="logout" onClick={() => setLogoutOpen(true)}>Sair da conta</Button>
+        </div>
+      </main>
+
+      {/* editar foto e nome */}
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setPreview(null); }} title="Editar perfil">
+        <div className="bf-stack bf-stack--lg">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <DsAvatar src={preview || u.picture} name={u.name} size={110} ring="accent" />
+            {preview ? (
+              <div className="bf-row">
+                <Button variant="secondary" onClick={() => setPreview(null)} disabled={photoBusy}>Cancelar</Button>
+                <Button variant="primary" loading={photoBusy} onClick={() => void savePhoto()}>Salvar foto</Button>
+              </div>
+            ) : (
+              <div className="bf-row" style={{ flexWrap: "wrap", justifyContent: "center" }}>
+                <Button variant="secondary" size="sm" icon="camera" onClick={() => setCamera(true)}>Tirar foto</Button>
+                <Button variant="secondary" size="sm" icon="image" onClick={() => galleryRef.current && galleryRef.current.click()}>Escolher imagem</Button>
+                {u.hasCustomAvatar ? <Button variant="ghost" size="sm" loading={photoBusy} onClick={() => void resetPhoto()}>Usar foto do Google</Button> : null}
+              </div>
+            )}
+            {photoErr ? <div className="bf-field__error">{photoErr}</div> : null}
+            <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => void onFile(e)} />
+            <input ref={captureRef} type="file" accept="image/*" capture="user" style={{ display: "none" }} onChange={(e) => void onFile(e)} />
+          </div>
+          <div className="bf-field">
+            <label className="bf-label" htmlFor="pf-nick">Nome no jogo</label>
+            <Input id="pf-nick" value={nick} maxLength={NICK_MAX} disabled={nickLocked} onChange={(e) => { setNick(e.target.value.replace(/\s+/g, " ").replace(/^\s+/, "")); setNickMsg(null); }} />
+            {nickLocked ? (
+              <div className="bf-field__hint" style={{ color: "var(--bf-warning)" }}>Você poderá trocar o nome em {formatWait(waitMs)}.</div>
+            ) : (
+              <>
+                <div className="bf-field__hint">Depois de trocar, só poderá mudar de novo em 30 dias.</div>
+                <Button variant="accent" loading={nickBusy} disabled={nick.trim() === (u.nickname || "")} onClick={() => void saveNick()}>Salvar nome</Button>
+              </>
+            )}
+            {nickMsg ? <div className={nickMsg.ok ? "bf-field__hint" : "bf-field__error"} style={nickMsg.ok ? { color: "var(--bf-success)" } : undefined}>{nickMsg.text}</div> : null}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={logoutOpen} onClose={() => setLogoutOpen(false)} center title="Sair da conta?" actions={<><Button variant="secondary" onClick={() => setLogoutOpen(false)}>Ficar</Button><Button variant="danger" icon="logout" onClick={props.onLogout}>Sair</Button></>}>
+        Seu progresso fica guardado na conta. Você volta a vê-lo ao entrar de novo.
+      </Modal>
 
       {camera ? (
         <CameraModal
@@ -479,9 +390,9 @@ export default function ProfileScreen(props: {
           onCapture={(d) => {
             setCamera(false);
             setPreview(d);
+            setEditOpen(true);
           }}
           onUnavailable={() => {
-            // Sem câmera ao vivo (ou permissão negada): abre o seletor nativo, que no celular oferece a câmera.
             setCamera(false);
             setPhotoErr('Não foi possível abrir a câmera. Use "Escolher imagem" (no celular dá para escolher Câmera).');
             if (captureRef.current) captureRef.current.click();

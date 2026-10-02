@@ -7,8 +7,22 @@ import {
   mayPlaySevenTrumpFourth, mayPlayAceTrump,
 } from "@/lib/bisca/rules.mjs";
 import { chooseCard as aiChooseCard } from "@/lib/bisca/ai.mjs";
-import { useGoogleAuth, GoogleSignInButton } from "@/lib/googleAuth";
-import ProfileScreen, { NicknameSetup, Avatar } from "./ProfileScreen";
+import { useGoogleAuth } from "@/lib/googleAuth";
+import ProfileScreen, { Avatar } from "./ProfileScreen";
+import { HomeHub } from "@/screens/HomeHub";
+import { RoomPickScreen } from "@/screens/RoomPickScreen";
+import { LobbyScreen as LobbyScreenNew } from "@/screens/LobbyScreen";
+import { SettingsScreen as SettingsScreenNew } from "@/screens/SettingsScreen";
+import { MissionsScreen } from "@/screens/MissionsScreen";
+import { CollectionScreen } from "@/screens/CollectionScreen";
+import { ClanScreen } from "@/screens/ClanScreen";
+import { RankingScreen } from "@/screens/RankingScreen";
+import { CelebrationOverlay } from "@/screens/CelebrationOverlay";
+import { IntroSplash, shouldShowIntro } from "@/screens/IntroSplash";
+import { ResultScreen, RoundSummary } from "@/screens/ResultScreen";
+import { ProgressProvider, useProgress } from "@/lib/progress/useProgress";
+import { newTracker, trackerObserve, trackerTakeReport } from "@/lib/progress/matchTracker";
+import { ToastProvider, PlayingCard, cardSize, Button as DsButton, Modal as DsModal, LoadingOverlay, SuitLoader } from "@/design";
 
 var RTB = "bisca/rooms";
 /** Presença por sala (fora de rooms/{code}: setRoom reescreve a sala inteira e apagaria presence embutida). */
@@ -2176,91 +2190,6 @@ function tableDecorTerrafe(mob) {
   ];
 }
 
-/* ═══ LOCATION SELECT ═══ */
-function LocationScreen(P){
-  var floats=[{s:'\u2660',x:8,y:10,a:'float1',o:0.06,z:48},{s:'\u2665',x:88,y:8,a:'float2',o:0.07,z:40},{s:'\u2666',x:12,y:80,a:'float3',o:0.05,z:44},{s:'\u2660',x:85,y:75,a:'float1',o:0.06,z:42},{s:'\u2663',x:50,y:92,a:'float2',o:0.04,z:36},{s:'\u2663',x:45,y:4,a:'float3',o:0.05,z:38}];
-
-  var locs = [
-    {id:'terrafe',name:'Terrafé',color:'#c9956a',bg:'linear-gradient(145deg,#2a1c10,#1a1208)',glow:'rgba(139,69,19,.5)',
-      logo:function(){
-        var u = 'url(/assets/terrafe/logo.png)';
-        var sz = 52;
-        return React.createElement('div',{
-          role:'img',
-          'aria-label':'Terrafé',
-          style:{
-            width:sz,
-            height:sz,
-            flexShrink:0,
-            boxSizing:'border-box',
-            backgroundColor:'#e8c9a0',
-            WebkitMaskImage:u,
-            WebkitMaskSize:'contain',
-            WebkitMaskRepeat:'no-repeat',
-            WebkitMaskPosition:'center',
-            maskImage:u,
-            maskSize:'contain',
-            maskRepeat:'no-repeat',
-            maskPosition:'center',
-            display:'block',
-            filter:'drop-shadow(0 0 2px rgba(0,0,0,.45))',
-          },
-        });
-      }},
-    {id:'hub',name:'HUB Fucape',color:'#60a5fa',bg:'linear-gradient(145deg,#0e1230,#080818)',glow:'rgba(37,99,235,.5)',
-      logo:function(){return HubMark(84);}},
-    {id:'floresta',name:'Floresta',color:'#6ee7b7',bg:'linear-gradient(145deg,#142a18,#0a1a0e)',glow:'rgba(45,90,39,.5)',
-      logo:function(){return React.createElement('div',{style:{color:'#86efac'}},FlorestaMark(52));}},
-    {id:'sala',name:'Sala de Aula',color:'#fb7185',bg:'linear-gradient(145deg,#3a0808,#1a0404)',glow:'rgba(196,18,48,.5)',
-      logo:function(){return rLogoW(50);}}
-  ];
-
-  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'52px 20px 28px',position:'relative',overflow:'hidden'}},
-    React.createElement('style',null,ACSS),
-    React.createElement('style',null,'.bfLocTile{-webkit-tap-highlight-color:transparent;outline:none;touch-action:manipulation;box-shadow:0 10px 28px rgba(0,0,0,.55)}@media (hover:hover) and (pointer:fine){.bfLocTile:hover{box-shadow:0 0 30px var(--bfGlow);transform:translateY(-6px);border-color:var(--bfLoc) !important}}'),
-    floats.map(function(f,i){return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s);}),
-    React.createElement('div',{style:{position:'absolute',top:20,left:20,display:'flex',alignItems:'center',gap:8}},
-      React.createElement('button',{onClick:P.onBack,style:{background:'none',border:'none',color:'rgba(255,255,255,.4)',cursor:'pointer',fontSize:20}},'←'),
-      rLogoW(22)
-    ),
-    React.createElement('div',{style:{textAlign:'center',maxWidth:400,marginBottom:8,paddingTop:8}},
-      React.createElement('div',{style:{fontSize:'clamp(26px,8vw,34px)',fontWeight:900,letterSpacing:2,lineHeight:1.1,marginBottom:10,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite'}},'Escolha a mesa'),
-      React.createElement('div',{style:{fontSize:13,opacity:0.5,letterSpacing:0.3,lineHeight:1.4}},P.pickForCreate?'Escolha a mesa da sala — todos verão o mesmo cenário.':'Onde você quer jogar?')
-    ),
-    P.pickForCreate && P.createRoomError
-      ? React.createElement('div',{
-          role: 'alert',
-          style: {
-            width: '100%',
-            maxWidth: 360,
-            marginBottom: 12,
-            padding: '12px 14px',
-            boxSizing: 'border-box',
-            borderRadius: 12,
-            fontSize: 13,
-            lineHeight: 1.45,
-            color: 'rgba(254,242,242,.95)',
-            background: 'rgba(127,29,29,.35)',
-            border: '1px solid rgba(248,113,113,.35)',
-            textAlign: 'left',
-          },
-        }, P.createRoomError)
-      : null,
-    React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,width:'100%',maxWidth:360}},
-      locs.map(function(loc){
-        return React.createElement('div',{key:loc.id,
-          className:'bfLocTile',
-          onClick:function(){P.onSelect(loc.id);},
-          style:{background:loc.bg,border:'1.5px solid '+loc.color+'33',borderRadius:18,padding:'24px 14px 20px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,transition:'all .3s cubic-bezier(.4,0,.2,1)',minHeight:142,'--bfLoc':loc.color,'--bfGlow':loc.glow}
-        },
-          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',minHeight:56,boxSizing:'border-box'}},loc.logo()),
-          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',boxSizing:'border-box'}},venueNameChip(THEMES[loc.id]||THEMES.sala,13))
-        );
-      })
-    )
-  );
-}
-
 function rLogo(h, th){
   var w = Math.round(h*0.55);
   var bar = (th && th.logoBar) || '#C41230';
@@ -2279,44 +2208,21 @@ function rLogoW(h){
   );
 }
 
+/** Baralho equipado pelo jogador (definido pelo GameScreen a cada render). */
+var CURRENT_DECK_ID = 'classico';
 function rCard(c,onClick,back,glow,sm,blocked,mob,bk){
-  bk = bk || DEFAULT_CARD_BACK;
-  var W,H,fs,symFs,pad;
-  if(mob){
-    if(back||!c){
-      W=sm?26:30; H=sm?38:44;
-      var bdM = glow ? bk.hi : bk.border;
-      return React.createElement('div',{style:{width:W,height:H,boxSizing:'border-box',background:bk.grad,border:'2px solid '+bdM,borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
-    }
-    if(sm){ W=30;H=40;fs=9;symFs=12;pad='3px 3px'; }
-    else { W=44;H=58;fs=12;symFs=17;pad='5px 6px'; }
-  } else {
-    W=sm?30:46; H=sm?42:63;
-    if(back||!c){
-      var bdD = glow ? bk.hi : bk.border;
-      return React.createElement('div',{style:{width:W,height:H,background:bk.grad,border:'2px solid '+bdD,borderRadius:5,flexShrink:0,touchAction:'manipulation'}});
-    }
-    fs=sm?9:11; symFs=sm?12:18; pad=sm?'1px 2px':'2px 4px';
-  }
-  var col = RCOL[c.s];
-  var lift = mob ? -4 : -8;
-  return React.createElement('div',{
-    onClick: onClick,
-    onMouseEnter: function(e){ if(onClick) e.currentTarget.style.transform='translateY('+lift+'px)'; },
-    onMouseLeave: function(e){ e.currentTarget.style.transform='none'; },
-    style:{width:W,height:H,boxSizing:'border-box',background:'white',border:'2px solid '+(glow?'#FFD700':col),borderRadius:5,
-      cursor:blocked?'not-allowed':onClick?'pointer':'default',
-      display:'flex',flexDirection:'column',justifyContent:'space-between',
-      alignItems:'stretch',
-      padding:pad,fontSize:fs,fontWeight:'bold',color:col,flexShrink:0,
-      overflow:'visible',
-      opacity:blocked?0.35:1,boxShadow:glow?'0 0 10px #FFD70088':'0 1px 4px #0004',
-      transition:'transform .12s',userSelect:'none',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}
-  },
-    React.createElement('span',{style:{lineHeight:1.15,display:'block'}},c.v),
-    React.createElement('span',{style:{textAlign:'center',fontSize:symFs,lineHeight:1,flex:1,display:'flex',alignItems:'center',justifyContent:'center'}},SYM[c.s]),
-    React.createElement('span',{style:{transform:'rotate(180deg)',display:'block',lineHeight:1.15}},c.v)
-  );
+  void bk;
+  var size = mob ? (sm ? 'xs' : 'sm') : (sm ? 'sm' : 'md');
+  return React.createElement(PlayingCard, {
+    card: back ? null : c,
+    back: !!back || !c,
+    size: size,
+    deck: CURRENT_DECK_ID,
+    glow: glow ? 'gold' : 'none',
+    dim: !!blocked,
+    onClick: onClick || undefined,
+    style: onClick ? { cursor: blocked ? 'not-allowed' : 'pointer' } : undefined
+  });
 }
 
 function rSlot(a,mob){
@@ -2353,17 +2259,16 @@ function aceRevealFlipVisual(ace, mob, cbk){
 }
 
 function deckPile(n,onClick,hi,mob,bk,large){
-  bk = bk || DEFAULT_CARD_BACK;
-  var cw=mob?30:46, ch=mob?44:63, off=mob?1:2, boxW=mob?36:52, boxH=mob?52:70, fs=mob?10:11;
-  /* Pilhas “metade cima/baixo” no corte: maiores só no telemóvel; no desktop mantém o tamanho clássico. */
-  if(large && mob){
-    cw=44; ch=64; off=2; boxW=50; boxH=72; fs=12;
-  }
-  var bdLay = hi ? bk.hi : bk.border;
+  void bk;
+  var size = (large && mob) ? 'sm' : (mob ? 'xs' : 'sm');
+  var dims = cardSize(size);
+  var off = mob ? 1 : 2;
+  var boxW = dims.w + off * 2 + 4, boxH = dims.h + off * 2 + 4;
   var layers = [2,1,0].map(function(i){
-    return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:i*-off,width:cw,height:ch,background:bk.grad,border:'2px solid '+bdLay,borderRadius:5,boxShadow:'0 2px 6px #0005'}});
+    return React.createElement('div',{key:i,style:{position:'absolute',left:i*off,top:(2-i)*off}},
+      React.createElement(PlayingCard,{back:true,size:size,deck:CURRENT_DECK_ID,glow:hi?'gold':'none'}));
   });
-  var lbl = React.createElement('div',{style:{position:'absolute',left:0,top:-2,width:cw,height:ch,display:'flex',alignItems:'center',justifyContent:'center',color:bk.label,fontSize:fs,fontWeight:'bold',fontVariantNumeric:'tabular-nums',zIndex:5}},n);
+  var lbl = React.createElement('div',{style:{position:'absolute',left:0,top:0,width:dims.w,height:dims.h+off*2,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,.8)',fontSize:mob?11:12,fontWeight:800,fontFamily:'var(--bf-font-display)',textShadow:'0 1px 3px rgba(0,0,0,.85)',zIndex:5,pointerEvents:'none'}},n);
   return React.createElement('div',{onClick:onClick,style:{position:'relative',width:boxW,height:boxH,cursor:onClick?'pointer':'default',flexShrink:0,touchAction:'manipulation'}},layers[0],layers[1],layers[2],lbl);
 }
 
@@ -2510,878 +2415,6 @@ function ChatPanel(P){
   return React.createElement(React.Fragment,null, btn, panel);
 }
 
-/* ═══ HOME SCREEN ═══ */
-/** Ícone robô (stroke) — escala com font-size do botão. */
-function homeIconRobot() {
-  return React.createElement(
-    'svg',
-    {
-      width: '1.1em',
-      height: '1.1em',
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      xmlns: 'http://www.w3.org/2000/svg',
-      'aria-hidden': true,
-      style: { display: 'block', flexShrink: 0 },
-    },
-    React.createElement('path', {
-      d: 'M12 8V4H8',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    }),
-    React.createElement('rect', {
-      x: 4,
-      y: 8,
-      width: 16,
-      height: 12,
-      rx: 2,
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-    }),
-    React.createElement('path', {
-      d: 'M2 14h2M20 14h2M15 13v2M9 13v2',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    })
-  );
-}
-/** Ícone grupo / amigos (stroke). */
-function homeIconPeople() {
-  return React.createElement(
-    'svg',
-    {
-      width: '1.1em',
-      height: '1.1em',
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      xmlns: 'http://www.w3.org/2000/svg',
-      'aria-hidden': true,
-      style: { display: 'block', flexShrink: 0 },
-    },
-    React.createElement('path', {
-      d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    }),
-    React.createElement('circle', {
-      cx: 9,
-      cy: 7,
-      r: 4,
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-    }),
-    React.createElement('path', {
-      d: 'M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    })
-  );
-}
-/** Ícone engrenagem / configurações (stroke). */
-function homeIconGear() {
-  return React.createElement(
-    'svg',
-    {
-      width: '1.15em',
-      height: '1.15em',
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      xmlns: 'http://www.w3.org/2000/svg',
-      'aria-hidden': true,
-      style: { display: 'block', flexShrink: 0 },
-    },
-    React.createElement('path', {
-      d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    }),
-    React.createElement('path', {
-      d: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z',
-      stroke: 'currentColor',
-      strokeWidth: 2,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    })
-  );
-}
-
-/** Caixa de conta na tela inicial: botão Google (deslogado) ou foto + nome + Sair (logado). */
-function homeAccountBox(P){
-  var u = P.authUser;
-  if(!P.authReady) return React.createElement('div',{style:{minHeight:44}});
-  if(u){
-    var openProfile = function(){ if(typeof P.onOpenProfile==='function') P.onOpenProfile(); };
-    return React.createElement('div',{onClick:openProfile,role:'button',title:'Abrir meu perfil',style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:12,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',cursor:'pointer'}},
-      React.createElement(Avatar,{src:u.picture,name:u.name,size:40}),
-      React.createElement('div',{style:{flex:1,minWidth:0}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},u.name),
-        React.createElement('div',{style:{fontSize:11,opacity:0.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},P.loggedUid ? 'Toque para ver seu perfil' : 'Conectando…')
-      ),
-      React.createElement('button',{type:'button',onClick:function(e){ e.stopPropagation(); openProfile(); },style:{background:'transparent',color:'rgba(255,255,255,.85)',border:'1px solid rgba(255,255,255,.3)',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:13,fontWeight:600,flexShrink:0}},'Perfil')
-    );
-  }
-  return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-    React.createElement(GoogleSignInButton,{onCredential:function(c){ if(typeof P.onGoogleCredential==='function') P.onGoogleCredential(c); },width:320}),
-    P.authError ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:12,textAlign:'center'}},P.authError) : null,
-    P.authBusy ? React.createElement('div',{style:{fontSize:12,opacity:0.6,textAlign:'center'}},'Entrando…') : null,
-    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Jogando como convidado — entre com Google para usar a sua conta')
-  );
-}
-
-/** Primeira tela para quem não está logado: entrar com Google ou seguir como convidado. */
-function homeLoginGate(P, divider){
-  return React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:14,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
-    React.createElement('div',{style:{fontSize:15,fontWeight:700,textAlign:'center',opacity:0.85}},'Entre para jogar'),
-    P.authReady
-      ? React.createElement(GoogleSignInButton,{onCredential:function(c){ if(typeof P.onGoogleCredential==='function') P.onGoogleCredential(c); },width:320})
-      : React.createElement('div',{style:{minHeight:44,display:'flex',alignItems:'center',justifyContent:'center'}},
-          React.createElement('div',{style:{width:24,height:24,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
-        ),
-    P.authError ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:12,textAlign:'center'}},P.authError) : null,
-    P.authBusy ? React.createElement('div',{style:{fontSize:12,opacity:0.6,textAlign:'center'}},'Entrando…') : null,
-    divider('ou'),
-    React.createElement('button',{type:'button',onClick:function(){ if(typeof P.onGuest==='function') P.onGuest(); },style:{background:'rgba(255,255,255,.08)',color:'#fff',border:'1px solid rgba(255,255,255,.2)',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold'}},'Jogar como convidado'),
-    React.createElement('div',{style:{fontSize:11,opacity:0.4,textAlign:'center'}},'Como convidado você joga só com um apelido.'),
-    React.createElement('a',{href:'/privacidade',style:{fontSize:11,opacity:0.55,textAlign:'center',color:'#93c5fd'}},'Política de Privacidade')
-  );
-}
-
-function HomeScreen(P){
-  var resumeTopPad = typeof P.resumeTopPad === "number" ? P.resumeTopPad : 0;
-  var ns=useState(''); var nm=ns[0], setNm=ns[1];
-  var cs=useState(''); var cd=cs[0], setCd=cs[1];
-  var es=useState(''); var er=es[0], setEr=es[1];
-  var ls=useState(false); var ld=ls[0], setLd=ls[1];
-  var authUser = P.authUser || null;
-  /* Logado: o nome é o apelido fixo do perfil (troca só na aba Perfil). Convidado: digita o nome. */
-  var fixedName = authUser && authUser.nickname ? clampDisplayName(String(authUser.nickname)) : '';
-  var playName = fixedName || nm;
-
-  var floats = [
-    {s:'\u2660',x:10,y:12,a:'float1',o:0.07,z:64},
-    {s:'\u2665',x:80,y:8,a:'float2',o:0.09,z:52},
-    {s:'\u2666',x:18,y:74,a:'float3',o:0.055,z:48},
-    {s:'\u2663',x:86,y:70,a:'float1',o:0.07,z:56},
-    {s:'\u2660',x:52,y:88,a:'float2',o:0.045,z:44},
-    {s:'\u2663',x:42,y:3,a:'float3',o:0.055,z:40}
-  ];
-
-  var inp = {background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:10,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',width:'100%',boxSizing:'border-box'};
-
-  async function join(){
-    var nameOk = clampDisplayName(playName);
-    if(!nameOk){ setEr('Digite seu nome'); return; }
-    if(cd.length!==4){ setEr('Código: 4 letras'); return; }
-    if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
-    setLd(true); setEr('');
-    var r = await RT.getRoom(cd.toUpperCase());
-    if(!r){ setLd(false); setEr('Sala não encontrada'); return; }
-    if(r.game){ setLd(false); setEr('Partida já começou'); return; }
-    /* Logado com Google: id fixo da conta; convidado: id aleatório como antes. */
-    var pid = P.loggedUid || uid();
-    var alreadyIn = !!playerInRoom(r, pid);
-    var ok = true;
-    if(!alreadyIn){
-      var humanNJoin = r.players.filter(function(p){ return !p.isBot; }).length;
-      if(humanNJoin>=4){ setLd(false); setEr('Sala cheia'); return; }
-      r.players.push({id:pid,name:nameOk,seat:-1,team:null});
-      ok = await RT.setRoom(cd.toUpperCase(), r);
-    }
-    setLd(false);
-    if(ok) P.onJoin(pid,nameOk,cd.toUpperCase(),r); else setEr('Erro');
-  }
-
-  var divider = function(t){
-    return React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,opacity:0.3}},
-      React.createElement('div',{style:{flex:1,height:1,background:'#fff'}}),
-      React.createElement('span',{style:{fontSize:11}},t),
-      React.createElement('div',{style:{flex:1,height:1,background:'#fff'}})
-    );
-  };
-
-  var logoBlock = React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:30,animation:'fadeIn .8s ease-out'}},
-      rLogoW(64),
-      React.createElement('div',{style:{fontSize:40,fontWeight:900,letterSpacing:2,background:'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'glow 3s ease-in-out infinite',lineHeight:1.1,textAlign:'center'}},'BISCA FUCAS'),
-      React.createElement('div',{style:{fontSize:12,letterSpacing:5,opacity:0.4,textTransform:'uppercase'}},'Jogo de Baralho \u00b7 Online')
-    );
-  var pageStyle = {minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12)',fontFamily:'system-ui,sans-serif',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20,paddingTop:20+(resumeTopPad||0),position:'relative',overflow:'hidden',zIndex:0};
-  var floatEls = floats.map(function(f,i){ return React.createElement('span',{key:i,style:{position:'absolute',left:f.x+'%',top:f.y+'%',fontSize:f.z,opacity:f.o,color:'#C81734',animation:f.a+' '+(3+i*0.4)+'s ease-in-out infinite',pointerEvents:'none'}},f.s); });
-
-  if(!authUser && !P.guestMode){
-    return React.createElement('div',{style:pageStyle},
-      React.createElement('style',null,ACSS),
-      floatEls,
-      logoBlock,
-      homeLoginGate(P, divider)
-    );
-  }
-
-  if(authUser && !authUser.nickname){
-    return React.createElement('div',{style:pageStyle},
-      React.createElement('style',null,ACSS),
-      floatEls,
-      logoBlock,
-      React.createElement(NicknameSetup,{user:authUser,onUser:P.onUser,onLogout:P.onLogout})
-    );
-  }
-
-  return React.createElement('div',{style:pageStyle},
-    React.createElement('button',{
-      type:'button',
-      onClick:function(){ if(typeof P.onOpenSettings==='function') P.onOpenSettings(); },
-      'aria-label':'Configurações',
-      title:'Configurações',
-      style:{
-        position:'fixed',
-        top:'max(12px, calc(8px + env(safe-area-inset-top)))',
-        right:'max(12px, calc(8px + env(safe-area-inset-right)))',
-        zIndex:60,
-        width:46,
-        height:46,
-        borderRadius:12,
-        border:'1px solid rgba(255,255,255,.42)',
-        background:'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
-        boxShadow:'0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
-        color:'rgba(255,255,255,.94)',
-        cursor:'pointer',
-        display:'flex',
-        alignItems:'center',
-        justifyContent:'center',
-        transition:'transform .15s ease, border-color .15s ease, box-shadow .15s ease',
-      },
-      onMouseDown:function(e){ e.currentTarget.style.transform='scale(0.96)'; },
-      onMouseUp:function(e){ e.currentTarget.style.transform=''; },
-      onMouseLeave:function(e){ e.currentTarget.style.transform=''; },
-    }, homeIconGear()),
-    React.createElement('style',null,ACSS),
-    floatEls,
-    logoBlock,
-    React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320,animation:'fadeIn 1s ease-out'}},
-      homeAccountBox(P),
-      fixedName ? null : React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:4}},
-        React.createElement('input',{
-          value:nm,
-          maxLength:DISPLAY_NAME_MAX,
-          onChange:function(e){
-            var nextName = formatNameWhileTyping(e.target.value);
-            setNm(nextName);
-            if(er==='Digite seu nome' && clampDisplayName(nextName)) setEr('');
-          },
-          placeholder:'Seu nome',
-          title:'Podes usar espaços entre palavras.',
-          'aria-label':'Nome de jogador — podes usar espaços; máximo '+DISPLAY_NAME_MAX+' caracteres',
-          autoComplete:'nickname',
-          'aria-description':nm.length>=DISPLAY_NAME_MAX?'Limite de caracteres atingido':undefined,
-          style:Object.assign({},inp,{
-            fontSize:17,
-            padding:'14px 18px',
-            transition:'border-color .2s ease, box-shadow .2s ease',
-            borderColor:nm.length>=DISPLAY_NAME_MAX?'rgba(212,168,67,.42)':'rgba(255,255,255,.15)',
-            boxShadow:nm.length>=DISPLAY_NAME_MAX?'0 0 0 1px rgba(212,168,67,.12)':'none'
-          })
-        }),
-        nm.length>=DISPLAY_NAME_MAX
-          ? React.createElement('div',{
-              role:'status',
-              style:{
-                fontSize:11,
-                lineHeight:1.3,
-                textAlign:'center',
-                color:'rgba(212,168,67,.55)',
-                letterSpacing:0.02
-              }
-            },'Limite atingido')
-          : null
-      ),
-      er ? React.createElement('div',{style:{color:'#ff6b6b',fontSize:13,textAlign:'center'}},er) : null,
-      React.createElement('button',{onClick:function(){
-        var sn = clampDisplayName(playName);
-        if(!sn){setEr('Digite seu nome');return;}
-        setEr('');
-        P.onSolo(sn);
-      },style:{background:'linear-gradient(135deg,#C41230,#8a0e22)',color:'#fff',border:'none',borderRadius:10,padding:'14px',cursor:'pointer',fontSize:17,fontWeight:'bold',boxShadow:'0 4px 15px rgba(196,18,48,.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
-        homeIconRobot(),
-        'Solo vs IA'
-      ),
-      divider('ou jogue com amigos'),
-      React.createElement('button',{onClick:function(){
-        var cn = clampDisplayName(playName);
-        if(!cn){ setEr('Digite seu nome'); return; }
-        if(!RT.isConfigured()){ setEr('Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).'); return; }
-        setEr('');
-        P.onGoPickCreate(cn);
-      },disabled:ld,style:{background:'linear-gradient(135deg,#2a6a3a,#1a4a2a)',color:'#fff',border:'none',borderRadius:10,padding:'12px',cursor:'pointer',fontSize:15,fontWeight:'bold',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.35em'}},
-        homeIconPeople(),
-        'Criar Sala'
-      ),
-      React.createElement('div',{style:{display:'flex',gap:8}},
-        React.createElement('input',{value:cd,onChange:function(e){setCd(e.target.value.toUpperCase().slice(0,4));},placeholder:'Código',style:Object.assign({},inp,{textAlign:'center',letterSpacing:4,fontWeight:700})}),
-        React.createElement('button',{onClick:join,disabled:ld,style:{background:'#1a3a6a',color:'#fff',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:14,fontWeight:'bold',whiteSpace:'nowrap'}},'Entrar')
-      )
-    ),
-    ld ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
-      React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
-    ) : null,
-    React.createElement('div',{style:{position:'fixed',bottom:8,right:'max(14px, calc(10px + env(safe-area-inset-right)))',fontSize:10,opacity:0.2,whiteSpace:'nowrap',maxWidth:'calc(100vw - 20px)',overflow:'hidden',textOverflow:'ellipsis'}},'by: Ruivo')
-  );
-}
-
-/** Conteúdo rico das regras (tópicos / subtópicos, títulos reforçados). */
-function bfSettingsRulesContent(narrow) {
-  var p = {
-    fontSize: 15,
-    lineHeight: 1.68,
-    color: 'rgba(236,228,218,.78)',
-    margin: '0 0 11px',
-    maxWidth: 720,
-    fontWeight: 450,
-  };
-  var h3 = {
-    fontSize: narrow ? 13.5 : 14.5,
-    fontWeight: 800,
-    letterSpacing: 0.85,
-    textTransform: 'uppercase',
-    color: '#f0d078',
-    margin: '22px 0 10px',
-    lineHeight: 1.35,
-    textShadow: '0 1px 14px rgba(0,0,0,.35)',
-  };
-  var h4 = {
-    fontSize: 13,
-    fontWeight: 700,
-    color: 'rgba(255,248,235,.96)',
-    margin: '14px 0 7px',
-    lineHeight: 1.35,
-  };
-  var h3First = Object.assign({}, h3, { marginTop: 10 });
-  var intro = Object.assign({}, p, {
-    marginBottom: 16,
-    fontStyle: 'italic',
-    color: 'rgba(236,228,218,.88)',
-  });
-  function P(key, style, children) {
-    return React.createElement('p', { key: key, style: style || p }, children);
-  }
-  function H3(key, text, first) {
-    return React.createElement('h3', { key: key, style: first ? h3First : h3 }, text);
-  }
-  function H4(key, text) {
-    return React.createElement('h4', { key: key, style: h4 }, text);
-  }
-
-  return React.createElement(
-    'div',
-    { style: { maxWidth: 720 } },
-    P(
-      'i',
-      intro,
-      'Regras que, na Fucape, foram passadas de geração em geração — e que o Bisca Fucas aplica nesta mesa digital.'
-    ),
-    H3('s1', '1. Duplas e objetivo', true),
-    H4('s1a', 'Equipes'),
-    P(
-      't1a',
-      null,
-      'São quatro jogadores em duas equipes: você e o seu parceiro ficam frente a frente dos dois adversários.'
-    ),
-    H4('s1b', 'Objetivo na partida'),
-    P(
-      't1b',
-      null,
-      'Ganha quem primeiro chegar a 4 pontos no placar da partida. A cada vez que se distribuem e se jogam as 40 cartas, vê-se quem sobe pontos — depois embaralha-se de novo e segue a mesma ordem.'
-    ),
-    H3('s2', '2. Começo da partida: embaralhar, cortar, começar'),
-    P(
-      't2rot',
-      null,
-      'A regra da mesa é esta: uma pessoa embaralha o baralho, quem está à esquerda de quem embaralha é quem corta, e quem está à direita de quem embaralha é quem começa a jogar. É sempre nessa ordem.'
-    ),
-    P(
-      't2see',
-      null,
-      'Dá para ver as cartas a serem dadas no início da distribuição e também na última leva, quando as últimas cartas vão para a mão de cada um.'
-    ),
-    H4('s2a', '2.1 Modo normal — uma carta de cada vez'),
-    P(
-      't2a',
-      null,
-      'Depois do corte, o baralho reparte-se em 12 passagens: em cada passagem sai uma carta para o jogador da vez, à roda da mesa. Ficam 3 cartas na mão de cada um e o resto no baralho, com o corte virado. Depois, a cada rodada, quem ganhou compra primeiro e os restantes jogadores compram uma carta do baralho pela ordem da mesa, até o baralho acabar.'
-    ),
-    H4('s2b', '2.2 Copas batido — três cartas de cada vez'),
-    P(
-      't2b',
-      null,
-      'O cortador pode «bater» e declarar copas batido: o corte fica fixo em copas. Aqui são 4 passagens e, em cada uma, cada jogador recebe três cartas de uma vez — no fim é o mesmo: 3 cartas na mão de cada um para começar. Neste modo não há troca do 2 pelo corte.'
-    ),
-    H3('s3', '3. Valor das cartas (para contar pontos nas rodadas)'),
-    P(
-      't3',
-      null,
-      'Ás 11, sete 10, rei 4, valete 3, dama 2; 6, 5, 4, 3 e 2 valem zero. No baralho inteiro são 120 pontos no total.'
-    ),
-    H3('s4', '4. O corte define o Naipe'),
-    P(
-      't4a',
-      null,
-      'Ao cortar, o baralho é reorganizado e fica definido o naipe de corte da partida. A carta cortada vai para baixo do baralho (fica como a última carta). A carta que fica virada no centro (o «corte» que todos veem) é a que manda no naipe para essa partida — o jogo trata disso automaticamente depois do corte.'
-    ),
-    P(
-      't4b',
-      null,
-      'Se a carta do corte for Ás ou 7, o corte não é o naipe dessa carta: passa para o naipe par (ouros com copas, espadas com paus). Essa carta volta para o meio do baralho (entra outra vez no baralho), e o jogo fixa o corte certo para esses casos.'
-    ),
-    P(
-      't4c',
-      null,
-      'Se for outra carta, o corte é o naipe dela e ela é a carta virada no meio que você pode trocar pelo 2 (no modo normal). Se em vez de cortar normalmente você optar por bater, o corte é sempre copas — é o «copas batido».'
-    ),
-    P(
-      't4d',
-      null,
-      'Fora isso: qualquer corte ganha a cartas que não são corte; no mesmo naipe a força é Ás > 7 > R > V > D > 6 > 5 > 4 > 3 > 2.'
-    ),
-    H3('s5', '5. Como se joga na mesa'),
-    P(
-      't5a',
-      null,
-      'Joga-se em rodadas de quatro cartas (cada uma é uma rodada como na mesa real). Quem abre escolhe o naipe de saída. Quem ganha a rodada leva os pontos das quatro cartas e abre a seguinte. São 10 rodadas por partida de 40 cartas até as mãos esvaziarem.'
-    ),
-    H4('s5b', 'Troca do 2 (só modo normal)'),
-    P(
-      't5b',
-      null,
-      'Se você tiver o 2 do corte, pode trocá-lo pela carta de corte virada no baralho — até à terceira rodada dessa mão inclusive; depois disso já não dá. Em copas batido não existe esta troca.'
-    ),
-    H3('s6', '6. Pontuação na partida'),
-    H4('s6a', '6.1 Vitória por pontos'),
-    P(
-      't6a',
-      null,
-      'Somam-se os pontos das cartas que cada equipe ganhou nas rodadas. Quem tem mais pontos ganha por pontos nessa mão e, em condições normais, marca +1 no placar da partida.'
-    ),
-    H4('s6b', '6.2 Réle'),
-    P(
-      't6b',
-      null,
-      'Na mesma rodada, se o 7 de corte sair logo antes do Ás de corte, é réle: a equipe que leva essa rodada ganha +1 no placar da partida.'
-    ),
-    H4('s6c', '6.3 Sete de abertura'),
-    P(
-      't6c',
-      null,
-      'Se a primeira carta da primeira rodada dessa mão for o 7 de corte, a equipe desse jogador ganha +1 no placar da partida.'
-    ),
-    H4('s6d', '6.4 Copas batido'),
-    P(
-      't6d',
-      null,
-      'Numa mão em copas batido, quem ganhar por pontos leva +2 no placar da partida de uma vez (em vez de +1). Se a equipe do cortador perder por pontos, quem ganha são os outros — e são eles que levam esses 2 pontos.'
-    ),
-    H4('s6e', '6.5 Empate 60–60'),
-    P(
-      't6e',
-      null,
-      'Empate a 60 por pontos: ninguém marca nessa mão, mas fica um bónus pendente — na próxima mão em que alguém ganhe por pontos, soma +1 no placar por cada 60–60 que estava em dívida.'
-    ),
-    H4('s6f', '6.6 Ponta (61–59)'),
-    P('t6f', null, 'Ganhar 61 a 59 vale mais +1 no placar nessa mão.'),
-    H4('s6g', '6.7 Capote'),
-    P(
-      't6g',
-      null,
-      'Se a equipe que perde por pontos ficar com menos de 30 nos pontos das cartas, é capote: quem ganhou leva mais +1 no placar da partida.'
-    ),
-    H3('s7', '7. Ganhar o jogo'),
-    P(
-      't7',
-      null,
-      'A partida acaba quando uma equipe chega a 4 pontos. Se as duas estiverem com 4 ou mais ao mesmo tempo, continua até haver desempate por pontos numa mão.'
-    )
-  );
-}
-
-function bfSettingsGameplayContent(narrow, cardInputMode, onModeChange) {
-  var mode = cardInputMode === "tap" ? "tap" : "drag";
-  var wrap = {
-    maxWidth: 760,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  };
-  var hint = {
-    margin: "0 0 4px",
-    fontSize: 14,
-    lineHeight: 1.55,
-    color: "rgba(236,228,218,.78)",
-  };
-  function modeBtn(id, title, desc, recommended) {
-    var active = mode === id;
-    return React.createElement(
-      "button",
-      {
-        key: id,
-        type: "button",
-        onClick: function () {
-          onModeChange(id);
-        },
-        style: {
-          width: "100%",
-          textAlign: "left",
-          padding: narrow ? "12px 14px" : "14px 16px",
-          borderRadius: 12,
-          border: active ? "1px solid rgba(212,168,67,.62)" : "1px solid rgba(255,255,255,.15)",
-          background: active
-            ? "linear-gradient(165deg, rgba(212,168,67,.2) 0%, rgba(90,50,8,.34) 100%)"
-            : "linear-gradient(165deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.02) 100%)",
-          boxShadow: active
-            ? "0 0 0 1px rgba(212,168,67,.25) inset, 0 8px 24px rgba(0,0,0,.28)"
-            : "0 6px 20px rgba(0,0,0,.22)",
-          cursor: "pointer",
-          color: "rgba(255,255,255,.95)",
-        },
-      },
-      React.createElement(
-        "div",
-        { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 } },
-        React.createElement("strong", { style: { fontSize: 14, letterSpacing: 0.25 } }, title),
-        recommended ? React.createElement("span", {
-          style: {
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: 0.8,
-            textTransform: "uppercase",
-            borderRadius: 999,
-            padding: "3px 7px",
-            background: active ? "rgba(255,255,255,.18)" : "rgba(212,168,67,.2)",
-            color: active ? "rgba(255,255,255,.94)" : "#f0d078",
-          },
-        }, "Recomendado") : null
-      ),
-      React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5, color: "rgba(236,228,218,.78)" } }, desc)
-    );
-  }
-
-  return React.createElement(
-    "div",
-    { style: wrap },
-    React.createElement("p", { style: hint }, "Escolha como jogar as cartas durante a partida:"),
-    modeBtn("drag", "Arrastando a carta (atual)", "Você arrasta a carta para o centro da mesa. Este é o modo padrão.", true),
-    modeBtn("tap", "Clicando na carta (clássico)", "Você toca/clica na carta para jogar direto.", false)
-  );
-}
-
-/**
- * Configurações — mesmo ADN visual do menu (gradiente #0a0a12 / #1a0a14, ouro #d4a843–#f0d078,
- * vermelho Bisca #C41230), tipografia system-ui como em `globals.css`, painel com vidro e ouro.
- */
-function SettingsScreen(P){
-  var resumeTopPad = typeof P.resumeTopPad === 'number' ? P.resumeTopPad : 0;
-  var narrow = useNarrowScreen();
-  var onBack = P.onBack || function(){};
-  var cardInputMode = P.cardInputMode === "tap" ? "tap" : "drag";
-  var onCardInputModeChange = typeof P.onCardInputModeChange === "function" ? P.onCardInputModeChange : function(){};
-  var ts = useState('rules');
-  var tab = ts[0], setTab = ts[1];
-
-  var fontUi = 'system-ui, sans-serif';
-  var goldGrad = 'linear-gradient(135deg,#d4a843,#f0d078,#a17c2f)';
-  var navActiveGrad = 'linear-gradient(135deg,#c9a03a,#f0d078,#d4a843)';
-  var navActiveColor = '#1a0f06';
-  var borderGold = 'rgba(212,168,67,.32)';
-  var borderRuby = 'rgba(196,18,48,.38)';
-  var sidebarBg = 'linear-gradient(180deg, rgba(22,14,18,.96) 0%, rgba(10,8,14,.98) 100%)';
-  var panelBg =
-    'linear-gradient(165deg, rgba(60,18,24,.22) 0%, rgba(14,10,18,.94) 42%, rgba(8,8,14,.97) 100%)';
-  var accentBarGrad = 'linear-gradient(180deg,#f0d078,#d4a843,#8a6220)';
-
-  var floats = [
-    { s: '\u2660', x: 8, y: 10, a: 'float1', o: 0.06, z: 56 },
-    { s: '\u2665', x: 88, y: 6, a: 'float2', o: 0.07, z: 48 },
-    { s: '\u2666', x: 14, y: 78, a: 'float3', o: 0.045, z: 44 },
-    { s: '\u2663', x: 82, y: 72, a: 'float1', o: 0.055, z: 52 },
-  ];
-
-  var tabs = [
-    { id: 'rules', label: 'REGRAS', title: 'Regras' },
-    { id: 'gameplay', label: 'JOGABILIDADE', title: 'Jogabilidade' },
-    {
-      id: 'about',
-      label: 'SOBRE',
-      title: 'Sobre',
-      body: [
-        'Apresentamos o Bisca Fucas, um jogo criado para alunos da Fucape — calouros, veteranos e até aqueles que já se formaram, mas continuam conectados à experiência. Mais do que um simples jogo de cartas, ele carrega uma tradição: as regras são exatamente aquelas que os veteranos passaram aos calouros ao longo dos anos, sendo transmitidas de geração em geração dentro da faculdade.',
-        '',
-        'O Bisca Fucas foi pensado para funcionar em qualquer ambiente: na sala de aula - o real propósito do jogo kkkkkkkk, no campus, em casa ou em encontros com amigos. A proposta é simples, mas consistente: recriar a dinâmica clássica da bisca dentro de um contexto que faz sentido para quem vive ou viveu a Fucape.',
-        '',
-        'O jogo conta com um modo contra bots, mas é importante deixar claro que eles não foram feitos para substituir a experiência real. Pelo contrário, são intencionalmente limitados, quase como um convite — ou uma leve provocação — para que você jogue com outras pessoas. Porque, na prática, nenhuma inteligência artificial consegue reproduzir o nível de estratégia, imprevisibilidade e, principalmente, as interações que acontecem em uma partida entre amigos.',
-        '',
-        'aproveitem! by: Ruivo',
-      ].join('\n'),
-    },
-  ];
-
-  var active = tabs[0];
-  for (var ti = 0; ti < tabs.length; ti++) {
-    if (tabs[ti].id === tab) {
-      active = tabs[ti];
-      break;
-    }
-  }
-
-  function navBtn(t){
-    var sel = tab === t.id;
-    return React.createElement(
-      'button',
-      {
-        type: 'button',
-        key: t.id,
-        role: 'tab',
-        'aria-selected': sel,
-        onClick: function () {
-          setTab(t.id);
-        },
-        style: {
-          width: narrow ? 'auto' : '100%',
-          flex: narrow ? '1 1 0' : 'none',
-          minWidth: 0,
-          minHeight: narrow ? 50 : 54,
-          padding: narrow ? '10px 6px' : '17px 14px',
-          margin: 0,
-          border: 'none',
-          borderRadius: 0,
-          cursor: 'pointer',
-          fontFamily: fontUi,
-          fontSize: narrow ? 10 : 12,
-          fontWeight: 800,
-          letterSpacing: narrow ? 0.45 : 1.25,
-          lineHeight: narrow ? 1.15 : 1.2,
-          textTransform: 'uppercase',
-          background: sel ? navActiveGrad : 'transparent',
-          color: sel ? navActiveColor : 'rgba(248,236,220,.82)',
-          textAlign: 'center',
-          WebkitTapHighlightColor: 'transparent',
-          boxShadow: sel ? 'inset 0 1px 0 rgba(255,255,255,.42)' : 'none',
-          textShadow: sel ? '0 1px 0 rgba(255,255,255,.2)' : 'none',
-          transition: 'background .15s ease, color .15s ease, box-shadow .15s ease',
-        },
-      },
-      t.label
-    );
-  }
-
-  return React.createElement(
-    'div',
-    {
-      style: {
-        minHeight: '100vh',
-        background:
-          'linear-gradient(160deg,#0a0a12,#1a0a14,#0a0a12), radial-gradient(ellipse 120% 70% at 50% -10%, rgba(196,18,48,.12) 0%, transparent 55%)',
-        fontFamily: fontUi,
-        color: '#fff',
-        position: 'relative',
-        overflowX: 'hidden',
-        overflowY: 'auto',
-        paddingTop: 14 + resumeTopPad,
-        paddingBottom: 44,
-        paddingLeft: 'max(12px, env(safe-area-inset-left))',
-        paddingRight: 'max(12px, env(safe-area-inset-right))',
-        boxSizing: 'border-box',
-        zIndex: 0,
-      },
-    },
-    React.createElement('style', null, ACSS),
-    floats.map(function (f, i) {
-      return React.createElement('span', {
-        key: i,
-        style: {
-          position: 'absolute',
-          left: f.x + '%',
-          top: f.y + '%',
-          fontSize: f.z,
-          opacity: f.o,
-          color: '#C81734',
-          animation: f.a + ' ' + (3.2 + i * 0.35) + 's ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0,
-        },
-      }, f.s);
-    }),
-    React.createElement(
-      'div',
-      { style: { maxWidth: 1040, margin: '0 auto', width: '100%', position: 'relative', zIndex: 1 } },
-      React.createElement(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          },
-        },
-        React.createElement(
-          'button',
-          {
-            type: 'button',
-            onClick: onBack,
-            onMouseDown: function (e) {
-              e.currentTarget.style.transform = 'scale(0.96)';
-            },
-            onMouseUp: function (e) {
-              e.currentTarget.style.transform = '';
-            },
-            onMouseLeave: function (e) {
-              e.currentTarget.style.transform = '';
-            },
-            style: {
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 16px',
-              borderRadius: 12,
-              border: '1px solid rgba(255,255,255,.42)',
-              background: 'linear-gradient(165deg, rgba(28,24,18,.92) 0%, rgba(12,10,8,.88) 100%)',
-              color: 'rgba(255,255,255,.94)',
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 8px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06)',
-              transition: 'transform .15s ease, border-color .15s ease, box-shadow .15s ease',
-            },
-          },
-          '\u2190 Menu'
-        ),
-        React.createElement(
-          'h1',
-          {
-            style: {
-              margin: 0,
-              fontSize: narrow ? 17 : 22,
-              fontWeight: 900,
-              letterSpacing: narrow ? 2.5 : 3.5,
-              textTransform: 'uppercase',
-              background: goldGrad,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              animation: 'glow 3s ease-in-out infinite',
-              lineHeight: 1.15,
-            },
-          },
-          'Configuração'
-        )
-      ),
-      React.createElement(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            flexDirection: narrow ? 'column' : 'row',
-            alignItems: 'stretch',
-            minHeight: narrow ? 'auto' : 428,
-            borderRadius: 14,
-            overflow: 'hidden',
-            border: '1px solid ' + borderRuby,
-            boxShadow:
-              '0 18px 52px rgba(0,0,0,.5), 0 0 40px rgba(196,18,48,.1), inset 0 1px 0 rgba(255,255,255,.06)',
-            backdropFilter: 'saturate(1.05) blur(10px)',
-            WebkitBackdropFilter: 'saturate(1.05) blur(10px)',
-          },
-        },
-        React.createElement(
-          'nav',
-          {
-            role: 'tablist',
-            'aria-label': 'Secções de configuração',
-            style: {
-              display: 'flex',
-              flexDirection: narrow ? 'row' : 'column',
-              flexShrink: 0,
-              width: narrow ? '100%' : 210,
-              background: sidebarBg,
-              borderBottom: narrow ? '1px solid ' + borderGold : 'none',
-              borderRight: narrow ? 'none' : '1px solid ' + borderGold,
-            },
-          },
-          tabs.map(navBtn)
-        ),
-        React.createElement(
-          'div',
-          {
-            role: 'tabpanel',
-            style: {
-              flex: 1,
-              background: panelBg,
-              padding: narrow ? 20 : 28,
-              minWidth: 0,
-              boxSizing: 'border-box',
-            },
-          },
-          React.createElement(
-            'div',
-            { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 } },
-            React.createElement('div', {
-              style: {
-                width: 4,
-                height: 34,
-                background: accentBarGrad,
-                borderRadius: 2,
-                flexShrink: 0,
-                boxShadow: '0 0 14px rgba(212,168,67,.35)',
-              },
-            }),
-            React.createElement(
-              'h2',
-              {
-                style: {
-                  margin: 0,
-                  fontSize: narrow ? 18 : 21,
-                  fontWeight: 900,
-                  letterSpacing: 1.6,
-                  textTransform: 'uppercase',
-                  background: goldGrad,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                },
-              },
-              active.title
-            )
-          ),
-          active.id === 'rules'
-            ? bfSettingsRulesContent(narrow)
-            : active.id === 'gameplay'
-              ? bfSettingsGameplayContent(narrow, cardInputMode, onCardInputModeChange)
-              : React.createElement('p', {
-                  style: {
-                    margin: 0,
-                    fontSize: 15,
-                    lineHeight: 1.68,
-                    color: 'rgba(236,228,218,.78)',
-                    maxWidth: 720,
-                    fontWeight: 450,
-                    whiteSpace: 'pre-line',
-                  },
-                }, active.body)
-        )
-      )
-    )
-  );
-}
-
 /**
  * Ligação ao Realtime Database (Firebase `.info/connected`).
  * `variant`: `inline` — lobby (alinha à direita na barra); `hud` — chip compacto dentro do cabeçalho do jogo.
@@ -3462,138 +2495,6 @@ function RtConnectionBadge(P){
   return React.createElement('div', { style: { flexShrink: 0, marginLeft: 'auto', minWidth: 0, display: 'flex', justifyContent: 'flex-end' } }, pill);
 }
 
-/* ═══ LOBBY ═══ */
-function LobbyScreen(P){
-  var room=P.room, myId=P.myId, presenceByPlayer=P.presenceByPlayer||{}, isHost=room.hostId===myId;
-  var reconnectingByPlayer = P.reconnectingByPlayer || {};
-  var reconnectNow = typeof P.reconnectNow === "number" ? P.reconnectNow : Date.now();
-  var lastPingMap = P.lastPingByPlayer || {};
-  var lobbyTh = THEMES[room.themeId]||THEMES.sala;
-  var me = room.players.find(function(p){ return p.id===myId; });
-  var humans = room.players.filter(function(p){ return !p.isBot; });
-  var tA = humans.filter(function(p){ return p.team==='A'; });
-  var tB = humans.filter(function(p){ return p.team==='B'; });
-  var allHumansHaveTeam = humans.length>0 && humans.every(function(p){ return p.team==='A'||p.team==='B'; });
-  var canStart = isHost && humans.length>=1 && humans.length<=4 && allHumansHaveTeam && tA.length<=2 && tB.length<=2 && (tA.length+tB.length===humans.length);
-
-  async function toggle(team){
-    var r = await RT.getRoom(room.code); if(!r) return;
-    var pl = r.players.find(function(p){ return p.id===myId && !p.isBot; }); if(!pl) return;
-    var H = r.players.filter(function(p){ return !p.isBot; });
-    if(pl.team===team) pl.team=null;
-    else if(H.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
-    await RT.setRoom(r.code, r);
-  }
-
-  async function start(){
-    if(!canStart||!isHost) return;
-    var r = await RT.getRoom(room.code); if(!r) return;
-    var H = r.players.filter(function(p){ return !p.isBot; });
-    var a=H.filter(function(p){return p.team==='A';}), b=H.filter(function(p){return p.team==='B';});
-    if(a.length>2||b.length>2||a.length+b.length!==H.length) return;
-    var needA = 2-a.length, needB = 2-b.length;
-    var bots=[], bn=0;
-    for(var ia=0;ia<needA;ia++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'A',isBot:true}); }
-    for(var ib=0;ib<needB;ib++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'B',isBot:true}); }
-    var aFull=a.concat(bots.filter(function(p){ return p.team==='A'; }));
-    var bFull=b.concat(bots.filter(function(p){ return p.team==='B'; }));
-    var sm={};
-    sm[aFull[0].id]=0; sm[aFull[1].id]=2;
-    sm[bFull[0].id]=1; sm[bFull[1].id]=3;
-    r.players=H.concat(bots);
-    r.players.forEach(function(p){ p.seat=sm[p.id]; });
-    var nm=['','','',''];
-    nm[0]=aFull[0].name; nm[2]=aFull[1].name;
-    nm[1]=bFull[0].name; nm[3]=bFull[1].name;
-    r.game = mkGame(null, undefined, 0, nm, r.hostId, undefined);
-    await RT.setRoom(r.code, r);
-  }
-
-  var playerRows = humans.map(function(p){
-    var online = playerEffectivelyOnline(
-      presenceByPlayer,
-      lastPingMap,
-      p.id,
-      reconnectNow,
-      P.serverConnected,
-      P.myId,
-      room.players,
-      P.pingBootstrap
-    );
-    var rc = reconnectingByPlayer[p.id];
-    var leftMs = rc && typeof rc.deadlineAt === "number" ? rc.deadlineAt - reconnectNow : 0;
-    var secLeft = leftMs > 0 ? Math.ceil(leftMs / 1000) : 0;
-    var reconnecting = !online && !!rc && secLeft > 0;
-    return React.createElement('div',{key:p.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,.05)',borderRadius:8,marginBottom:6}},
-      React.createElement('div',{style:{position:'relative',width:30,height:30,flexShrink:0}},
-        React.createElement('div',{style:{width:30,height:30,borderRadius:'50%',background:p.team==='A'?'#22c55e':p.team==='B'?'#f59e0b':'#555',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,boxSizing:'border-box',padding:String(p.id).indexOf('g_')===0?2:0}},
-          String(p.id).indexOf('g_')===0 ? React.createElement(Avatar,{src:'/api/avatar/'+p.id,name:p.name,size:26}) : p.name[0]),
-        React.createElement('div',{title:online?'Na rede':'Sem ligação (pode voltar)',style:{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:online?'#4ade80':'#64748b',border:'2px solid #14141c',boxSizing:'border-box'}}),
-        reconnecting
-          ? React.createElement('span',{
-              title:(rc.name || p.name)+' está reconectando',
-              style:{
-                position:'absolute',top:-3,right:-5,width:13,height:13,border:'2px solid rgba(255,255,255,.35)',borderTopColor:'#fde68a',
-                borderRadius:'50%',animation:'bfHandoffSpin .65s linear infinite',boxSizing:'border-box',background:'rgba(15,23,42,.9)'
-              }
-            })
-          : null
-      ),
-      React.createElement('div',{style:{flex:1}},
-        React.createElement('div',{style:{fontSize:13,fontWeight:600}},p.name+(p.id===myId?' (você)':'')),
-        React.createElement('div',{style:{fontSize:10,opacity:0.4}},
-          (p.id===room.hostId?'Host \u00b7 ':'')+'Dupla '+(p.team||'?'),
-          online ? null : React.createElement('span',{style:{marginLeft:6,color:'#fb923c',opacity:0.95}},' · fora da rede')
-        ),
-        reconnecting
-          ? React.createElement('div',{style:{fontSize:10,fontWeight:700,color:'#fde68a',marginTop:2}},(rc.name || p.name)+' está reconectando ('+secLeft+'s)')
-          : null
-      )
-    );
-  });
-
-  var emptySlots = [];
-  for(var i=0; i<Math.max(0,4-humans.length); i++){
-    emptySlots.push(React.createElement('div',{key:'e'+i,style:{padding:10,background:'rgba(255,255,255,.03)',borderRadius:8,textAlign:'center',fontSize:11,opacity:0.3,border:'1px dashed rgba(255,255,255,.1)',marginBottom:6}},'Vaga livre (amigo ou IA ao iniciar)'));
-  }
-
-  return React.createElement('div',{style:{minHeight:'100vh',background:'linear-gradient(160deg,#0a0a12,#1a0a14)',fontFamily:'system-ui,sans-serif',color:'white',padding:20,display:'flex',flexDirection:'column',alignItems:'center'}},
-    React.createElement('style',null,ACSS),
-    React.createElement('div',{style:{width:'100%',maxWidth:420,display:'flex',flexDirection:'column',gap:16,animation:'fadeIn .6s ease-out'}},
-      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,width:'100%',minWidth:0}},
-        React.createElement('button',{onClick:P.onLeave,style:{background:'none',border:'none',color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:20,flexShrink:0}},'←'),
-        React.createElement('div',{style:{flexShrink:0}},rLogoW(28)),
-        React.createElement('div',{style:{fontSize:18,fontWeight:700,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'Bisca Fucas'),
-        RT.isConfigured() ? React.createElement(RtConnectionBadge,{connected:P.serverConnected,variant:'inline'}) : null
-      ),
-      React.createElement('div',{style:{background:'rgba(196,18,48,.08)',borderRadius:14,padding:20,textAlign:'center',border:'1px solid rgba(196,18,48,.25)'}},
-        React.createElement('div',{style:{fontSize:11,opacity:0.4,letterSpacing:2}},'CÓDIGO DA SALA'),
-        React.createElement('div',{style:{fontSize:48,fontWeight:900,letterSpacing:12,color:'#d4a843'}},room.code),
-        React.createElement('div',{style:{fontSize:11,opacity:0.4,marginTop:6}},'Compartilhe com seus amigos'),
-        React.createElement('div',{style:{fontSize:12,marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap'}},
-          React.createElement('span',{style:{opacity:0.5}},'Mesa ·'),
-          venueNameChip(THEMES[room.themeId]||THEMES.sala,12)
-        )
-      ),
-      React.createElement('div',{style:{background:'rgba(255,255,255,.05)',borderRadius:14,padding:16,border:'1px solid rgba(255,255,255,.1)'}},
-        React.createElement('div',{style:{fontSize:12,opacity:0.5,marginBottom:10}},'Jogadores ('+humans.length+' humanos · ate 4)'),
-        playerRows,
-        emptySlots
-      ),
-      React.createElement('div',{style:{display:'flex',gap:10}},
-        React.createElement('button',{onClick:function(){toggle('A');},style:{flex:1,padding:'8px',borderRadius:8,border:'2px solid '+(me&&me.team==='A'?'#22c55e':'rgba(255,255,255,.2)'),background:me&&me.team==='A'?'rgba(34,197,94,.2)':'transparent',color:me&&me.team==='A'?'#86efac':'rgba(255,255,255,.5)',cursor:'pointer',fontSize:13,fontWeight:me&&me.team==='A'?'bold':'normal'}},'Dupla A'),
-        React.createElement('button',{onClick:function(){toggle('B');},style:{flex:1,padding:'8px',borderRadius:8,border:'2px solid '+(me&&me.team==='B'?'#f59e0b':'rgba(255,255,255,.2)'),background:me&&me.team==='B'?'rgba(245,158,11,.2)':'transparent',color:me&&me.team==='B'?'#fde68a':'rgba(255,255,255,.5)',cursor:'pointer',fontSize:13,fontWeight:me&&me.team==='B'?'bold':'normal'}},'Dupla B')
-      ),
-      isHost
-        ? React.createElement(React.Fragment,null,
-            React.createElement('div',{style:{fontSize:11,opacity:0.45,marginBottom:8,lineHeight:1.4}},'Escolha Dupla A ou B (max. 2 por lado). Pode iniciar sozinho ou com 2–3 pessoas — a IA completa a mesa.'),
-            React.createElement('button',{onClick:start,disabled:!canStart,style:Object.assign({},primaryButtonStyle(lobbyTh),{opacity:canStart?1:0.4,cursor:canStart?'pointer':'not-allowed',width:'100%',fontSize:16})},'Iniciar Partida →')
-          )
-        : React.createElement('div',{style:{textAlign:'center',fontSize:13,opacity:0.5,animation:'pls 2s infinite'}},'Aguardando o host iniciar...')
-    )
-  );
-}
-
 /* ═══ GAME SCREEN ═══ */
 function useNarrowScreen(){
   var st = useState(function(){
@@ -3646,6 +2547,24 @@ function GameScreen(props){
   var NAMES=g.playerNames;
   var th = props.theme || THEMES.sala;
   var cbk = cardBackSkin(th);
+  CURRENT_DECK_ID = props.deckId || 'classico';
+  var progressCtx = useProgress();
+  var trackerRef = useRef(newTracker());
+  var resultEvSt = useState(/** @type {any} */ (null));
+  var resultEvents = resultEvSt[0], setResultEvents = resultEvSt[1];
+  var humansCount = typeof props.humansCount === 'number' ? props.humansCount : 1;
+  useEffect(function(){
+    var t = trackerRef.current;
+    trackerObserve(t, g, mySeat);
+    if(g.phase==='shuffle') setResultEvents(null);
+    if(g.phase==='show_summary' && g.summaryFinalMPts){
+      var rep = trackerTakeReport(t, g, mySeat, isOnline ? 'online' : 'solo', humansCount, (th && th.id) || 'sala');
+      if(rep){
+        progressCtx.reportMatch(rep).then(function(ev){ setResultEvents(ev); }).catch(function(){ void 0; });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[g]);
   var gStart = parseSeat(g.starter);
   if(isNaN(gStart)) gStart = 2;
   var dealer=prv(gStart), cutter=prv(dealer);
@@ -3790,100 +2709,6 @@ function GameScreen(props){
     [g.releToast]
   );
 
-  useEffect(
-    function () {
-      var sfm = g.summaryFinalMPts;
-      if (!sfm || sfm.length < 2 || sfm[0] === sfm[1]) return;
-      var winTeam = sfm[0] > sfm[1] ? 0 : 1;
-      if (typeof mySeat !== "number" || mySeat < 0 || mySeat > 3 || pTm(mySeat) !== winTeam) return;
-      var k = bfVictoryFxKey(sfm, g.setWins);
-      if (!bfVictoryFxCanRun(k)) return;
-      var reduceMotion =
-        typeof window !== "undefined" &&
-        window.matchMedia &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      try {
-        if (typeof navigator !== "undefined" && navigator.vibrate) {
-          if (reduceMotion) navigator.vibrate(55);
-          else navigator.vibrate([40, 55, 35, 75, 45, 95, 55, 130, 45, 180]);
-        }
-      } catch (e) {}
-      if (reduceMotion) return;
-      var cancelled = false;
-      var tickRef = { id: /** @type {number|undefined} */ (undefined) };
-      void import("canvas-confetti")
-        .then(function (mod) {
-          if (cancelled) return;
-          if (!bfVictoryFxCanRun(k)) return;
-          bfVictoryFxMarkRun(k);
-          var confetti = mod.default;
-          var palette = ["#fde68a", "#facc15", "#fffbeb", "#fef08a", "#22c55e", "#86efac", "#f87171", "#fb7185", "#C41230"];
-          var base = { zIndex: 260, disableForReducedMotion: true };
-          confetti(
-            Object.assign({}, base, {
-              particleCount: 170,
-              spread: 94,
-              startVelocity: 56,
-              origin: { y: 0.51, x: 0.5 },
-              colors: palette,
-              gravity: 0.88,
-              scalar: 1.08,
-              ticks: 420,
-              drift: 0.14,
-            })
-          );
-          var endAt = Date.now() + 2600;
-          tickRef.id = window.setInterval(function () {
-            if (cancelled) {
-              if (tickRef.id) window.clearInterval(tickRef.id);
-              return;
-            }
-            confetti(
-              Object.assign({}, base, {
-                particleCount: 5,
-                angle: 62,
-                spread: 56,
-                origin: { x: 0, y: 0.32 },
-                colors: palette,
-                startVelocity: 36,
-              })
-            );
-            confetti(
-              Object.assign({}, base, {
-                particleCount: 5,
-                angle: 118,
-                spread: 56,
-                origin: { x: 1, y: 0.32 },
-                colors: palette,
-                startVelocity: 36,
-              })
-            );
-            if (Date.now() >= endAt && tickRef.id) window.clearInterval(tickRef.id);
-          }, 265);
-          window.setTimeout(function () {
-            if (cancelled) return;
-            confetti(
-              Object.assign({}, base, {
-                particleCount: 110,
-                spread: 72,
-                origin: { y: 0.58, x: 0.5 },
-                startVelocity: 44,
-                colors: palette,
-                shapes: ["circle", "square", "star"],
-                scalar: 1,
-                ticks: 360,
-              })
-            );
-          }, 480);
-        })
-        .catch(function () {});
-      return function () {
-        cancelled = true;
-        if (tickRef.id) window.clearInterval(tickRef.id);
-      };
-    },
-    [g.summaryFinalMPts, g.setWins, mySeat]
-  );
 
   useLayoutEffect(
     function () {
@@ -4772,20 +3597,20 @@ function GameScreen(props){
     var cutLblHi = tui.cutLabelActive || th.accent || '#e2e8f0';
     var timerAccent = tui.timer || '#fbbf24';
     var badgeBg = tui.accentBadge || '#C41230';
-    var shGlass={display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+    var shGlass={display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(10,10,18,.62)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 8px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.07)'};
     var shScore=React.createElement('div',{style:{marginLeft:'auto',display:'flex',alignItems:'center',gap:mob?8:12,opacity:0.95,fontVariantNumeric:'tabular-nums'}},
       scoreTeamLine(mob,'#22c55e',mob?'A':'Dupla A',g.mPts[0],sw0,4,true),
       React.createElement('span',{style:{opacity:0.28,fontWeight:300,padding:'0 2px'}},'|'),
       scoreTeamLine(mob,'#f87171',mob?'B':'Dupla B',g.mPts[1],sw1,4,true)
     );
 
-    return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden',position:'relative'}},
+    return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'var(--bf-font-body)',color:'white',padding:mob?8:14,paddingBottom:mob?'max(10px, env(safe-area-inset-bottom))':14,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:mob?8:12,overflowX:'hidden',position:'relative'}},
       gameBackdropLayer(th),
       React.createElement('style',null,ACSS),
       React.createElement('div',{style:Object.assign({},shGlass,{marginBottom:2})},
         rLogo(36,th),
         React.createElement('div',{style:{borderLeft:'1px solid rgba(255,255,255,.15)',paddingLeft:10}},
-          React.createElement('div',{style:{fontSize:16,fontWeight:'bold'}},'Bisca Fucas'),
+          React.createElement('div',{style:{fontSize:16,fontWeight:800,fontFamily:'var(--bf-font-display)'}},'Bisca Fucas'),
           React.createElement('div',{style:{fontSize:10,opacity:0.5}},isSolo?'Solo vs IA':'Online'),
           React.createElement('div',{style:{marginTop:4}},venueNameChip(th,9))
         ),
@@ -4798,13 +3623,13 @@ function GameScreen(props){
       g.phase==='shuffle' ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},mkRow(shuffling,''),React.createElement('div',{style:{width:3,height:78,background:'rgba(255,255,255,.15)',borderRadius:2}}),mkRow(shuffling,'animationDelay:.28s')),
         React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
-          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},rSeatHandoffHeroName(dealer)),
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,fontFamily:'var(--bf-font-display)',lineHeight:1.2}},rSeatHandoffHeroName(dealer)),
           React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a embaralhar…')
         )
       ) : null,
       showCut ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:420,width:'100%'}},
-          React.createElement('div',{style:{fontSize:mob?18:22,fontWeight:800,lineHeight:1.2,letterSpacing:'-0.02em',color:'rgba(255,252,245,.98)'}},'escolha como cortar'),
+          React.createElement('div',{style:{fontSize:mob?18:22,fontWeight:800,fontFamily:'var(--bf-font-display)',lineHeight:1.2,letterSpacing:'-0.02em',color:'rgba(255,252,245,.98)'}},'escolha como cortar'),
           cutSec!=null && cutSec>0 ? React.createElement('div',{style:{fontSize:mob?14:15,marginTop:10,opacity:0.92,fontWeight:600,lineHeight:1.45,fontVariantNumeric:'tabular-nums',color:'rgba(255,255,255,.88)'}},
             'tempo: ',
             React.createElement('span',{style:{display:'inline-block',minWidth:'1.35em',textAlign:'right',fontVariantNumeric:'tabular-nums',color:timerAccent,fontWeight:800}},cutSec),
@@ -4826,34 +3651,13 @@ function GameScreen(props){
           )
         ),
         React.createElement('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginTop:2}},
-          React.createElement('button',{
-            onClick:doBat,
-            onPointerEnter:function(){ setHovHalf('bat'); },
-            onPointerLeave:function(){ setHovHalf(function(h){ return h==='bat'?null:h; }); },
-            style:(function(){
-              var u=(th&&th.ui)||{};
-              var batHi=hovHalf==='bat';
-              var base=primaryButtonStyle(th);
-              return Object.assign({},base,{
-                padding:'12px 36px',
-                fontSize:mob?15:16,
-                fontWeight:800,
-                letterSpacing:'0.04em',
-                transition:'box-shadow .22s ease, transform .2s ease, border-color .2s ease',
-                border:batHi?'2px solid rgba(253,224,150,.88)':(base.border||'none'),
-                boxShadow:batHi
-                  ? '0 0 18px rgba(251,191,36,.6), 0 0 32px rgba(253,224,150,.38), 0 6px 22px rgba(0,0,0,.4)'
-                  :(u.btnShadow||base.boxShadow||'0 2px 12px rgba(0,0,0,.22)'),
-                transform:batHi?'translateY(-2px)':undefined
-              });
-            })()
-          },'Bater!'),
+          React.createElement(DsButton,{variant:'primary',size:'lg',icon:'bolt',onClick:doBat},'Bater!'),
           React.createElement('div',{style:{fontSize:mob?11:12,opacity:0.55,fontWeight:500,lineHeight:1.4,maxWidth:320}},'Bater = corte e copas, vencer vale 2 pts')
         )
       ) : null,
       aiCutting ? React.createElement('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,padding:'0 14px'}},
         React.createElement('div',{role:'status',style:{textAlign:'center',maxWidth:400}},
-          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,lineHeight:1.2}},rSeatHandoffHeroName(cutter)),
+          React.createElement('div',{style:{fontSize:mob?20:24,fontWeight:800,fontFamily:'var(--bf-font-display)',lineHeight:1.2}},rSeatHandoffHeroName(cutter)),
           React.createElement('div',{style:{fontSize:mob?15:16,marginTop:8,opacity:0.92,fontWeight:600,animation:'pls 1s ease-in-out infinite'}},'a cortar…')
         )
       ) : null,
@@ -4900,7 +3704,7 @@ function GameScreen(props){
   var tblH = mob ? 'min(30vw, 118px)' : 178;
   var edge = mob ? 6 : 7;
   var swA=(g.setWins&&g.setWins[0])||0, swB=(g.setWins&&g.setWins[1])||0;
-  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:mob?'flex-start':'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(0,0,0,.28)',backdropFilter:'saturate(1.1) blur(10px)',WebkitBackdropFilter:'saturate(1.1) blur(10px)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 6px 28px rgba(0,0,0,.22)'};
+  var hdrGlassPl={display:'flex',flexDirection:mob?'column':'row',justifyContent:mob?'flex-start':'space-between',alignItems:mob?'stretch':'center',gap:mob?8:0,padding:mob?'10px 12px':'11px 16px',marginBottom:10,borderRadius:14,background:'rgba(10,10,18,.62)',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 8px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.07)'};
   var playShell={position:'relative',zIndex:2,width:'100%',maxWidth:760,margin:'0 auto',padding:mob?'0 4px':'0 10px',boxSizing:'border-box'};
   var playPanel={borderRadius:th.playfieldRadius||16,background:th.playfieldSurface||'rgba(0,0,0,.22)',border:th.playfieldBorder||'1px solid rgba(255,255,255,.1)',boxShadow:th.playfieldShadow||'0 10px 36px rgba(0,0,0,.35)',padding:mob?'10px 8px 14px':'14px 16px 18px'};
   var swapSt = g.swapToast;
@@ -5013,7 +3817,7 @@ function GameScreen(props){
           aceRevealFlipVisual(ar.ace, mob, cbk)
         )
       : null;
-  return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'system-ui,sans-serif',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
+  return React.createElement('div',{style:{minHeight:'100dvh',background:th.pageGradient||th.bg,fontFamily:'var(--bf-font-body)',color:'white',padding:mob?'6px max(6px, env(safe-area-inset-left)) 6px max(6px, env(safe-area-inset-right))':12,paddingBottom:mob?'max(56px, calc(10px + env(safe-area-inset-bottom)))':12,boxSizing:'border-box',position:'relative',overflowX:'hidden',width:'100%',maxWidth:'100vw'}},
     gameBackdropLayer(th),
     React.createElement('style',null,ACSS),
     swapToastEl,
@@ -5040,7 +3844,7 @@ function GameScreen(props){
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 } },
                 rLogo(28, th),
                 React.createElement('div', { style: { minWidth: 0 } },
-                  React.createElement('div', { style: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
+                  React.createElement('div', { style: { fontSize: 15, fontWeight: 800, fontFamily: 'var(--bf-font-display)', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                   React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                     React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
                     g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +' + g.tieBonus + ' pt.' }, '60 - 60') : null,
@@ -5078,7 +3882,7 @@ function GameScreen(props){
             React.createElement('div', { key: 'deskL', style: { display: 'flex', alignItems: 'center', gap: 10 } },
               rLogo(40, th),
               React.createElement('div', { style: { borderLeft: '1px solid rgba(255,255,255,.15)', paddingLeft: 10 } },
-                React.createElement('div', { style: { fontSize: 18, fontWeight: 'bold', letterSpacing: 0.4 } }, 'Bisca Fucas'),
+                React.createElement('div', { style: { fontSize: 18, fontWeight: 800, fontFamily: 'var(--bf-font-display)', letterSpacing: 0.4 } }, 'Bisca Fucas'),
                 React.createElement('div', { style: { fontSize: 10, opacity: 0.5, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
                   React.createElement('span', null, isSolo ? 'Solo vs IA' : 'Multijogador'),
                   g.tieBonus > 0 ? React.createElement('span', { style: { background: '#7B3010', borderRadius: 4, padding: '1px 5px', fontSize: 10 }, title: 'Empate 60-60 na mesa anterior. Bónus acumulado na próxima vitória por pontos: +' + g.tieBonus + ' pt.' }, '60 - 60') : null,
@@ -5105,7 +3909,7 @@ function GameScreen(props){
     React.createElement('div',{style:playShell},
       React.createElement('div',{style:playPanel},
     React.createElement('div',{style:{height:mob?2:4}}),
-    React.createElement('div',{style:{background:'rgba(0,0,0,.38)',borderRadius:10,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
+    React.createElement('div',{style:{background:'rgba(0,0,0,.42)',borderRadius:12,padding:mob?'8px 10px':'8px 14px',marginBottom:10,fontSize:mob?10:12,display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderLeft:'3px solid '+(th.accent||'#C41230'),boxShadow:'inset 0 1px 0 rgba(255,255,255,.05)'}},
       React.createElement('span',{style:playDenied?{color:'#fb923c',fontWeight:600}:undefined},playDenied!=null?playDenied:g.msg),
       React.createElement('span',{style:{opacity:0.58,fontSize:mob?9:11,lineHeight:1.45,fontWeight:400}},
         'corte: ',
@@ -5129,7 +3933,7 @@ function GameScreen(props){
             React.createElement('span',{style:{opacity:0.4,fontSize:10}},'(voltou ao baralho)')
           )
         : g.trump ? React.createElement('span',{style:{color:g.trump==='ouros'||g.trump==='copas'?'#fca5a5':'#ddd',fontSize:14,fontWeight:'bold'}},SYM[g.trump]+' '+g.trump) : null,
-      g.canSwap===mySeat && g.tc ? React.createElement('button',{onClick:swap,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontWeight:'bold',fontSize:11}},'Trocar: 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
+      g.canSwap===mySeat && g.tc ? React.createElement(DsButton,{variant:'accent',size:'sm',icon:'refresh',onClick:swap},'Trocar 2'+SYM[g.trump]+' por '+g.tc.v+SYM[g.trump]) : null
     ),
     React.createElement('div',{style:{display:'grid',gridTemplateAreas:'"n n n" "w c e" "s s s"',gridTemplateColumns:gridColsPlay,gap:mob?4:8,alignItems:'center',justifyItems:'center',width:'100%',maxWidth:'100%',minWidth:0,boxSizing:'border-box'}},
       React.createElement('div',{style:{gridArea:'n',display:'flex',flexDirection:'column',alignItems:'center',gap:mob?2:3,maxWidth:'100%',minWidth:0}},
@@ -5180,74 +3984,50 @@ function GameScreen(props){
     ),
     ),
     ),
-    modal ? React.createElement('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,minHeight:'100dvh'}},
-      React.createElement('div',{style:Object.assign({},themeDialogChrome(th),{padding:28,maxWidth:g.summaryFinalMPts?460:400,width:'90%'})},
-        matchVictoryBanner(mob, NAMES, g.summaryFinalMPts),
-        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
-          rLogo(34,th),
-          React.createElement('h2',{style:{margin:0,fontSize:18,fontWeight:'500'}},g.summaryFinalMPts?'Última mão · detalhes':'Resultado da rodada')
-        ),
-        React.createElement('div',{style:{marginBottom:14}},
-          g.summary ? g.summary.map(function(s,i){
-            var last = i===g.summary.length-1;
-            return React.createElement('div',{
-              key:i,
-              style:{
-                padding:'6px 0',
-                fontSize:13,
-                borderBottom: last ? 'none' : '1px solid rgba(255,255,255,.1)',
-                color:'rgba(255,255,255,.9)',
-                lineHeight:1.45
-              }
-            }, s);
-          }) : null
-        ),
-        React.createElement('div',{style:{display:'flex',justifyContent:'center',alignItems:'center',gap:mob?14:20,margin:'16px 0',fontSize:mob?18:22,fontWeight:'bold',fontVariantNumeric:'tabular-nums'}},
-          (function(){
-            var sf = g.summaryFinalMPts;
-            var d0 = sf!=null && sf.length>0 ? sf[0] : g.mPts[0];
-            var d1 = sf!=null && sf.length>1 ? sf[1] : g.mPts[1];
-            return [
-          React.createElement('span',{key:'a',style:{display:'inline-flex',alignItems:'center',gap:8}},
-            React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#22c55e'}}),
-            React.createElement('span',null,d0)),
-          React.createElement('span',{key:'m',style:{opacity:0.35,fontWeight:400}},'\u2014'),
-          React.createElement('span',{key:'b',style:{display:'inline-flex',alignItems:'center',gap:8}},
-            React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:'#f87171'}}),
-            React.createElement('span',null,d1))
-            ];
-          })()),
-        g.summaryFinalMPts ? React.createElement('div',{style:{textAlign:'center',fontSize:11,opacity:0.55,marginTop:-8,marginBottom:4}},'Placar final desta partida') : null,
-        React.createElement('div',{style:{textAlign:'center',fontSize:12,opacity:0.78,marginBottom:12,letterSpacing:0.02}},
-          'Partidas vencidas: A ',((g.setWins&&g.setWins[0])||0),' \u2014 B ',((g.setWins&&g.setWins[1])||0)
-        ),
-        React.createElement('div',{style:{textAlign:'center'}},
-          isOnline && !isRoomHost
-            ? React.createElement('div',{
-                style:{
-                  fontSize:mob?12:13,
-                  opacity:0.78,
-                  padding:'14px 10px',
-                  lineHeight:1.5,
-                  maxWidth:340,
-                  margin:'0 auto',
-                },
-              },'Apenas o host da sala pode iniciar a próxima partida. Aguarde…')
-            : React.createElement('button',{
-                onClick:function(){
-                  sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins));
-                },
-                style:primaryButtonStyle(th),
-              },'Próxima rodada')
-        )
-      )
+    modal ? (g.summaryFinalMPts
+      ? React.createElement(ResultScreen, {
+          won: g.summaryFinalMPts[pTm(mySeat)] > g.summaryFinalMPts[1 - pTm(mySeat)],
+          myTeam: pTm(mySeat),
+          finalPts: g.summaryFinalMPts,
+          names: NAMES,
+          setWins: g.setWins || [0, 0],
+          events: resultEvents,
+          level: progressCtx.progress ? progressCtx.progress.level : 1,
+          deckId: CURRENT_DECK_ID,
+          isOnline: isOnline,
+          isRoomHost: isRoomHost || !isOnline,
+          onNext: function(){ sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins)); },
+          onHome: function(){ if(typeof props.onMenu==='function') props.onMenu(); }
+        })
+      : React.createElement(RoundSummary, {
+          summary: g.summary || [],
+          mPts: g.mPts,
+          setWins: g.setWins || [0, 0],
+          canNext: !(isOnline && !isRoomHost),
+          waitingText: 'Apenas o anfitrião pode iniciar a próxima mão. Aguarde…',
+          onNext: function(){ sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins)); }
+        })
     ) : null
   );
 }
 
 /* ═══ APP ═══ */
-export default function App(){
+export default function Page(){
   var auth = useGoogleAuth();
+  var introSt = useState(false); var showIntro = introSt[0], setShowIntro = introSt[1];
+  useEffect(function(){ if(shouldShowIntro()) setShowIntro(true); },[]);
+  return React.createElement(ProgressProvider, { loggedUid: auth.loggedUid, authReady: auth.ready },
+    React.createElement(ToastProvider, null,
+      showIntro ? React.createElement(IntroSplash, { onDone: function(){ setShowIntro(false); } }) : null,
+      React.createElement(LoadingOverlay, { active: !auth.ready && !showIntro, label: 'Entrando' }),
+      React.createElement(App, { auth: auth })
+    )
+  );
+}
+
+function App(props){
+  var auth = props.auth;
+  var progressCtx = useProgress();
   var guestSt=useState(false); var guestMode=guestSt[0], setGuestMode=guestSt[1];
   useEffect(function(){
     try { if(sessionStorage.getItem('bf_guest')==='1') setGuestMode(true); } catch { void 0; }
@@ -5913,22 +4693,79 @@ export default function App(){
     })();
   }
 
-  var exitBtn = React.createElement('button',{onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:11,padding:'5px 10px',zIndex:100}},'← Voltar');
+  async function joinRoomByCode(code, name){
+    var nameOk = clampDisplayName(name);
+    if(!nameOk) return 'Digite seu nome';
+    if(!RT.isConfigured()) return 'Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).';
+    var cd = String(code || '').toUpperCase();
+    if(cd.length!==4) return 'O código tem 4 letras';
+    var r = await RT.getRoom(cd);
+    if(!r) return 'Sala não encontrada';
+    if(r.game) return 'A partida já começou';
+    var pid = auth.loggedUid || uid();
+    var alreadyIn = !!playerInRoom(r, pid);
+    if(!alreadyIn){
+      var humanN = r.players.filter(function(p){ return !p.isBot; }).length;
+      if(humanN>=4) return 'Sala cheia';
+      r.players.push({id:pid,name:nameOk,seat:-1,team:null});
+      var ok = await RT.setRoom(cd, r);
+      if(!ok) return 'Não foi possível entrar na sala';
+    }
+    writeBfSession({ code: cd, playerId: pid, playerName: nameOk });
+    setMyId(pid); setMyName(nameOk); setRoomCode(cd); setRoom(r); if(r.themeId) setLocId(r.themeId); setScreen('lobby');
+    return null;
+  }
 
-  var exitModal = showExit ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}},
-    React.createElement('div',{style:Object.assign({},themeDialogChrome(theme),{padding:28,maxWidth:340,width:'90%',textAlign:'center'})},
-      React.createElement('div',{style:{fontSize:18,fontWeight:'bold',marginBottom:8,color:'#fff'}},'Sair da partida?'),
-      React.createElement('div',{style:{fontSize:13,opacity:0.6,marginBottom:20,lineHeight:1.45}},
-        screen==='online'||screen==='lobby'
-          ? 'Ao confirmar, você sai da sala no servidor e deixa de fazer parte desta mesa online. Para voltar à mesma partida, ao reabrir o Bisca Fucas, use "Retomar esta mesa".'
-          : 'O progresso será perdido.'
-      ),
-      React.createElement('div',{style:{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}},
-        React.createElement('button',{onClick:goHome,style:primaryButtonStyle(theme)},'Sim, sair'),
-        React.createElement('button',{onClick:function(){setShowExit(false);},style:themeGhostButtonStyle(theme)},'Continuar')
-      )
+  async function lobbyToggleTeam(team){
+    if(!room) return;
+    var r = await RT.getRoom(room.code); if(!r) return;
+    var pl = r.players.find(function(p){ return p.id===myId && !p.isBot; }); if(!pl) return;
+    var H = r.players.filter(function(p){ return !p.isBot; });
+    if(pl.team===team) pl.team=null;
+    else if(H.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
+    await RT.setRoom(r.code, r);
+  }
+
+  async function lobbyStart(){
+    if(!room || room.hostId!==myId) return;
+    var r = await RT.getRoom(room.code); if(!r) return;
+    var H = r.players.filter(function(p){ return !p.isBot; });
+    var a=H.filter(function(p){return p.team==='A';}), b=H.filter(function(p){return p.team==='B';});
+    if(a.length>2||b.length>2||a.length+b.length!==H.length||H.length<1) return;
+    var needA = 2-a.length, needB = 2-b.length;
+    var bots=[], bn=0;
+    for(var ia=0;ia<needA;ia++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'A',isBot:true}); }
+    for(var ib=0;ib<needB;ib++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'B',isBot:true}); }
+    var aFull=a.concat(bots.filter(function(p){ return p.team==='A'; }));
+    var bFull=b.concat(bots.filter(function(p){ return p.team==='B'; }));
+    var sm={};
+    sm[aFull[0].id]=0; sm[aFull[1].id]=2;
+    sm[bFull[0].id]=1; sm[bFull[1].id]=3;
+    r.players=H.concat(bots);
+    r.players.forEach(function(p){ p.seat=sm[p.id]; });
+    var nm=['','','',''];
+    nm[0]=aFull[0].name; nm[2]=aFull[1].name;
+    nm[1]=bFull[0].name; nm[3]=bFull[1].name;
+    r.game = mkGame(null, undefined, 0, nm, r.hostId, undefined);
+    await RT.setRoom(r.code, r);
+  }
+
+  var exitBtn = React.createElement(DsButton,{variant:'ghost',size:'sm',icon:'arrow-left',onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',zIndex:100,background:'rgba(0,0,0,.45)',border:'1px solid rgba(255,255,255,.14)',color:'rgba(255,255,255,.75)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}},'Sair');
+
+  var exitModal = React.createElement(DsModal,{
+    open: showExit,
+    onClose: function(){ setShowExit(false); },
+    center: true,
+    title: 'Sair da partida?',
+    actions: React.createElement(React.Fragment,null,
+      React.createElement(DsButton,{variant:'secondary',onClick:function(){ setShowExit(false); }},'Continuar'),
+      React.createElement(DsButton,{variant:'danger',icon:'logout',onClick:goHome},'Sim, sair')
     )
-  ) : null;
+  },
+    screen==='online'||screen==='lobby'
+      ? 'Você sai da sala no servidor e a IA assume o seu lugar. Para voltar à mesma partida, use "Retomar esta mesa" na tela inicial.'
+      : 'O progresso desta partida será perdido.'
+  );
 
   var resumeTh = THEMES.sala;
   var resumeBanner =
@@ -6043,34 +4880,45 @@ export default function App(){
     var resumePad = resumeOffer ? 168 : 0;
     var homeTopPad = resumePad + (roomClosedNotice ? 118 : 0);
     return React.createElement(React.Fragment,null,
-      React.createElement(HomeScreen,{
-        resumeTopPad: homeTopPad,
-        onOpenSettings:function(){ setScreen('settings'); },
-        authUser: auth.user,
-        authReady: auth.ready,
-        authBusy: auth.busy,
-        authError: auth.error,
-        loggedUid: auth.loggedUid,
+      React.createElement(HomeHub,{
+        topPad: homeTopPad,
+        authUser: auth.user, authReady: auth.ready, authBusy: auth.busy, authError: auth.error, loggedUid: auth.loggedUid,
         guestMode: guestMode,
         onGuest: function(){ chooseGuest(true); },
         onGoogleCredential: function(c){ void auth.loginWithCredential(c); },
         onLogout: doLogout,
         onUser: auth.applyUser,
-        onOpenProfile: function(){ setScreen('profile'); },
-        onSolo:function(name){ setMyName(name); setScreen('pickLoc'); },
-        onGoPickCreate:function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
-        onJoin:function(id,name,code,roomSnap){
-          writeBfSession({ code: code, playerId: id, playerName: name });
-          setMyId(id); setMyName(name); setRoomCode(code); if(roomSnap){ setRoom(roomSnap); if(roomSnap.themeId) setLocId(roomSnap.themeId);} setScreen('lobby');
-        }
+        onOpen: function(sec){ setScreen(sec); },
+        onSolo: function(name){ setMyName(name); setScreen('pickLoc'); },
+        onCreateRoom: function(name){ setCreateRoomErr(''); setMyName(name); setScreen('pickLocCreate'); },
+        onJoinCode: joinRoomByCode
       }),
+      React.createElement(LoadingOverlay,{ active: auth.ready && progressCtx.loading, label: 'Carregando' }),
+      React.createElement(CelebrationOverlay,{ active: true }),
       resumeBanner,
       roomClosedBanner
     );
   }
+  if(screen==='missions') return React.createElement(MissionsScreen,{ onBack: function(){ setScreen('home'); } });
+  if(screen==='collection') return React.createElement(CollectionScreen,{ onBack: function(){ setScreen('home'); } });
+  if(screen==='clan') return React.createElement(ClanScreen,{ onBack: function(){ setScreen('home'); } });
+  if(screen==='ranking') return React.createElement(RankingScreen,{ onBack: function(){ setScreen('home'); } });
 
   if(screen==='profile'){
-    if(!auth.user){ return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12'}}); }
+    if(!auth.user){
+      return React.createElement('div',{className:'bf-screen bf-section'},
+        React.createElement('header',{className:'bf-topbar'},
+          React.createElement(DsButton,{variant:'ghost',size:'sm',icon:'arrow-left',iconOnly:true,'aria-label':'Voltar',onClick:function(){ setScreen('home'); }}),
+          React.createElement('div',{className:'bf-topbar__title'},'Perfil')
+        ),
+        React.createElement('main',{className:'bf-container'},
+          React.createElement('div',{className:'bf-panel bf-panel--pad-lg',style:{textAlign:'center'}},
+            React.createElement('div',{className:'bf-h3'},'Você está como convidado'),
+            React.createElement('p',{className:'bf-body-sm bf-muted',style:{marginTop:6}},'Entre com Google na tela inicial para ter perfil, foto e progresso guardados na sua conta.')
+          )
+        )
+      );
+    }
     return React.createElement(ProfileScreen,{
       user: auth.user,
       onUser: auth.applyUser,
@@ -6083,8 +4931,8 @@ export default function App(){
     var resumePadSt = resumeOffer ? 168 : 0;
     var settingsTopPad = resumePadSt + (roomClosedNotice ? 118 : 0);
     return React.createElement(React.Fragment,null,
-      React.createElement(SettingsScreen,{
-        resumeTopPad: settingsTopPad,
+      React.createElement(SettingsScreenNew,{
+        topPad: settingsTopPad,
         cardInputMode: cardInputMode,
         onCardInputModeChange:function(mode){
           var next = mode === "tap" ? "tap" : "drag";
@@ -6100,9 +4948,10 @@ export default function App(){
 
   if(screen==='pickLocCreate'){
     return React.createElement(React.Fragment,null,
-      React.createElement(LocationScreen,{
-        pickForCreate:true,
-        createRoomError:createRoomErr,
+      React.createElement(RoomPickScreen,{
+        forCreate:true,
+        error:createRoomErr,
+        busy:crBusy,
         onBack:function(){ if(!crBusy){ setCreateRoomErr(''); setScreen('home');} },
         onSelect:async function(loc){
           if(crBusy || !RT.isConfigured()) return;
@@ -6124,14 +4973,12 @@ export default function App(){
           }
         }
       }),
-      crBusy ? React.createElement('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:99}},
-        React.createElement('div',{style:{width:36,height:36,border:'3px solid transparent',borderTop:'3px solid #d4a843',borderRadius:'50%',animation:'spin .8s linear infinite'}})
-      ) : null
+      React.createElement(LoadingOverlay,{ active: crBusy, label: 'Criando sala' })
     );
   }
 
   if(screen==='pickLoc'){
-    return React.createElement(LocationScreen,{
+    return React.createElement(RoomPickScreen,{
       onBack:function(){ setScreen('home'); },
       onSelect:function(loc){ setLocId(loc); sg(mkGame(null,undefined,0,[myName,'Adv. Esq.','Parceiro','Adv. Dir.'],undefined,undefined)); setScreen('solo'); }
     });
@@ -6154,16 +5001,24 @@ export default function App(){
     return React.createElement(
       React.Fragment,
       null,
-      React.createElement(LobbyScreen,{
+      React.createElement(LobbyScreenNew,{
         room: room,
         myId: myId,
-        presenceByPlayer: presenceByPlayer,
-        lastPingByPlayer: lastPingByPlayer,
-        reconnectingByPlayer: reconnectingByPlayer,
-        reconnectNow: reconnectNow,
-        onLeave: goHome,
+        onlineById: (function(){
+          var m = {};
+          var pingB = reconnectNow - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS;
+          room.players.forEach(function(p){
+            if(!p || p.isBot) return;
+            m[p.id] = playerEffectivelyOnline(presenceByPlayer, lastPingByPlayer, p.id, reconnectNow, rtdbConnected, myId, room.players, pingB);
+          });
+          return m;
+        })(),
+        reconnectingById: reconnectingByPlayer,
+        now: reconnectNow,
         serverConnected: rtdbConnected,
-        pingBootstrap: reconnectNow - roomPingSinceMsRef.current < ROOM_PING_BOOTSTRAP_MS,
+        onLeave: goHome,
+        onToggleTeam: function(t){ void lobbyToggleTeam(t); },
+        onStart: function(){ void lobbyStart(); }
       }),
       onlineLeaveToastEl
     );
@@ -6185,7 +5040,7 @@ export default function App(){
       }
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,avatarBySeat:avatarBySeatOnline,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{deckId:progressCtx.equippedDeck.id,humansCount:room.players.filter(function(p){ return !p.isBot; }).length,g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,avatarBySeat:avatarBySeatOnline,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
       onlineLeaveToastEl
@@ -6194,20 +5049,21 @@ export default function App(){
 
   if(screen==='solo' && g){
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',avatarBySeat:(auth.user && auth.user.picture) ? {0:auth.user.picture} : null,roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{deckId:progressCtx.equippedDeck.id,humansCount:1,g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',avatarBySeat:(auth.user && auth.user.picture) ? {0:auth.user.picture} : null,roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
       exitBtn, exitModal
     );
   }
 
   if(screen==='online' && room && room.game && !og){
-    return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,fontFamily:'system-ui,sans-serif',fontSize:14,position:'relative',boxSizing:'border-box',padding:'max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right))'}},
-      RT.isConfigured() ? React.createElement(RtConnectionBadge,{connected:rtdbConnected,variant:'hud'}) : null,
-      React.createElement('div',{style:{opacity:0.9}},'Carregando mesa…')
+    return React.createElement('div',{style:{minHeight:'100vh',background:'#0a0a12',color:'rgba(255,255,255,.75)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,fontFamily:'var(--bf-font-body)',fontSize:14,position:'relative',boxSizing:'border-box',padding:'max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right))'}},
+      React.createElement(SuitLoader,{size:40,label:'Entrando na mesa'})
     );
   }
 
   return React.createElement(React.Fragment,null,
-    React.createElement(HomeScreen,{resumeTopPad: (resumeOffer ? 168 : 0) + (roomClosedNotice ? 118 : 0), onSolo:function(){},onGoPickCreate:function(){},onJoin:function(){}}),
+    React.createElement('div',{className:'bf-screen',style:{display:'flex',alignItems:'center',justifyContent:'center'}},
+      React.createElement(SuitLoader,{size:40,label:'Carregando'})
+    ),
     resumeBanner,
     roomClosedBanner
   );

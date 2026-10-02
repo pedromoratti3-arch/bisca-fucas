@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "../design/tokens.css";
 @import "../design/components.css";
+@import "../design/screens.css";
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html {

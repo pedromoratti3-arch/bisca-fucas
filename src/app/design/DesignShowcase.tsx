@@ -7,6 +7,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DECKS, RARITY_INFO, unlockLabel, type DeckDef } from "@/data/decks";
+import { ResultScreen } from "@/screens/ResultScreen";
+import { DeckUnlockOverlay } from "@/screens/CollectionScreen";
 import {
   Avatar, BottomNav, Button, Chip, Divider, Field, FlipCard, ICON_NAMES, Icon, Input, LevelBadge, LoadingOverlay, Modal, Panel, PlayingCard, ProgressBar,
   RARITY_LABEL, Segmented, SuitBackdrop, SuitLoader, ToastProvider, XpBar, rarityFromOvr, useReducedMotion, useToast, type Rarity,
@@ -64,6 +66,8 @@ function Showcase() {
   const [popKey, setPopKey] = useState(0);
   const [code, setCode] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const [resultDemo, setResultDemo] = useState<{ won: boolean; level: number } | null>(null);
+  const [unlockDemo, setUnlockDemo] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setFlipped(true), 600);
@@ -96,7 +100,7 @@ function Showcase() {
         <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }} aria-label="Seções">
           {[
             ["cores", "Cores"], ["tipografia", "Tipografia"], ["espacos", "Espaços"], ["botoes", "Botões"], ["cards", "Cards"], ["inputs", "Inputs"],
-            ["chips", "Chips e raridades"], ["xp", "XP e nível"], ["cartas", "Cartas"], ["modais", "Modais e avisos"], ["icones", "Ícones"], ["movimento", "Movimento"],
+            ["chips", "Chips e raridades"], ["xp", "XP e nível"], ["cartas", "Cartas"], ["baralhos", "Baralhos"], ["resultado", "Fim de partida"], ["modais", "Modais e avisos"], ["icones", "Ícones"], ["movimento", "Movimento"],
           ].map(([id, label]) => (
             <a key={id} href={`#${id}`} className="bf-chip" style={{ textDecoration: "none" }}>
               {label}
@@ -351,6 +355,52 @@ function Showcase() {
             </Panel>
           </div>
           <LoadingOverlay active={loadingDemo} label="Carregando" />
+        </Section>
+
+        <Section id="resultado" title="Fim de partida e celebrações" hint="A vitória cresce com a faixa do jogador: 1 brilho · 2 confete · 3 cartas voando · 4 chuva de naipes · 5 tudo + aura. Escolha o nível e veja.">
+          <Panel pad="lg" className="bf-row" style={{ flexWrap: "wrap" }}>
+            {[1, 5, 20, 30, 40].map((lv) => (
+              <Button key={lv} variant={lv >= 30 ? "accent" : "primary"} icon="trophy" onClick={() => setResultDemo({ won: true, level: lv })}>
+                Vitória nível {lv}
+              </Button>
+            ))}
+            <Button variant="secondary" icon="x" onClick={() => setResultDemo({ won: false, level: 12 })}>Derrota</Button>
+            <Button variant="secondary" icon="deck" onClick={() => setUnlockDemo("holografico")}>Abrir pacote lendário</Button>
+            <Button variant="secondary" icon="deck" onClick={() => setUnlockDemo("azul-royal")}>Abrir pacote comum</Button>
+          </Panel>
+          {resultDemo ? (
+            <ResultScreen
+              won={resultDemo.won}
+              myTeam={0}
+              finalPts={resultDemo.won ? [4, 2] : [1, 4]}
+              names={["Você", "IA 1", "Parceiro", "IA 2"]}
+              setWins={[1, 0]}
+              level={resultDemo.level}
+              deckId="classico"
+              isOnline={false}
+              isRoomHost
+              events={{
+                xpGained: 148,
+                xpLines: [
+                  { label: "Partida jogada", xp: 40 },
+                  { label: "Vitória", xp: 60 },
+                  { label: "3 mãos vencidas", xp: 18 },
+                  { label: "1 capote", xp: 15 },
+                  { label: "1 Réle", xp: 25 },
+                  { label: "Contra bots (70%)", xp: -47 },
+                ],
+                levelBefore: resultDemo.level,
+                levelAfter: resultDemo.level + (resultDemo.won ? 1 : 0),
+                tierChanged: resultDemo.level === 4 || resultDemo.level === 9,
+                missionsCompleted: ["d_win_1"],
+                missionsProgressed: ["d_win_1", "w_win_7", "ach_win_10"],
+                decksUnlocked: resultDemo.level === 1 ? ["azul-royal"] : [],
+              }}
+              onNext={() => setResultDemo(null)}
+              onHome={() => setResultDemo(null)}
+            />
+          ) : null}
+          {unlockDemo ? <DeckUnlockOverlay deck={DECKS.find((d) => d.id === unlockDemo)} onDone={() => setUnlockDemo(null)} /> : null}
         </Section>
 
         <Section id="modais" title="Modais e avisos" hint="No celular o modal sobe como uma folha; no notebook aparece no centro. Avisos (toasts) somem sozinhos.">
