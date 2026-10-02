@@ -95,7 +95,10 @@
 .bf-playopt__desc { font-size: 12px; color: var(--bf-text-3); margin-top: 2px; }
 
 /* ── Seções ───────────────────────────────────────────────────────────── */
-.bf-section { animation: bf-section-in var(--bf-dur-md) var(--bf-ease-out) backwards; }
+.bf-section { position: relative; isolation: isolate; animation: bf-section-in var(--bf-dur-md) var(--bf-ease-out) backwards; }
+/* o fundo animado de uma seção cobre a seção inteira (não só a primeira tela), inclusive quando a página rola */
+.bf-section > .bf-bd { position: absolute; inset: 0; z-index: 0; }
+.bf-section > .bf-topbar, .bf-section > main, .bf-section > .bf-container { position: relative; z-index: 1; }
 .bf-section__body { padding-bottom: calc(32px + var(--bf-safe-bottom)); }
 @keyframes bf-section-in { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
 
