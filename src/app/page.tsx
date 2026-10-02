@@ -1100,6 +1100,18 @@ function bfApplyBotSeatPlay(pv, seat, myPid, playerNames, forOnlineHost) {
   if (!pv || pv.phase !== "playing" || pv.curP !== seat) return pv;
   var card = aiChooseCard(pv, seat);
   if (!card) return pv;
+  /* Registo para diagnosticar jogadas estranhas (F12 → Console, nível "Verbose"). */
+  try {
+    var dbgC = function (c) { return c ? c.v + SYM[c.s] : "?"; };
+    console.debug(
+      "[bot] " + ((playerNames && playerNames[seat]) || "seat " + seat) +
+      " | vaza " + ((pv.trickN || 0) + 1) + " | baralho " + (pv.deck || []).filter(Boolean).length +
+      " | corte " + SYM[pv.trump] + " | pontos " + (pv.tPts || []).join("x") +
+      " | mesa: " + ((pv.trick || []).map(function (t) { return dbgC(t.card); }).join(" ") || "-") +
+      " | mão: " + (pv.hands[seat] || []).filter(Boolean).map(dbgC).join(" ") +
+      " → " + dbgC(card)
+    );
+  } catch (e) { void e; }
   var hands = pv.hands.map(function (h) {
     return h.filter(function (c) {
       return c && c.id !== card.id;

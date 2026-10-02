@@ -85,6 +85,17 @@ var SCENARIOS = [
     sp: { trump: 'p', me: 1, hand: ['3p', 'Kc', '5o'], trick: [[0, 'Ke'], [3, 'Je'], [2, '4e']], deckLeft: 4, trickN: 6, tPts: [62, 24] },
     ok: function(c){ return c.id === '3_paus'; },
   },
+  {
+    name: 'Saída na 1.ª vaza (sem 7 de corte): NÃO sair de Valete de corte tendo carta comum',
+    sp: { trump: 'p', me: 1, hand: ['Jp', '4c', 'Qe'], trick: [], deckLeft: 28, trickN: 0, tPts: [0, 0] },
+    ok: function(c){ return c.s !== 'paus'; },
+  },
+  {
+    name: 'Encarte com chance moderada de corte (cortes já espalhados): pode encartar o Ás',
+    sp: { trump: 'o', me: 3, hand: ['Ae', '4p', '5c'], mate: ['Ko', '6c', '2p'], played: ['7o', 'Jo', 'Qo', '6o', '5o', '4o'], sevenOut: true,
+      trick: [[0, '3e']], deckLeft: 12, trickN: 4, tPts: [25, 25] },
+    ok: function(c){ return c.id === 'A_espadas'; },
+  },
 ];
 
 var pass = 0;

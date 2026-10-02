@@ -30,7 +30,7 @@ import { cloneState, applyPlay, searchExact, roundOver } from './engine.mjs';
 /** 1 ponto de partida (Réle, 7 de abertura) em “pontos de carta” para comparar com o resto. */
 var MP_PTS = 25;
 /** Distribuições sorteadas por decisão (meio da mão). */
-var MID_SAMPLES = 100;
+var MID_SAMPLES = 200;
 /** Limites da busca exata no fim da mão. */
 var END_TIME_MS = 180;
 var END_MIN_SAMPLES = 16;
@@ -421,9 +421,9 @@ export function scoreCandidates(pv, seat, opts){
 
 /** Peso da diferença de pontos na mesa face a 1 ponto de partida (pontos de carta contam, não só ganhar). */
 var MARGIN_W = 0.012;
-var ROLL_TIME_MS = 150;
+var ROLL_TIME_MS = 300;
 var ROLL_MIN_SAMPLES = 60;
-var ROLL_MAX_SAMPLES = 300;
+var ROLL_MAX_SAMPLES = 800;
 /** Peso da leitura tática da vaza somada à simulação (0 = só simulação). */
 var TRICK_W = 0.5;
 /** Conversão aproximada: quantos pontos de carta valem 1 ponto de partida. */
@@ -478,8 +478,14 @@ export function proRulePenalty(pv, seat, card, hand, spec, count){
       var pCut = 1;
       oppsAfter.forEach(function(s){ pCut *= 1 - pHasTrump(spec, s, T); });
       pCut = 1 - pCut;
-      if(pCut > 0.4) pen += pCut;
+      // Só freia quando o corte é provável de verdade; abaixo disso o encarte é uma aposta legítima.
+      if(pCut > 0.55) pen += (pCut - 0.55) / 0.45;
     }
+  }
+  // 4. Sair de corte cedo tendo outra carta para sair (cortes servem para pegar bisca).
+  if(!trick.length && card.s === T && deckLeft >= 8 && !(pv.trickN === 0 && seat === parseSeat(pv.starter) && card.v === '7')){
+    var other = hand.some(function(c){ return c.s !== T && cPts(c) < 10; });
+    if(other) pen += card.v === 'A' || card.v === '7' ? 1.5 : cRnk(card) >= RNK.Q ? 1 : 0.6;
   }
   return pen;
 }
