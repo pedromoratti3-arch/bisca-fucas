@@ -62,11 +62,14 @@ export function Modal(props: ModalProps) {
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // pausa o fundo animado enquanto o modal cobre a tela
+    document.documentElement.setAttribute("data-bf-paused", "1");
     // foco inicial no painel (acessibilidade)
     panelRef.current?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
+      document.documentElement.removeAttribute("data-bf-paused");
     };
   }, [mounted, locked, onClose]);
 

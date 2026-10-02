@@ -10,3 +10,6 @@ export { Avatar } from "./Avatar";
 export { Icon, ICON_NAMES, ATTRIBUTE_ICONS, type IconName } from "./icons";
 export { DUR, EASE, useReducedMotion, prefersReducedMotion, dur, wait } from "./motion";
 export { PlayingCard, FlipCard, cardSize, SUIT_SYMBOL, SUIT_NAME, DEFAULT_BACK, type CardLike, type Suit, type CardValue, type CardSize, type CardBackSkin } from "./PlayingCard";
+export { SuitGlyph, SuitPath, suitColor, SUIT_ORDER, SUIT_IS_RED, type SuitTone } from "./Suit";
+export { SuitLoader, LoadingOverlay, useDelayedVisible, SUIT_LOADER_CYCLE_MS, LOADER_SHOW_DELAY_MS } from "./SuitLoader";
+export { SuitBackdrop } from "./SuitBackdrop";

@@ -7,8 +7,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Avatar, BottomNav, Button, Chip, Divider, Field, FlipCard, ICON_NAMES, Icon, Input, LevelBadge, Modal, Panel, PlayingCard, ProgressBar,
-  RARITY_LABEL, Segmented, ToastProvider, XpBar, rarityFromOvr, useReducedMotion, useToast, type Rarity,
+  Avatar, BottomNav, Button, Chip, Divider, Field, FlipCard, ICON_NAMES, Icon, Input, LevelBadge, LoadingOverlay, Modal, Panel, PlayingCard, ProgressBar,
+  RARITY_LABEL, Segmented, SuitBackdrop, SuitLoader, ToastProvider, XpBar, rarityFromOvr, useReducedMotion, useToast, type Rarity,
 } from "@/design";
 
 const COLORS: { name: string; v: string; text?: string }[] = [
@@ -55,6 +55,7 @@ function Showcase() {
   const [flipped, setFlipped] = useState(false);
   const [popKey, setPopKey] = useState(0);
   const [code, setCode] = useState("");
+  const [loadingDemo, setLoadingDemo] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setFlipped(true), 600);
@@ -293,6 +294,26 @@ function Showcase() {
               </div>
             </div>
           </Panel>
+        </Section>
+
+        <Section id="carregamento" title="Carregamento e fundo vivo" hint="O carregamento só aparece se demorar mais de 300 ms e fica pelo menos um ciclo. O fundo tem três camadas com parallax (mexa o mouse).">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            <Panel pad="lg" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22, minHeight: 220, justifyContent: "center" }}>
+              <SuitLoader size={40} label="Entrando na sala" />
+              <div className="bf-row">
+                <Button variant="accent" icon="refresh" onClick={() => { setLoadingDemo(true); setTimeout(() => setLoadingDemo(false), 2600); }}>Simular carregamento (2,6 s)</Button>
+                <Button variant="secondary" onClick={() => { setLoadingDemo(true); setTimeout(() => setLoadingDemo(false), 120); }}>Rápido (120 ms: não pisca)</Button>
+              </div>
+            </Panel>
+            <Panel pad="none" style={{ position: "relative", minHeight: 260, overflow: "hidden" }}>
+              <SuitBackdrop />
+              <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 260, gap: 14, padding: 16 }}>
+                <div className="bf-hero" style={{ fontSize: 30 }}>BISCA FUCAS</div>
+                <Button variant="primary" size="lg" icon="play" pulse>Jogar</Button>
+              </div>
+            </Panel>
+          </div>
+          <LoadingOverlay active={loadingDemo} label="Carregando" />
         </Section>
 
         <Section id="modais" title="Modais e avisos" hint="No celular o modal sobe como uma folha; no notebook aparece no centro. Avisos (toasts) somem sozinhos.">
