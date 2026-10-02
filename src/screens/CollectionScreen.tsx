@@ -117,11 +117,8 @@ export function CollectionScreen(props: { onBack: () => void }) {
       {unlockQueue.length ? (
         <DeckUnlockOverlay
           deck={DECK_BY_ID[unlockQueue[0]]}
-          onDone={() => {
-            const id = unlockQueue[0];
-            void prog.markSeen([id]);
-            setUnlockQueue((q) => q.slice(1));
-          }}
+          onShown={() => void prog.markSeen([unlockQueue[0]])}
+          onDone={() => setUnlockQueue((q) => q.slice(1))}
         />
       ) : null}
     </SectionShell>
@@ -129,9 +126,15 @@ export function CollectionScreen(props: { onBack: () => void }) {
 }
 
 /** Abertura de pacote: toque para abrir; a carta sai com brilho proporcional à raridade. */
-export function DeckUnlockOverlay(props: { deck: DeckDef | undefined; onDone: () => void }) {
+export function DeckUnlockOverlay(props: { deck: DeckDef | undefined; onDone: () => void; onShown?: () => void }) {
   const [open, setOpen] = useState(false);
   const d = props.deck;
+  // marca como visto assim que o pacote aparece: nenhuma outra tela repete a mesma recompensa
+  useEffect(() => {
+    const t = setTimeout(() => props.onShown?.(), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d?.id]);
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(props.onDone, d && (d.rarity === "lendario" || d.rarity === "epico") ? 3800 : 3000);

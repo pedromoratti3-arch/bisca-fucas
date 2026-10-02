@@ -84,10 +84,8 @@ export function CelebrationOverlay(props: { active: boolean }) {
     return (
       <DeckUnlockOverlay
         deck={DECK_BY_ID[id]}
-        onDone={() => {
-          void prog.markSeen([id]);
-          setDeckQueue((q) => q.slice(1));
-        }}
+        onShown={() => void prog.markSeen([id])}
+        onDone={() => setDeckQueue((q) => q.slice(1))}
       />
     );
   }

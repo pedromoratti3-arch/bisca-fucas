@@ -14,6 +14,7 @@ import { Button, Chip, LevelBadge, PlayingCard, ProgressBar, SuitGlyph, prefersR
 import { DECK_BY_ID, DEFAULT_DECK } from "@/data/decks";
 import { levelFromXp, tierForLevel } from "@/data/progression";
 import type { ProgressEvents } from "@/lib/progress/types";
+import { useProgressOptional } from "@/lib/progress/useProgress";
 import { CountUp } from "./common";
 import { DeckUnlockOverlay } from "./CollectionScreen";
 
@@ -38,6 +39,7 @@ export function ResultScreen(props: {
   onHome: () => void;
 }) {
   const { won, events } = props;
+  const prog = useProgressOptional();
   const reduce = prefersReducedMotion();
   const tier = tierForLevel(props.level);
   const fx = won ? tier.victoryFx : 0;
@@ -254,6 +256,7 @@ export function ResultScreen(props: {
       {stage === "deck" && deckQueue.length ? (
         <DeckUnlockOverlay
           deck={DECK_BY_ID[deckQueue[0]]}
+          onShown={() => void prog?.markSeen([deckQueue[0]])}
           onDone={() => {
             const rest = deckQueue.slice(1);
             setDeckQueue(rest);
