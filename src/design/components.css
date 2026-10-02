@@ -69,7 +69,18 @@
 .bf-muted { color: var(--bf-text-3); }
 
 /* ── Botão ────────────────────────────────────────────────────────────── */
+/* Padrão dos jogos mobile publicados: botão com volume (aresta inferior mais escura),
+   leve gradiente, brilho no topo; ao pressionar afunda sobre a aresta e volta com um quique.
+   Cada variante define: --btn-bg (gradiente), --btn-edge (aresta inferior), --btn-fg (texto),
+   --btn-shadow (sombra difusa) e --btn-lift (altura da aresta em px). */
 .bf-btn {
+  --btn-lift: 4px;
+  --btn-bg: linear-gradient(180deg, #2a2a40 0%, #1c1c2e 100%);
+  --btn-edge: #0d0d18;
+  --btn-fg: var(--bf-text);
+  --btn-shadow: rgba(0, 0, 0, 0.4);
+  --btn-border: rgba(255, 255, 255, 0.1);
+  --btn-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   box-sizing: border-box;
@@ -80,106 +91,156 @@
   gap: 0.5em;
   min-height: var(--bf-tap);
   padding: 0 var(--bf-sp-5);
+  margin-bottom: var(--btn-lift); /* reserva o espaço da aresta para o layout não pular */
   border-radius: var(--bf-r-md);
-  border: 1px solid transparent;
+  border: 1px solid var(--btn-border);
   font-family: var(--bf-font-display);
   font-size: var(--bf-fs-body);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1;
-  color: var(--bf-text);
-  background: var(--bf-bg-3);
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  text-shadow: var(--btn-text-shadow);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
   text-decoration: none;
+  /* aresta (hard shadow) + sombra difusa + luz no topo */
+  box-shadow:
+    0 var(--btn-lift) 0 var(--btn-edge),
+    0 calc(var(--btn-lift) + 6px) 16px var(--btn-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+  transform: translateY(0);
+  /* soltar: volta com quique (curva spring); pressionar: rápido (regra :active abaixo) */
   transition:
-    transform var(--bf-dur-xs) var(--bf-ease-out),
-    box-shadow var(--bf-dur-sm) var(--bf-ease-out),
+    transform 260ms var(--bf-ease-spring),
+    box-shadow 260ms var(--bf-ease-spring),
     filter var(--bf-dur-sm) var(--bf-ease-out),
-    opacity var(--bf-dur-sm) var(--bf-ease-out),
-    border-color var(--bf-dur-sm) var(--bf-ease-out);
+    opacity var(--bf-dur-sm) var(--bf-ease-out);
   will-change: transform;
 }
 .bf-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--bf-bg-1), 0 0 0 5px var(--bf-accent-2);
+  box-shadow:
+    0 var(--btn-lift) 0 var(--btn-edge),
+    0 calc(var(--btn-lift) + 6px) 16px var(--btn-shadow),
+    0 0 0 3px var(--bf-bg-1),
+    0 0 0 5px var(--bf-accent-2);
 }
-.bf-btn:active:not(:disabled):not([aria-disabled="true"]) { transform: scale(0.97); }
+/* Pressionado: afunda até a aresta, sombra encolhe, sem quique na ida */
+.bf-btn:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(calc(var(--btn-lift) - 1px));
+  box-shadow:
+    0 1px 0 var(--btn-edge),
+    0 2px 6px var(--btn-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 2px 4px rgba(0, 0, 0, 0.18);
+  transition: transform 70ms var(--bf-ease-out), box-shadow 70ms var(--bf-ease-out);
+  filter: brightness(0.96);
+}
 @media (hover: hover) and (pointer: fine) {
-  .bf-btn:hover:not(:disabled):not([aria-disabled="true"]) { transform: translateY(-1px); filter: brightness(1.08); }
-  .bf-btn:hover:active:not(:disabled):not([aria-disabled="true"]) { transform: scale(0.97); }
+  .bf-btn:hover:not(:disabled):not([aria-disabled="true"]):not(:active) {
+    filter: brightness(1.07);
+    transform: translateY(-1px);
+    box-shadow:
+      0 calc(var(--btn-lift) + 1px) 0 var(--btn-edge),
+      0 calc(var(--btn-lift) + 8px) 20px var(--btn-shadow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+  }
 }
 .bf-btn:disabled,
 .bf-btn[aria-disabled="true"] {
-  opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: none;
-  filter: saturate(0.6);
+  opacity: 0.5;
+  filter: saturate(0.4);
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--btn-edge), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
-.bf-btn > svg { width: 1.2em; height: 1.2em; flex-shrink: 0; }
+.bf-btn > svg { width: 1.2em; height: 1.2em; flex-shrink: 0; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25)); }
 
 /* Tamanhos */
-.bf-btn--sm { min-height: 36px; padding: 0 var(--bf-sp-4); font-size: var(--bf-fs-body-sm); border-radius: var(--bf-r-sm); }
-.bf-btn--lg { min-height: 56px; padding: 0 var(--bf-sp-7); font-size: 18px; border-radius: var(--bf-r-lg); }
+.bf-btn--sm { --btn-lift: 3px; min-height: 36px; padding: 0 var(--bf-sp-4); font-size: var(--bf-fs-body-sm); border-radius: var(--bf-r-sm); }
+.bf-btn--lg { --btn-lift: 6px; min-height: 58px; padding: 0 var(--bf-sp-7); font-size: 19px; border-radius: var(--bf-r-lg); letter-spacing: 0.03em; }
 .bf-btn--block { width: 100%; }
 .bf-btn--icon { width: var(--bf-tap); padding: 0; border-radius: var(--bf-r-md); }
 .bf-btn--icon.bf-btn--sm { width: 36px; }
-.bf-btn--icon.bf-btn--lg { width: 56px; }
+.bf-btn--icon.bf-btn--lg { width: 58px; }
 
 /* Variantes */
 .bf-btn--primary {
-  background: var(--bf-gold-gradient);
-  color: var(--bf-text-on-gold);
-  box-shadow: 0 6px 18px rgba(212, 168, 67, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+  --btn-bg: linear-gradient(180deg, #ffe08a 0%, #f2c552 38%, #e0ad35 70%, #d19e2a 100%);
+  --btn-edge: #8a6212;
+  --btn-fg: #fffaf0;
+  --btn-shadow: rgba(212, 160, 50, 0.35);
+  --btn-border: rgba(255, 240, 200, 0.55);
+  --btn-text-shadow: 0 1.5px 0 #7a5410, 0 0 8px rgba(80, 50, 0, 0.35);
 }
-.bf-btn--primary::after {
-  /* brilho que passa quando o botão é destacado (classe .is-glowing) */
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
-  transform: translateX(-120%);
-  opacity: 0;
-  pointer-events: none;
-}
-.bf-btn--primary.is-glowing::after { animation: bf-sheen 2.6s var(--bf-ease-in-out) infinite; }
+.bf-btn--primary.bf-btn--lg { text-transform: uppercase; }
+/* Pulsação lenta em repouso (só para a ação principal da tela) */
+.bf-btn--primary.is-pulsing:not(:active):not(:disabled) { animation: bf-btn-pulse 3.4s var(--bf-ease-in-out) infinite; }
 
 .bf-btn--accent {
-  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 55%, #6d28d9 100%);
-  color: var(--bf-text-on-accent);
-  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --btn-bg: linear-gradient(180deg, #a98bff 0%, #8b5cf6 40%, #7a46ea 100%);
+  --btn-edge: #4a2496;
+  --btn-fg: #ffffff;
+  --btn-shadow: rgba(124, 58, 237, 0.4);
+  --btn-border: rgba(216, 200, 255, 0.45);
+  --btn-text-shadow: 0 1.5px 0 #3c1d7a;
 }
 .bf-btn--secondary {
-  background: var(--bf-glass);
-  border-color: var(--bf-glass-border-strong);
-  box-shadow: var(--bf-shadow-inset-top);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  --btn-bg: linear-gradient(180deg, #34344d 0%, #232336 100%);
+  --btn-edge: #11111c;
+  --btn-fg: var(--bf-text);
+  --btn-shadow: rgba(0, 0, 0, 0.45);
+  --btn-border: rgba(255, 255, 255, 0.14);
 }
 .bf-btn--ghost {
-  background: transparent;
-  color: var(--bf-text-2);
-  border-color: transparent;
+  --btn-lift: 0px;
+  --btn-bg: transparent;
+  --btn-edge: transparent;
+  --btn-fg: var(--bf-text-2);
+  --btn-shadow: transparent;
+  --btn-border: transparent;
+  --btn-text-shadow: none;
+  box-shadow: none;
+  margin-bottom: 0;
 }
-.bf-btn--ghost:not(:disabled):hover { color: var(--bf-text); background: rgba(255, 255, 255, 0.05); }
+.bf-btn--ghost:not(:disabled):hover { color: var(--bf-text); background: rgba(255, 255, 255, 0.06); box-shadow: none !important; transform: none !important; }
+.bf-btn--ghost:active:not(:disabled) { transform: scale(0.95) !important; box-shadow: none !important; background: rgba(255, 255, 255, 0.1); }
+.bf-btn--ghost:focus-visible { box-shadow: 0 0 0 3px var(--bf-bg-1), 0 0 0 5px var(--bf-accent-2); }
 .bf-btn--danger {
-  background: linear-gradient(135deg, var(--bf-brand-red), var(--bf-brand-red-deep));
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(196, 18, 48, 0.3);
+  --btn-bg: linear-gradient(180deg, #ef4d63 0%, #c41230 45%, #a40f28 100%);
+  --btn-edge: #5e0815;
+  --btn-fg: #fff;
+  --btn-shadow: rgba(196, 18, 48, 0.4);
+  --btn-border: rgba(255, 190, 200, 0.4);
+  --btn-text-shadow: 0 1.5px 0 #5a0a16;
 }
 .bf-btn--outline-danger {
-  background: transparent;
-  color: var(--bf-danger);
-  border-color: rgba(248, 113, 113, 0.4);
+  --btn-bg: linear-gradient(180deg, rgba(248, 113, 113, 0.1), rgba(248, 113, 113, 0.04));
+  --btn-edge: rgba(120, 20, 30, 0.9);
+  --btn-fg: var(--bf-danger);
+  --btn-shadow: rgba(0, 0, 0, 0.35);
+  --btn-border: rgba(248, 113, 113, 0.45);
+  --btn-text-shadow: none;
 }
 
 /* Estado "carregando" */
 .bf-btn.is-loading { color: transparent !important; text-shadow: none !important; pointer-events: none; }
 .bf-btn.is-loading > svg { opacity: 0; }
 .bf-btn.is-loading .bf-btn__spinner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+@keyframes bf-btn-pulse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(0) scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-btn--primary.is-pulsing { animation: none !important; }
+  .bf-btn { transition-duration: 0ms; }
+}
 
 /* ── Spinner ──────────────────────────────────────────────────────────── */
 .bf-spinner {
@@ -358,7 +419,7 @@
   inset: 0;
   background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
   transform: translateX(-120%);
-  animation: bf-sheen 3s var(--bf-ease-in-out) infinite;
+  animation: bf-sheen 5.5s var(--bf-ease-in-out) infinite;
   pointer-events: none;
 }
 
@@ -657,7 +718,7 @@
 
 /* Reduzir movimento: animações contínuas desligam; as de entrada ficam instantâneas (durações já são 0). */
 @media (prefers-reduced-motion: reduce) {
-  .bf-holo::after, .bf-bar__shine, .bf-skeleton::after, .bf-dot--pulse, .bf-btn--primary.is-glowing::after { animation: none !important; }
+  .bf-holo::after, .bf-bar__shine, .bf-skeleton::after, .bf-dot--pulse { animation: none !important; }
   .bf-stagger > * { animation-delay: 0ms !important; }
   .bf-anim-shake { animation: none; }
 }

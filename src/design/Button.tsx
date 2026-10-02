@@ -3,7 +3,7 @@
  * Botão padrão do jogo.
  * variant: primary (dourado, ação principal) · accent (roxo) · secondary (vidro) · ghost · danger · outline-danger
  * size: sm · md · lg · block (largura total) · icon (quadrado só com ícone)
- * loading: mostra spinner e bloqueia cliques. glow: brilho passando (chama atenção).
+ * loading: mostra spinner e bloqueia cliques. pulse: pulsação lenta em repouso (só na ação principal).
  */
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
@@ -19,7 +19,8 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
   iconRight?: IconName;
   iconOnly?: boolean;
   loading?: boolean;
-  glow?: boolean;
+  /** Pulsação lenta em repouso: só para a ação principal da tela. */
+  pulse?: boolean;
   children?: ReactNode;
 };
 
@@ -31,7 +32,7 @@ export function Button({
   iconRight,
   iconOnly,
   loading,
-  glow,
+  pulse,
   className,
   children,
   disabled,
@@ -45,7 +46,7 @@ export function Button({
     block ? "bf-btn--block" : "",
     iconOnly ? "bf-btn--icon" : "",
     loading ? "is-loading" : "",
-    glow ? "is-glowing" : "",
+    pulse ? "is-pulsing" : "",
     className || "",
   ]
     .filter(Boolean)

@@ -154,7 +154,7 @@ function Showcase() {
         <Section id="botoes" title="Botões" hint="Dourado = a ação principal da tela (só um por tela). Roxo = ação importante secundária. Vidro = o resto. Passe o mouse, pressione e veja o desabilitado.">
           <Panel pad="lg" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div className="bf-row" style={{ flexWrap: "wrap" }}>
-              <Button variant="primary" icon="play" glow>Jogar</Button>
+              <Button variant="primary" icon="play" pulse>Jogar</Button>
               <Button variant="accent" icon="people">Criar sala</Button>
               <Button variant="secondary" icon="gear">Configurações</Button>
               <Button variant="ghost">Ghost</Button>
@@ -180,7 +180,7 @@ function Showcase() {
             </div>
             <Divider label="Largura total (celular)" />
             <div style={{ maxWidth: 360, display: "flex", flexDirection: "column", gap: 10 }}>
-              <Button variant="primary" size="lg" block icon="play" glow>Jogar agora</Button>
+              <Button variant="primary" size="lg" block icon="play" pulse>Jogar agora</Button>
               <Button variant="secondary" block icon="robot">Solo contra a IA</Button>
             </div>
           </Panel>
