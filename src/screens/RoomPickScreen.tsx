@@ -1,15 +1,70 @@
 "use client";
-/** Escolha da mesa (sala temática). Cada sala com identidade própria: cor, textura e ícone. */
-import { Button, Icon, SuitGlyph, type IconName } from "@/design";
+/**
+ * Escolha da mesa (sala temática). Ícones originais de cada sala (ver roomMarks.js) e um fundo
+ * elegante por sala: gradiente da sala + textura discreta + brilho suave atrás do ícone.
+ */
+import type { ReactNode } from "react";
+import { Button } from "@/design";
 import { SectionShell } from "./common";
+import { FlorestaMark, FucasMark, HubMark, TerrafeLogo } from "./roomMarks";
 
-export type RoomInfo = { id: string; name: string; color: string; bg: string; glow: string; icon: IconName; tagline: string; pattern: string };
+export type RoomInfo = {
+  id: string;
+  name: string;
+  color: string;
+  bg: string;
+  glow: string;
+  tagline: string;
+  /** textura discreta por cima do gradiente */
+  texture: string;
+  icon: () => ReactNode;
+};
 
 export const ROOMS: RoomInfo[] = [
-  { id: "terrafe", name: "Terrafé", color: "#c9956a", bg: "linear-gradient(160deg,#3a2a18 0%,#1a1208 100%)", glow: "rgba(201,149,106,.45)", icon: "home", tagline: "Cafezinho e bisca na mesa de madeira", pattern: "radial-gradient(circle at 20% 30%, rgba(201,149,106,.18) 0 12px, transparent 13px), radial-gradient(circle at 80% 70%, rgba(201,149,106,.12) 0 18px, transparent 19px)" },
-  { id: "hub", name: "HUB Fucape", color: "#60a5fa", bg: "linear-gradient(160deg,#121a3a 0%,#080818 100%)", glow: "rgba(96,165,250,.45)", icon: "bolt", tagline: "Luz azul, grade tecnológica, ritmo rápido", pattern: "repeating-linear-gradient(0deg, rgba(96,165,250,.08) 0 1px, transparent 1px 14px), repeating-linear-gradient(90deg, rgba(96,165,250,.08) 0 1px, transparent 1px 14px)" },
-  { id: "floresta", name: "Floresta", color: "#6ee7b7", bg: "linear-gradient(160deg,#143022 0%,#0a1a0e 100%)", glow: "rgba(110,231,183,.4)", icon: "clover", tagline: "Verde, folhas e sombra fresca", pattern: "radial-gradient(ellipse at 15% 85%, rgba(74,222,128,.16) 0 40px, transparent 41px), radial-gradient(ellipse at 85% 15%, rgba(74,222,128,.1) 0 30px, transparent 31px)" },
-  { id: "sala", name: "Sala de Aula", color: "#fb7185", bg: "linear-gradient(160deg,#4a0c0c 0%,#1a0404 100%)", glow: "rgba(196,18,48,.5)", icon: "book", tagline: "Onde tudo começou: vermelho Fucas", pattern: "repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 22px)" },
+  {
+    id: "terrafe",
+    name: "Terrafé",
+    color: "#c9956a",
+    bg: "linear-gradient(160deg,#3a2a18 0%,#241810 55%,#140d06 100%)",
+    glow: "rgba(201,149,106,.55)",
+    tagline: "Cafezinho e bisca na mesa de madeira",
+    // veios de madeira
+    texture: "repeating-linear-gradient(100deg, rgba(255,220,180,.05) 0 2px, transparent 2px 11px, rgba(0,0,0,.08) 11px 13px, transparent 13px 24px)",
+    icon: () => TerrafeLogo(56, "#e8c9a0"),
+  },
+  {
+    id: "hub",
+    name: "HUB Fucape",
+    color: "#60a5fa",
+    bg: "linear-gradient(160deg,#141c42 0%,#0c1030 55%,#070818 100%)",
+    glow: "rgba(96,165,250,.5)",
+    tagline: "Luz azul, grade tecnológica, ritmo rápido",
+    // pontos finos (painel)
+    texture: "radial-gradient(rgba(147,197,253,.16) 0.8px, transparent 1.2px)",
+    icon: () => HubMark(84),
+  },
+  {
+    id: "floresta",
+    name: "Floresta",
+    color: "#6ee7b7",
+    bg: "linear-gradient(160deg,#17382a 0%,#0f2419 55%,#071209 100%)",
+    glow: "rgba(110,231,183,.45)",
+    tagline: "Verde, folhas e sombra fresca",
+    // folhagem difusa
+    texture: "radial-gradient(ellipse 60% 45% at 20% 100%, rgba(74,222,128,.14), transparent 70%), radial-gradient(ellipse 50% 40% at 85% 0%, rgba(74,222,128,.1), transparent 70%)",
+    icon: () => <span style={{ color: "#86efac" }}>{FlorestaMark(52)}</span>,
+  },
+  {
+    id: "sala",
+    name: "Sala de Aula",
+    color: "#fb7185",
+    bg: "linear-gradient(160deg,#4a0c0c 0%,#2c0707 55%,#160303 100%)",
+    glow: "rgba(196,18,48,.55)",
+    tagline: "Onde tudo começou: vermelho Fucas",
+    // linhas de caderno bem leves
+    texture: "repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 1px, transparent 1px 18px)",
+    icon: () => FucasMark(50),
+  },
 ];
 
 export const ROOM_BY_ID: Record<string, RoomInfo> = Object.fromEntries(ROOMS.map((r) => [r.id, r]));
@@ -18,26 +73,33 @@ export function RoomPickScreen(props: { onBack: () => void; onSelect: (id: strin
   return (
     <SectionShell title={props.forCreate ? "Escolha a mesa da sala" : "Escolha a mesa"} icon="cards" onBack={props.onBack} subtitle={props.forCreate ? "Todos na sala verão o mesmo cenário." : "Cada mesa tem seu clima. As regras são as mesmas."}>
       <div className="bf-stack bf-stack--lg">
-        {props.error ? <div className="bf-panel bf-panel--pad" role="alert" style={{ borderColor: "rgba(248,113,113,.45)", color: "var(--bf-danger)", fontSize: 13 }}>{props.error}</div> : null}
+        {props.error ? (
+          <div className="bf-panel bf-panel--pad" role="alert" style={{ borderColor: "rgba(248,113,113,.45)", color: "var(--bf-danger)", fontSize: 13 }}>
+            {props.error}
+          </div>
+        ) : null}
         <div className="bf-grid-2" style={{ gap: 12 }}>
           {ROOMS.map((r, i) => (
             <button
               key={r.id}
               type="button"
-              className="bf-panel bf-panel--interactive bf-anim-fade-up"
+              className="bf-panel bf-panel--interactive bf-anim-fade-up bf-roomcard"
               disabled={props.busy}
               onClick={() => props.onSelect(r.id)}
-              style={{ animationDelay: `${i * 60}ms`, background: `${r.pattern}, ${r.bg}`, borderColor: r.color + "55", padding: 0, overflow: "hidden", textAlign: "left", color: "var(--bf-text)", minHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-end", cursor: props.busy ? "wait" : "pointer" }}
+              style={{
+                animationDelay: `${i * 60}ms`,
+                background: `${r.texture}, ${r.bg}`,
+                backgroundSize: r.id === "hub" ? "9px 9px, auto" : undefined,
+                borderColor: r.color + "66",
+                ["--room" as string]: r.color,
+                ["--room-glow" as string]: r.glow,
+              }}
             >
-              <span style={{ position: "absolute", right: -10, top: -10, opacity: 0.12, transform: "rotate(-12deg)" }}>
-                <SuitGlyph suit={i % 2 ? "espadas" : "copas"} size={110} tone={i % 2 ? "gold" : "red"} />
-              </span>
-              <span style={{ position: "absolute", left: 14, top: 14, width: 42, height: 42, borderRadius: 13, background: "rgba(0,0,0,.35)", border: `1px solid ${r.color}66`, display: "flex", alignItems: "center", justifyContent: "center", color: r.color, boxShadow: `0 0 18px ${r.glow}` }}>
-                <Icon name={r.icon} size={22} />
-              </span>
-              <span style={{ padding: "14px 14px 12px", background: "linear-gradient(180deg, transparent, rgba(0,0,0,.45))", width: "100%" }}>
-                <span style={{ display: "block", fontFamily: "var(--bf-font-display)", fontWeight: 800, fontSize: 17, color: r.color }}>{r.name}</span>
-                <span className="bf-caption" style={{ display: "block", marginTop: 2 }}>{r.tagline}</span>
+              <span className="bf-roomcard__glow" />
+              <span className="bf-roomcard__icon">{r.icon()}</span>
+              <span className="bf-roomcard__text">
+                <span className="bf-roomcard__name" style={{ color: r.color }}>{r.name}</span>
+                <span className="bf-roomcard__tag">{r.tagline}</span>
               </span>
             </button>
           ))}

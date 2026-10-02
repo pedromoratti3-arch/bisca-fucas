@@ -105,7 +105,7 @@ export function LobbyScreen(props: {
       <div style={{ position: "relative" }}>
         <div className="bf-stack bf-stack--lg" style={{ position: "relative", zIndex: 1 }}>
           {/* código */}
-          <div className="bf-panel bf-panel--gold bf-panel--pad" style={{ textAlign: "center", background: `${theme.pattern}, ${theme.bg}` }}>
+          <div className="bf-panel bf-panel--gold bf-panel--pad" style={{ textAlign: "center", background: `${theme.texture}, ${theme.bg}` }}>
             <div className="bf-label">Código da sala · {theme.name}</div>
             <button type="button" onClick={() => void copyCode()} className="bf-display bf-gold-text" style={{ letterSpacing: ".35em", fontSize: 44, border: 0, cursor: "pointer", marginTop: 4, padding: 0, filter: "drop-shadow(0 0 14px rgba(227,183,74,.35))" }} title="Copiar código">
               {room.code}

@@ -3348,11 +3348,11 @@ function GameScreen(props){
     });
   }
 
+  /** Metade do baralho a embaralhar: 5 cartas do baralho equipado com leve tremor (riffle). */
   var mkRow = function(anim,delay){
-    var stripes = th.shuffleStripes;
-    if(!stripes || stripes.length<5){ stripes = ['#2a0808','#3a0a0a','#4a0c0c','#5a0e0e','#6a1010']; }
-    return React.createElement('div',{style:{display:'flex',flexDirection:'column',animation:anim?'shfl .55s ease-in-out infinite'+(delay?' ':'')+delay:'none'}},
-      [0,1,2,3,4].map(function(i){ return React.createElement('div',{key:i,style:{width:50,height:13,background:stripes[i],border:'1px solid rgba(0,0,0,.32)',marginTop:i?-1:0,borderRadius:i===0?'5px 5px 0 0':i===4?'0 0 5px 5px':'0'}}); })
+    void delay;
+    return React.createElement('div',{className: anim ? 'bf-shuffle-half is-shuffling' : 'bf-shuffle-half'},
+      [0,1,2,3,4].map(function(i){ return React.createElement('div',{key:i,className:'bf-shuffle-half__card',style:{'--i':i}}, React.createElement(PlayingCard,{back:true,size:mob?'sm':'md',deck:CURRENT_DECK_ID})); })
     );
   };
 

@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { PlayingCard, prefersReducedMotion, SuitGlyph } from "@/design";
 import type { CardLike } from "@/design";
+import { useProgressOptional } from "@/lib/progress/useProgress";
 
 const KEY = "bf_intro_seen_v1";
 const CARDS: CardLike[] = [
@@ -27,6 +28,8 @@ export function shouldShowIntro(): boolean {
 
 export function IntroSplash(props: { onDone: () => void; deckId?: string }) {
   const [leaving, setLeaving] = useState(false);
+  const prog = useProgressOptional();
+  const deckId = props.deckId || (prog ? prog.equippedDeck.id : undefined);
   useEffect(() => {
     try {
       sessionStorage.setItem(KEY, "1");
@@ -51,10 +54,10 @@ export function IntroSplash(props: { onDone: () => void; deckId?: string }) {
           <div key={i} className="bf-intro__card">
             <div className="bf-intro__card-inner">
               <div className="bf-intro__face">
-                <PlayingCard card={c} size="md" deck={props.deckId} />
+                <PlayingCard card={c} size="md" deck={deckId} />
               </div>
               <div className="bf-intro__face bf-intro__face--back">
-                <PlayingCard back size="md" deck={props.deckId} />
+                <PlayingCard back size="md" deck={deckId} />
               </div>
             </div>
           </div>

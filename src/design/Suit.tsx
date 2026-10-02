@@ -1,32 +1,28 @@
 /**
- * Naipes em SVG (desenho próprio, sem fonte): ficam iguais em qualquer celular.
+ * Naipes em SVG (desenho próprio, um único conjunto usado em todo o jogo: cartas, fundo, carregamento, interface).
+ * Os quatro têm o mesmo peso visual e ocupam a mesma caixa 24×24, centrados.
  * Copas e ouros vermelhos; espadas e paus escuros — ou dourados quando `tone="gold"`.
  */
-import type { CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 import type { Suit } from "./PlayingCard";
 
 export const SUIT_ORDER: Suit[] = ["espadas", "copas", "paus", "ouros"];
 export const SUIT_IS_RED: Record<Suit, boolean> = { ouros: true, copas: true, espadas: false, paus: false };
 
+/** Caminhos (viewBox 0 0 24 24). */
+export const SUIT_PATH: Record<Suit, string> = {
+  // Coração: dois lobos iguais, ponta centrada.
+  copas: "M12 21.6C7.4 17.6 2.4 13.7 2.4 8.7 2.4 5.6 4.8 3.2 7.8 3.2c1.8 0 3.3.9 4.2 2.3.9-1.4 2.4-2.3 4.2-2.3 3 0 5.4 2.4 5.4 5.5 0 5-5 8.9-9.6 12.9z",
+  // Ouros: losango com lados levemente convexos.
+  ouros: "M12 2.3c1.8 3.4 4.2 6.6 7.4 9.7-3.2 3.1-5.6 6.3-7.4 9.7-1.8-3.4-4.2-6.6-7.4-9.7 3.2-3.1 5.6-6.3 7.4-9.7z",
+  // Espadas: coração invertido com cabo.
+  espadas: "M12 2.4c4.6 4 9.6 7.9 9.6 12.9 0 3.1-2.4 5.5-5.4 5.5-1.3 0-2.4-.5-3.3-1.3.2 1.7 1 3 2.3 3.9H8.8c1.3-.9 2.1-2.2 2.3-3.9-.9.8-2 1.3-3.3 1.3-3 0-5.4-2.4-5.4-5.5C2.4 10.3 7.4 6.4 12 2.4z",
+  // Paus: três folhas iguais (círculos) unidas no centro + cabo simétrico.
+  paus: "M12 2.6a4.3 4.3 0 0 1 4.1 5.6 4.3 4.3 0 1 1-2.6 7.6c.2 2.9 1.1 5.4 2.7 7.7H7.8c1.6-2.3 2.5-4.8 2.7-7.7a4.3 4.3 0 1 1-2.6-7.6A4.3 4.3 0 0 1 12 2.6z",
+};
+
 export function SuitPath(props: { suit: Suit }) {
-  switch (props.suit) {
-    case "copas":
-      return <path d="M12 21.2S3.2 15.8 2.4 10.4C1.9 6.9 4.3 4 7.5 4c2 0 3.5 1.1 4.5 2.8C13 5.1 14.5 4 16.5 4c3.2 0 5.6 2.9 5.1 6.4C20.8 15.8 12 21.2 12 21.2z" />;
-    case "ouros":
-      return <path d="M12 2.2c.5 0 .9.2 1.2.6l6.3 8.1c.5.6.5 1.5 0 2.2l-6.3 8.1c-.6.8-1.8.8-2.4 0L4.5 13.1c-.5-.7-.5-1.6 0-2.2l6.3-8.1c.3-.4.7-.6 1.2-.6z" />;
-    case "espadas":
-      return <path d="M12 2.4c2.4 3.6 8.2 7.4 8.2 11.6 0 2.4-1.9 4.3-4.3 4.3-1.1 0-2.1-.4-2.9-1.1.2 1.7 1 3.1 2.5 4.3H8.5c1.5-1.2 2.3-2.6 2.5-4.3-.8.7-1.8 1.1-2.9 1.1-2.4 0-4.3-1.9-4.3-4.3C3.8 9.8 9.6 6 12 2.4z" />;
-    case "paus":
-    default:
-      return (
-        <>
-          <circle cx="12" cy="7.3" r="4.1" />
-          <circle cx="6.9" cy="13.6" r="4.1" />
-          <circle cx="17.1" cy="13.6" r="4.1" />
-          <path d="M10.4 12.6c.4 3-.4 5.7-2.4 8.9h8c-2-3.2-2.8-5.9-2.4-8.9z" />
-        </>
-      );
-  }
+  return <path d={SUIT_PATH[props.suit]} />;
 }
 
 export type SuitTone = "auto" | "red" | "dark" | "gold" | "white" | "current";
@@ -43,14 +39,16 @@ export function suitColor(suit: Suit, tone: SuitTone = "auto"): string {
 export function SuitGlyph(props: { suit: Suit; size?: number | string; tone?: SuitTone; style?: CSSProperties; className?: string; gradient?: boolean }) {
   const s = props.size ?? 24;
   const color = suitColor(props.suit, props.tone);
-  const gid = props.gradient ? `bfsg-${props.suit}-${props.tone || "auto"}` : undefined;
+  const uid = useId();
+  const gid = props.gradient ? `bfsg${uid.replace(/[^a-zA-Z0-9]/g, "")}` : undefined;
   return (
     <svg width={s} height={s} viewBox="0 0 24 24" aria-hidden className={props.className} style={{ display: "block", flexShrink: 0, ...props.style }} fill={gid ? `url(#${gid})` : color}>
       {gid ? (
         <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={color} stopOpacity="1" />
-            <stop offset="1" stopColor={SUIT_IS_RED[props.suit] && props.tone !== "gold" ? "#8f0f1a" : props.tone === "gold" ? "#9a7420" : "#000"} stopOpacity="1" />
+          <linearGradient id={gid} x1="0" y1="0" x2="0.6" y2="1">
+            <stop offset="0" stopColor={props.tone === "gold" ? "#fff0b8" : SUIT_IS_RED[props.suit] ? "#ff5c68" : "#4b4f5c"} />
+            <stop offset="0.55" stopColor={props.tone === "gold" ? "#e3b74a" : SUIT_IS_RED[props.suit] ? "#d8232f" : "#15161c"} />
+            <stop offset="1" stopColor={props.tone === "gold" ? "#8a6212" : SUIT_IS_RED[props.suit] ? "#7a0b1d" : "#000"} />
           </linearGradient>
         </defs>
       ) : null}

@@ -1,4 +1,5 @@
 /* eslint-disable no-var */
+/* eslint-enable */
 /** Conteúdo das Configurações (regras e jogabilidade), movido de page.tsx sem alterações de texto. JavaScript simples. */
 /** Conteúdo das Configurações (regras e jogabilidade), movido de page.tsx sem alterações de texto. */
 import React from "react";
