@@ -1,10 +1,14 @@
 /**
  * Fontes do jogo (hospedadas pelo próprio Next.js, sem pedir nada ao Google no navegador).
+ * Todas com licença livre (SIL Open Font License) no Google Fonts.
  * - Outfit: títulos, botões, números grandes (geométrica, "cara de jogo").
- * - Inter: textos corridos e interface (legível em tamanhos pequenos).
- * Expostas como variáveis CSS --font-display e --font-body (ver tokens.css).
+ * - Inter: textos corridos e interface.
+ * - Cinzel: índice das cartas do baralho clássico (serifa de baralho impresso).
+ * - Bebas Neue: baralho Neon (condensada, estilo luminoso).
+ * - Alfa Slab One: baralho Retrô (serifa pesada, estilo cartaz antigo).
+ * Expostas como variáveis CSS (ver tokens.css e decks.ts).
  */
-import { Inter, Outfit } from "next/font/google";
+import { Alfa_Slab_One, Bebas_Neue, Cinzel, Inter, Outfit } from "next/font/google";
 
 export const fontDisplay = Outfit({
   subsets: ["latin"],
@@ -19,5 +23,26 @@ export const fontBody = Inter({
   display: "swap",
 });
 
-/** Classe para colocar no <html>: ativa as duas variáveis. */
-export const fontClassName = `${fontDisplay.variable} ${fontBody.variable}`;
+export const fontCardCinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["700", "900"],
+  variable: "--font-card-cinzel",
+  display: "swap",
+});
+
+export const fontCardBebas = Bebas_Neue({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-card-bebas",
+  display: "swap",
+});
+
+export const fontCardSlab = Alfa_Slab_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-card-slab",
+  display: "swap",
+});
+
+/** Classe para colocar no <html>: ativa todas as variáveis. */
+export const fontClassName = [fontDisplay.variable, fontBody.variable, fontCardCinzel.variable, fontCardBebas.variable, fontCardSlab.variable].join(" ");

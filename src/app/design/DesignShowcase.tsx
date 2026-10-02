@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { DECKS, RARITY_INFO, unlockLabel, type DeckDef } from "@/data/decks";
 import {
   Avatar, BottomNav, Button, Chip, Divider, Field, FlipCard, ICON_NAMES, Icon, Input, LevelBadge, LoadingOverlay, Modal, Panel, PlayingCard, ProgressBar,
   RARITY_LABEL, Segmented, SuitBackdrop, SuitLoader, ToastProvider, XpBar, rarityFromOvr, useReducedMotion, useToast, type Rarity,
@@ -32,6 +33,13 @@ const COLORS: { name: string; v: string; text?: string }[] = [
 ];
 
 const RARITIES: Rarity[] = ["bronze", "silver", "gold", "special"];
+
+const CLASSIC = DECKS[0];
+const CARD_PROPOSALS: { title: string; font: string; hint: string; default?: boolean; deck: DeckDef }[] = [
+  { title: "Clássico", font: "Cinzel", hint: "naipes contados como em baralho real, figuras com moldura", default: true, deck: CLASSIC },
+  { title: "Moderno", font: "Outfit", hint: "número grande no centro com o naipe atrás; o mais legível em cartas pequenas", deck: { ...CLASSIC, id: "prop-moderno", front: { ...CLASSIC.front, font: "outfit", face: "index" } } },
+  { title: "Minimal", font: "Inter", hint: "só o naipe no centro; limpo e elegante", deck: { ...CLASSIC, id: "prop-minimal", front: { ...CLASSIC.front, font: "inter", face: "minimal" } } },
+];
 
 function Section(props: { id: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -270,30 +278,59 @@ function Showcase() {
           </Panel>
         </Section>
 
-        <Section id="cartas" title="Cartas" hint="Quatro tamanhos, frente e verso com “skin”. A da direita vira sozinha (animação só com transform).">
-          <Panel pad="lg" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <Section id="cartas" title="Cartas" hint="Padrão de baralho profissional: índice + naipe nos cantos, centro limpo. Três estilos de frente; o Clássico é o padrão. Cada baralho colecionável escolhe estilo, fonte e cores.">
+          <Panel pad="lg" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {CARD_PROPOSALS.map((p) => (
+              <div key={p.deck.id}>
+                <div className="bf-row" style={{ marginBottom: 10, gap: 8 }}>
+                  <span className="bf-h3">{p.title}</span>
+                  <Chip size="sm" tone={p.default ? "gold" : "neutral"}>{p.default ? "padrão" : p.font}</Chip>
+                  <span className="bf-caption">{p.hint}</span>
+                </div>
+                <div className="bf-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+                  {(["A", "2", "7", "K"] as const).map((v) => (
+                    <PlayingCard key={v} card={{ s: "copas", v }} size="lg" deck={p.deck} />
+                  ))}
+                  <PlayingCard card={{ s: "espadas", v: "Q" }} size="lg" deck={p.deck} />
+                  <PlayingCard card={{ s: "paus", v: "J" }} size="md" deck={p.deck} />
+                  <PlayingCard card={{ s: "ouros", v: "5" }} size="md" deck={p.deck} />
+                  <PlayingCard card={{ s: "copas", v: "A" }} size="sm" deck={p.deck} />
+                  <PlayingCard card={{ s: "espadas", v: "7" }} size="sm" deck={p.deck} />
+                  <PlayingCard card={{ s: "ouros", v: "K" }} size="xs" deck={p.deck} />
+                  <PlayingCard card={{ s: "paus", v: "3" }} size="xs" deck={p.deck} />
+                </div>
+              </div>
+            ))}
+            <Divider label="Estados na mesa" />
             <div className="bf-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-              <PlayingCard card={{ s: "copas", v: "A" }} size="xs" />
-              <PlayingCard card={{ s: "espadas", v: "7" }} size="sm" />
-              <PlayingCard card={{ s: "ouros", v: "K" }} size="md" />
-              <PlayingCard card={{ s: "paus", v: "Q" }} size="lg" />
               <PlayingCard card={{ s: "copas", v: "7" }} size="md" glow="gold" title="Corte em destaque" />
-              <PlayingCard card={{ s: "ouros", v: "2" }} size="md" selected />
+              <PlayingCard card={{ s: "ouros", v: "2" }} size="md" selected title="Carta levantada" />
               <PlayingCard card={{ s: "paus", v: "4" }} size="md" dim title="Jogada bloqueada" />
-            </div>
-            <div className="bf-row" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
               <PlayingCard back size="md" />
-              <PlayingCard back size="md" skin={{ grad: "linear-gradient(160deg,#5c4033,#2d1810)", border: "#a67c52", hi: "#d4a574" }} title="Terrafé" />
-              <PlayingCard back size="md" skin={{ grad: "linear-gradient(160deg,#1e3a5f,#0c1929)", border: "#3b82f6", hi: "#60a5fa" }} title="HUB" />
-              <PlayingCard back size="md" skin={{ grad: "linear-gradient(160deg,#14532d,#052e16)", border: "#22c55e", hi: "#4ade80" }} title="Floresta" />
-              <PlayingCard back size="md" skin={{ grad: "linear-gradient(160deg,#4c1d95,#1e1b4b)", border: "#8b5cf6", hi: "#c4b5fd" }} title="Roxo (colecionável)" />
-              <PlayingCard back size="md" skin={{ grad: "linear-gradient(160deg,#b8922f,#5a4310)", border: "#f0d078", hi: "#fff2b8" }} title="Ouro (colecionável)" />
               <div style={{ marginLeft: "auto" }} className="bf-row">
                 <FlipCard card={{ s: "espadas", v: "A" }} flipped={flipped} size="lg" glow="gold" />
                 <Button variant="secondary" size="sm" icon="refresh" onClick={() => { setFlipped(false); setTimeout(() => setFlipped(true), 350); }}>Virar</Button>
               </div>
             </div>
           </Panel>
+        </Section>
+
+        <Section id="baralhos" title="Coleção de baralhos" hint="Cada baralho muda verso, frente, fonte e acabamento. Dourado e Holográfico têm reflexo em CSS (passe o mouse).">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
+            {DECKS.map((d) => (
+              <Panel key={d.id} pad="none" style={{ padding: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, borderColor: RARITY_INFO[d.rarity].color + "55" }}>
+                <div className="bf-row" style={{ gap: 6 }}>
+                  <PlayingCard back size="sm" deck={d} />
+                  <PlayingCard card={{ s: "copas", v: "A" }} size="sm" deck={d} />
+                  <PlayingCard card={{ s: "espadas", v: "K" }} size="sm" deck={d} />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div className="bf-h3" style={{ fontSize: 13 }}>{d.name}</div>
+                  <div className="bf-caption" style={{ color: RARITY_INFO[d.rarity].color, fontWeight: 700 }}>{RARITY_INFO[d.rarity].label} · {unlockLabel(d.unlock)}</div>
+                </div>
+              </Panel>
+            ))}
+          </div>
         </Section>
 
         <Section id="carregamento" title="Carregamento e fundo vivo" hint="O carregamento só aparece se demorar mais de 300 ms e fica pelo menos um ciclo. O fundo tem três camadas com parallax (mexa o mouse).">

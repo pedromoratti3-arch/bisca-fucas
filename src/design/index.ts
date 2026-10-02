@@ -13,3 +13,6 @@ export { PlayingCard, FlipCard, cardSize, SUIT_SYMBOL, SUIT_NAME, DEFAULT_BACK, 
 export { SuitGlyph, SuitPath, suitColor, SUIT_ORDER, SUIT_IS_RED, type SuitTone } from "./Suit";
 export { SuitLoader, LoadingOverlay, useDelayedVisible, SUIT_LOADER_CYCLE_MS, LOADER_SHOW_DELAY_MS } from "./SuitLoader";
 export { SuitBackdrop } from "./SuitBackdrop";
+export { ClanEmblem } from "./ClanEmblem";
+export { FaceArt } from "./CardFaceArt";
+export { VALUE_NAME } from "./PlayingCard";

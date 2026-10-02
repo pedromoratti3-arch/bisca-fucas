@@ -1,0 +1,27 @@
+{
+  "titulo": "Tabela de Atributos — Bisca 25",
+  "descricao": "Ranking oficial da faculdade. Valores fixos: edite aqui e o jogo atualiza sozinho.",
+  "atributos": [
+    { "key": "LEI", "nome": "Leitura" },
+    { "key": "MEM", "nome": "Memória" },
+    { "key": "CON", "nome": "Contagem" },
+    { "key": "TRU", "nome": "Trunfo / Corte" },
+    { "key": "DEC", "nome": "Decisão" },
+    { "key": "CLU", "nome": "Clutch" },
+    { "key": "SOR", "nome": "Sorte" }
+  ],
+  "jogadores": [
+    { "nome": "Lorenzo", "clube": "Legends Bisca Club", "ovr": 93, "LEI": 99, "MEM": 97, "CON": 99, "TRU": 93, "DEC": 97, "CLU": 83, "SOR": 83, "contaUid": null },
+    { "nome": "João", "clube": "Legends Bisca Club", "ovr": 93, "LEI": 94, "MEM": 92, "CON": 90, "TRU": 95, "DEC": 95, "CLU": 99, "SOR": 86, "contaUid": null },
+    { "nome": "Ruivo", "clube": "Reis de Paus", "ovr": 91, "LEI": 88, "MEM": 86, "CON": 84, "TRU": 89, "DEC": 91, "CLU": 97, "SOR": 99, "contaUid": null },
+    { "nome": "Gustavo", "clube": "Reis de Paus", "ovr": 87, "LEI": 86, "MEM": 85, "CON": 84, "TRU": 95, "DEC": 87, "CLU": 86, "SOR": 86, "contaUid": null },
+    { "nome": "Enzo", "clube": "Legends Academy", "ovr": 83, "LEI": 87, "MEM": 89, "CON": 74, "TRU": 81, "DEC": 85, "CLU": 90, "SOR": 75, "contaUid": null },
+    { "nome": "Peruchi", "clube": "Tribo de Aracruz", "ovr": 82, "LEI": 81, "MEM": 80, "CON": 78, "TRU": 88, "DEC": 82, "CLU": 81, "SOR": 84, "contaUid": null },
+    { "nome": "Ian", "clube": "Sem clube", "ovr": 81, "LEI": 89, "MEM": 75, "CON": 87, "TRU": 88, "DEC": 79, "CLU": 74, "SOR": 75, "contaUid": null },
+    { "nome": "Yury", "clube": "Sem clube", "ovr": 79, "LEI": 86, "MEM": 87, "CON": 72, "TRU": 76, "DEC": 80, "CLU": 75, "SOR": 77, "contaUid": null },
+    { "nome": "Ana", "clube": "Divas Labubônicas", "ovr": 74, "LEI": 75, "MEM": 74, "CON": 72, "TRU": 75, "DEC": 74, "CLU": 74, "SOR": 74, "contaUid": null },
+    { "nome": "Tito", "clube": "Tribo de Aracruz", "ovr": 71, "LEI": 68, "MEM": 65, "CON": 64, "TRU": 78, "DEC": 67, "CLU": 69, "SOR": 86, "contaUid": null },
+    { "nome": "Luiza", "clube": "Divas Labubônicas", "ovr": 70, "LEI": 71, "MEM": 70, "CON": 68, "TRU": 71, "DEC": 70, "CLU": 70, "SOR": 70, "contaUid": null },
+    { "nome": "Kaick", "clube": "Sem clube", "ovr": 67, "LEI": 70, "MEM": 69, "CON": 67, "TRU": 71, "DEC": 69, "CLU": 67, "SOR": 56, "contaUid": null }
+  ]
+}
