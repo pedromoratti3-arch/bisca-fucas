@@ -51,6 +51,44 @@ const primary: React.CSSProperties = {
   border: "none",
 };
 const label: React.CSSProperties = { fontSize: 12, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1.5 };
+const iconBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8 };
+
+/** Ícones em SVG (traço branco), no mesmo estilo dos ícones do jogo. */
+function SvgIcon(props: { children: React.ReactNode }) {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      {props.children}
+    </svg>
+  );
+}
+function CameraIcon() {
+  return (
+    <SvgIcon>
+      <path d="M4 8h3l1.6-2.4A1.5 1.5 0 0 1 9.9 5h4.2a1.5 1.5 0 0 1 1.3.6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </SvgIcon>
+  );
+}
+function ImageIcon() {
+  return (
+    <SvgIcon>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.6" />
+      <path d="M21 16l-5-5-8 9" />
+    </SvgIcon>
+  );
+}
 const errStyle: React.CSSProperties = { color: "#ff6b6b", fontSize: 13, textAlign: "center" };
 
 export function Avatar(props: { src?: string; name?: string; size: number }) {
@@ -212,8 +250,9 @@ function CameraModal(props: { onCapture: (dataUrl: string) => void; onClose: () 
         <button type="button" style={btn} onClick={props.onClose}>
           Cancelar
         </button>
-        <button type="button" style={primary} onClick={capture} disabled={!ready}>
-          📸 Tirar foto
+        <button type="button" style={{ ...primary, ...iconBtn }} onClick={capture} disabled={!ready}>
+          <CameraIcon />
+          Tirar foto
         </button>
       </div>
     </div>
@@ -360,11 +399,13 @@ export default function ProfileScreen(props: {
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              <button type="button" style={btn} onClick={() => setCamera(true)}>
-                📷 Tirar foto
+              <button type="button" style={{ ...btn, ...iconBtn }} onClick={() => setCamera(true)}>
+                <CameraIcon />
+                Tirar foto
               </button>
-              <button type="button" style={btn} onClick={() => galleryRef.current && galleryRef.current.click()}>
-                🖼️ Escolher imagem
+              <button type="button" style={{ ...btn, ...iconBtn }} onClick={() => galleryRef.current && galleryRef.current.click()}>
+                <ImageIcon />
+                Escolher imagem
               </button>
               {u.hasCustomAvatar ? (
                 <button type="button" style={btn} onClick={() => void resetPhoto()} disabled={photoBusy}>
