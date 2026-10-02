@@ -3,7 +3,7 @@
  * Carta de baralho (frente e verso) no estilo do baralho equipado (ver src/data/decks.ts).
  *
  * Frente — padrão de baralho profissional:
- *   cantos: valor + naipe pequeno no canto superior esquerdo e inferior direito (de cabeça para baixo);
+ *   cantos: só o valor (na cor do naipe) no canto superior esquerdo e inferior direito (de cabeça para baixo);
  *   centro: depende do estilo do baralho —
  *     "pips": Ás = um naipe grande; 2–7 = naipes contados na disposição clássica; J/Q/K = figura própria;
  *     "index": número grande no centro com o naipe atrás; figuras = letra grande + ícone;
@@ -146,7 +146,6 @@ export function PlayingCard(props: PlayingCardProps) {
   const face = deck.front.face;
   const isFace = c.v === "J" || c.v === "Q" || c.v === "K";
   const idxFs = Math.round(S.w * (S.w < 44 ? 0.4 : 0.3));
-  const idxSuit = Math.round(idxFs * 0.72);
   const pad = Math.max(2, Math.round(S.w * 0.07));
 
   const corner = (flip: boolean) => (
@@ -166,7 +165,6 @@ export function PlayingCard(props: PlayingCardProps) {
       }}
     >
       <span>{c.v}</span>
-      <SuitGlyph suit={c.s} size={idxSuit} tone="current" style={{ marginTop: Math.max(1, Math.round(S.w * 0.02)) }} />
     </span>
   );
 
