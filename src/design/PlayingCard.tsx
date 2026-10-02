@@ -59,6 +59,7 @@ function backPattern(p: DeckDef["back"]["pattern"], hi: string): string {
     case "diamonds": return `repeating-linear-gradient(45deg, ${hi}22 0 1.5px, transparent 1.5px 9px), repeating-linear-gradient(-45deg, ${hi}22 0 1.5px, transparent 1.5px 9px)`;
     case "dots": return `radial-gradient(${hi}33 1.2px, transparent 1.6px)`;
     case "grid": return `repeating-linear-gradient(0deg, ${hi}1c 0 1px, transparent 1px 8px), repeating-linear-gradient(90deg, ${hi}1c 0 1px, transparent 1px 8px)`;
+    case "zero": return `radial-gradient(circle at 50% 50%, transparent 30%, ${hi}22 31%, ${hi}22 33%, transparent 34%, transparent 42%, ${hi}14 43%, ${hi}14 44%, transparent 45%)`;
     default: return "none";
   }
 }
@@ -125,6 +126,8 @@ export function PlayingCard(props: PlayingCardProps) {
         <div style={{ position: "absolute", inset, borderRadius: Math.max(2, S.r - 3), border: `1px solid ${bk.hi}66`, background: backPattern(bk.pattern, bk.hi), backgroundSize: bk.pattern === "dots" ? "7px 7px" : undefined, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {clan ? (
             <ClanEmblem kind={clan.emblem} color={clan.color} color2={clan.color2} fg={clan.fg} logo={clan.logo} size={Math.round(S.w * 0.5)} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,.4))" }} />
+          ) : bk.pattern === "zero" ? (
+            <span className="bf-card__zero" style={{ fontSize: Math.round(S.w * 0.46) }}>0</span>
           ) : bk.pattern === "emblem" ? (
             <SuitGlyph suit="espadas" size={Math.round(S.w * 0.4)} tone="gold" />
           ) : S.w >= 60 ? (
@@ -171,18 +174,19 @@ export function PlayingCard(props: PlayingCardProps) {
   let center: React.ReactNode = null;
   const area: CSSProperties = { position: "absolute", left: "22%", right: "22%", top: "14%", bottom: "14%" };
   if (isFace) {
+    // Figuras: a arte (coroa, tiara, pluma) + o naipe logo abaixo, para saber se é copas/ouros ou paus/espadas.
     const art = (
-      <div style={{ width: face === "minimal" ? "62%" : "56%", aspectRatio: "1", color: ink }}>
-        <FaceArt value={c.v as "J" | "Q" | "K"} accent={deck.front.accent} />
-      </div>
+      <>
+        <div style={{ width: "58%", aspectRatio: "1", color: ink }}>
+          <FaceArt value={c.v as "J" | "Q" | "K"} accent={deck.front.accent} />
+        </div>
+        <SuitGlyph suit={c.s} size={Math.round(S.w * 0.24)} tone="current" style={{ color: ink, marginTop: Math.round(S.w * -0.02) }} />
+      </>
     );
     center = (
       <div style={{ ...area, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: Math.round(S.w * 0.02) }}>
         {face === "pips" && S.w >= 44 ? (
           <div style={{ position: "absolute", inset: 0, borderRadius: Math.round(S.r * 0.6), border: `1px solid ${deck.front.accent || ink}55` }} />
-        ) : null}
-        {face !== "minimal" ? (
-          <span style={{ fontFamily: font, fontWeight: 700, fontSize: Math.round(S.w * (face === "index" ? 0.34 : 0.22)), color: ink, lineHeight: 1 }}>{c.v}</span>
         ) : null}
         {art}
       </div>

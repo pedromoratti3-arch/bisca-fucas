@@ -14,7 +14,7 @@ import { OFFICIAL_CLAN_BY_ID } from "./clans";
 export type DeckRarity = "comum" | "raro" | "epico" | "lendario";
 export type DeckFont = "cinzel" | "outfit" | "inter" | "bebas" | "slab";
 export type DeckFace = "pips" | "index" | "minimal";
-export type DeckPattern = "lines" | "diamonds" | "dots" | "grid" | "none" | "emblem";
+export type DeckPattern = "lines" | "diamonds" | "dots" | "grid" | "none" | "emblem" | "zero";
 
 export type DeckUnlock =
   | { type: "default" }
@@ -207,14 +207,14 @@ export const DECKS: DeckDef[] = [
     effects: { holo: true, glow: "#a855f7" },
   },
   {
-    id: "lenda",
-    name: "Lenda da Bisca",
-    description: "Preto absoluto com ouro e reflexo holográfico. Só para quem venceu 100 partidas.",
+    id: "zero",
+    name: "0",
+    description: "O baralho de quem venceu 100 partidas. Preto absoluto, tinta branca e vermelho neon, reflexo holográfico e um 0 que pulsa no verso.",
     rarity: "lendario",
     unlock: { type: "mission", missionId: "ach_win_100", label: "Vença 100 partidas" },
-    front: { paper: "linear-gradient(160deg,#141414,#000000)", edge: "#f0d078", red: "#ff4d5e", dark: "#f0d078", font: "cinzel", face: "pips", accent: "#f0d078" },
-    back: { grad: "linear-gradient(160deg,#1a1a1a,#000000)", border: "#f0d078", hi: "#fff3c4", pattern: "emblem" },
-    effects: { holo: true, foil: true, glow: "#f0d078" },
+    front: { paper: "radial-gradient(ellipse at 50% 35%, #1c1c24 0%, #050507 70%)", edge: "#f4f1ea", red: "#ff2a4d", dark: "#f7f7fa", font: "bebas", face: "index", accent: "#f0d078" },
+    back: { grad: "radial-gradient(ellipse at 50% 50%, #15151c 0%, #000000 75%)", border: "#f0d078", hi: "#fff3c4", pattern: "zero" },
+    effects: { holo: true, foil: true, glow: "#ffffff" },
   },
 ];
 

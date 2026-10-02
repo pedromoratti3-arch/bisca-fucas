@@ -890,3 +890,8 @@ html[data-bf-hidden] .bf-bd *, html[data-bf-paused] .bf-bd * { animation-play-st
 .bf-live-bg .bf-panel, .bf-live-bg .bf-tile, .bf-live-bg .bf-playerstrip, .bf-live-bg .bf-btn--secondary, .bf-live-bg .bf-topbar { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .bf-live-bg .bf-panel { background: rgba(16, 16, 28, 0.9); }
 .bf-live-bg .bf-tile, .bf-live-bg .bf-playerstrip { background: rgba(16, 16, 28, 0.88); }
+
+/* Baralho "0": o zero pulsa no verso */
+.bf-card__zero { font-family: var(--font-card-bebas), Impact, sans-serif; font-weight: 400; line-height: 1; color: #fff3c4; text-shadow: 0 0 12px rgba(240,208,120,.9), 0 0 28px rgba(255,255,255,.45); animation: bf-zero-pulse 2.4s ease-in-out infinite; letter-spacing: .02em; }
+@keyframes bf-zero-pulse { 0%, 100% { opacity: .85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .bf-card__zero { animation: none; } }

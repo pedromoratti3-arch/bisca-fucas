@@ -62,7 +62,7 @@ export const ACHIEVEMENTS: MissionDef[] = [
   { id: "ach_first_win", kind: "achievement", title: "Primeira vitória", description: "Vença sua primeira partida", icon: "trophy", metric: "won", target: 1, xp: 100 },
   { id: "ach_win_10", kind: "achievement", title: "Veterano I", description: "Vença 10 partidas", icon: "medal", metric: "won", target: 10, xp: 250, next: "ach_win_50" },
   { id: "ach_win_50", kind: "achievement", title: "Veterano II", description: "Vença 50 partidas", icon: "medal", metric: "won", target: 50, xp: 600, next: "ach_win_100", hiddenUntil: "ach_win_10" },
-  { id: "ach_win_100", kind: "achievement", title: "Lenda da Bisca", description: "Vença 100 partidas", icon: "crown", metric: "won", target: 100, xp: 1500, reward: { deckId: "lenda" }, hiddenUntil: "ach_win_50" },
+  { id: "ach_win_100", kind: "achievement", title: "Zero", description: "Vença 100 partidas e desbloqueie o baralho 0", icon: "crown", metric: "won", target: 100, xp: 1500, reward: { deckId: "zero" }, hiddenUntil: "ach_win_50" },
   { id: "ach_play_25", kind: "achievement", title: "Frequentador I", description: "Jogue 25 partidas", icon: "cards", metric: "played", target: 25, xp: 200, next: "ach_play_100" },
   { id: "ach_play_100", kind: "achievement", title: "Frequentador II", description: "Jogue 100 partidas", icon: "cards", metric: "played", target: 100, xp: 500, next: "ach_play_500", hiddenUntil: "ach_play_25" },
   { id: "ach_play_500", kind: "achievement", title: "Morador da mesa", description: "Jogue 500 partidas", icon: "cards", metric: "played", target: 500, xp: 1200, hiddenUntil: "ach_play_100" },

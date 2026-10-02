@@ -3992,6 +3992,8 @@ function GameScreen(props){
           names: NAMES,
           setWins: g.setWins || [0, 0],
           events: resultEvents,
+          summary: g.summary || [],
+          xpAfter: progressCtx.progress ? progressCtx.progress.xp : undefined,
           level: progressCtx.progress ? progressCtx.progress.level : 1,
           deckId: CURRENT_DECK_ID,
           isOnline: isOnline,

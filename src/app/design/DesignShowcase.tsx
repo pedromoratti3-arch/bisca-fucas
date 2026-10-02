@@ -376,6 +376,8 @@ function Showcase() {
               names={["Você", "IA 1", "Parceiro", "IA 2"]}
               setWins={[1, 0]}
               level={resultDemo.level}
+              xpAfter={resultDemo.won ? 420 : 300}
+              summary={["Dupla A venceu na mesa (74 a 46 pts).", "Soma: +1 pt (corte normal).", "Dupla A fechou a partida com 4 pontos!"]}
               deckId="classico"
               isOnline={false}
               isRoomHost
