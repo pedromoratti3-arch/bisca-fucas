@@ -1,0 +1,18 @@
+/* ── Chat da mesa (neutro, combina com todas as salas) ─────────────────── */
+.bf-chat__fab { -webkit-tap-highlight-color: transparent; position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 150; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--bf-text); font-size: 16px; cursor: pointer; background: linear-gradient(180deg, #2a2a40, #16162a); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 4px 0 #0a0a14, 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12); transition: transform 220ms var(--bf-ease-spring), box-shadow 220ms var(--bf-ease-spring); }
+.bf-chat__fab:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0a14, 0 4px 10px rgba(0, 0, 0, 0.45); transition-duration: 70ms; }
+.bf-chat__fab.is-open { background: linear-gradient(180deg, #a98bff, #7a46ea); border-color: rgba(216, 200, 255, 0.5); box-shadow: 0 4px 0 #4a2496, 0 10px 24px rgba(124, 58, 237, 0.4); }
+.bf-chat__fab .bf-badge-count { top: -4px; right: -4px; }
+.bf-chat { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(68px, calc(56px + env(safe-area-inset-bottom))); z-index: 150; width: min(320px, calc(100vw - 24px)); max-height: min(420px, calc(100dvh - 120px)); display: flex; flex-direction: column; overflow: hidden; border-radius: var(--bf-r-xl); background: rgba(14, 14, 26, 0.96); border: 1px solid var(--bf-glass-border-strong); box-shadow: var(--bf-shadow-3), var(--bf-shadow-inset-top); animation: bf-scale-in var(--bf-dur-md) var(--bf-ease-out) both; transform-origin: 100% 100%; }
+.bf-chat__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bf-glass-border); }
+.bf-chat__title { font-family: var(--bf-font-display); font-weight: 800; font-size: 14px; }
+.bf-chat__msgs { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
+.bf-chat__empty { font-size: 12px; color: var(--bf-text-4); text-align: center; margin-top: 22px; }
+.bf-chat__row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.bf-chat__row--me { align-items: flex-end; }
+.bf-chat__who { font-size: 10px; color: var(--bf-text-3); padding: 0 4px; }
+.bf-chat__bubble { max-width: 86%; padding: 7px 11px; border-radius: 14px 14px 14px 4px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--bf-glass-border); font-size: 13px; line-height: 1.35; color: var(--bf-text); word-break: break-word; }
+.bf-chat__row--me .bf-chat__bubble { border-radius: 14px 14px 4px 14px; background: var(--bf-accent-soft); border-color: rgba(139, 92, 246, 0.4); }
+.bf-chat__input { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--bf-glass-border); }
+.bf-chat__input .bf-btn { margin-bottom: 0; }
+@media (min-width: 640px) { .bf-chat { right: 16px; bottom: 72px; } .bf-chat__fab { right: 16px; bottom: 16px; } }

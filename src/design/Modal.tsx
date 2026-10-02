@@ -12,6 +12,21 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "./Button";
 import { DUR, prefersReducedMotion } from "./motion";
 
+/** Quantos modais estão abertos: só o último a fechar libera a rolagem e o fundo animado. */
+let openCount = 0;
+function lockPage() {
+  openCount++;
+  document.documentElement.classList.add("bf-lock");
+  document.documentElement.setAttribute("data-bf-paused", "1");
+}
+function unlockPage() {
+  openCount = Math.max(0, openCount - 1);
+  if (openCount === 0) {
+    document.documentElement.classList.remove("bf-lock");
+    document.documentElement.removeAttribute("data-bf-paused");
+  }
+}
+
 export type ModalProps = {
   open: boolean;
   onClose: () => void;
@@ -31,6 +46,10 @@ export function Modal(props: ModalProps) {
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Montar ao abrir; ao fechar, tocar a animação de saída e só então desmontar.
@@ -57,21 +76,17 @@ export function Modal(props: ModalProps) {
   useEffect(() => {
     if (!mounted) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !locked) onClose();
+      if (e.key === "Escape" && !locked) onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    // pausa o fundo animado enquanto o modal cobre a tela
-    document.documentElement.setAttribute("data-bf-paused", "1");
+    lockPage();
     // foco inicial no painel (acessibilidade)
     panelRef.current?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      document.documentElement.removeAttribute("data-bf-paused");
+      unlockPage();
     };
-  }, [mounted, locked, onClose]);
+  }, [mounted, locked]);
 
   if (!mounted) return null;
 

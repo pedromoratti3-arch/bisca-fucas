@@ -2385,36 +2385,32 @@ function ChatPanel(P){
   }
 
   var unreadBadgeTxt = unread > 50 ? '50+' : String(unread);
-  var unreadBadgeWide = unread > 9 || unread > 50;
-  // Chat button
-  var btn = React.createElement('button',{onClick:toggleOpen,style:{position:'fixed',bottom:mob?'max(12px, env(safe-area-inset-bottom))':12,right:mob?'max(12px, env(safe-area-inset-right))':12,width:44,height:44,borderRadius:'50%',background:open?'#C41230':'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',zIndex:150,boxShadow:'0 4px 12px rgba(0,0,0,.4)'}},
+  // Botão flutuante (vidro escuro, combina com qualquer sala)
+  var btn = React.createElement('button',{type:'button',onClick:toggleOpen,className:'bf-chat__fab' + (open ? ' is-open' : ''),'aria-label':open?'Fechar chat':'Abrir chat da mesa'},
     open ? '\u2715' : ChatFabIcon(),
-    unread>0 && !open ? React.createElement('div',{style:{position:'absolute',top:-4,right:-4,background:'#C41230',color:'#fff',borderRadius:10,minWidth:18,height:18,padding:unreadBadgeWide?'0 5px':'0',fontSize:unread>50?9:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',boxSizing:'border-box'}},unreadBadgeTxt) : null
+    unread>0 && !open ? React.createElement('span',{className:'bf-badge-count'},unreadBadgeTxt) : null
   );
 
-  // Chat panel
-  var panel = open ? React.createElement('div',{style:{position:'fixed',bottom:mob?'max(64px, calc(52px + env(safe-area-inset-bottom)))':64,right:mob?'max(12px, env(safe-area-inset-right))':12,width:mob?'min(280, calc(100vw - 24px))':280,maxHeight:mob?320:360,background:'#1a0a0a',border:'1px solid rgba(196,18,48,.3)',borderRadius:14,display:'flex',flexDirection:'column',zIndex:150,boxShadow:'0 8px 30px rgba(0,0,0,.6)',overflow:'hidden',touchAction:'manipulation',WebkitOverflowScrolling:'touch'}},
-    // Header
-    React.createElement('div',{style:{padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.1)',fontSize:13,fontWeight:700,color:'#d4a843',display:'flex',justifyContent:'space-between',alignItems:'center'}},
-      'Chat da mesa',
-      React.createElement('span',{style:{fontSize:10,opacity:0.4,fontWeight:400}},chatMsgCountLabel(msgs.length))
+  // Painel do chat
+  var panel = open ? React.createElement('div',{className:'bf-chat',role:'dialog','aria-label':'Chat da mesa'},
+    React.createElement('div',{className:'bf-chat__head'},
+      React.createElement('span',{className:'bf-chat__title'},'Chat da mesa'),
+      React.createElement('span',{className:'bf-caption'},chatMsgCountLabel(msgs.length))
     ),
-    // Messages
-    React.createElement('div',{style:{flex:1,overflowY:'auto',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6,maxHeight:240,minHeight:100}},
-      msgs.length===0 ? React.createElement('div',{style:{fontSize:11,opacity:0.3,textAlign:'center',marginTop:20}},'Nenhuma mensagem ainda...') : null,
+    React.createElement('div',{className:'bf-chat__msgs'},
+      msgs.length===0 ? React.createElement('div',{className:'bf-chat__empty'},'Nenhuma mensagem ainda. Diga um oi!') : null,
       msgs.map(function(m,i){
         var isMe = m.name===(P.myName||'');
-        return React.createElement('div',{key:i,style:{display:'flex',flexDirection:'column',alignItems:isMe?'flex-end':'flex-start'}},
-          React.createElement('div',{style:{fontSize:9,opacity:0.4,marginBottom:1}},isMe?'Você':m.name),
-          React.createElement('div',{style:{background:isMe?'rgba(196,18,48,.25)':'rgba(255,255,255,.08)',border:'1px solid '+(isMe?'rgba(196,18,48,.3)':'rgba(255,255,255,.1)'),borderRadius:10,padding:'6px 10px',fontSize:12,maxWidth:'85%',wordBreak:'break-word',color:'#fff'}},m.msg)
+        return React.createElement('div',{key:i,className:'bf-chat__row' + (isMe ? ' bf-chat__row--me' : '')},
+          React.createElement('div',{className:'bf-chat__who'},isMe?'Você':m.name),
+          React.createElement('div',{className:'bf-chat__bubble'},m.msg)
         );
       }),
       React.createElement('div',{ref:bottomRef})
     ),
-    // Input
-    React.createElement('div',{style:{padding:'8px 10px',borderTop:'1px solid rgba(255,255,255,.1)',display:'flex',gap:6}},
-      React.createElement('input',{value:msg,onChange:function(e){setMsg(e.target.value);},onKeyDown:function(e){if(e.key==='Enter')send();},placeholder:'Digite...',autoCorrect:'off',autoCapitalize:'sentences',style:{flex:1,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.12)',borderRadius:8,padding:mob?'10px 12px':'7px 10px',color:'#fff',fontSize:inpFs,lineHeight:1.25,outline:'none',minHeight:mob?44:undefined}}),
-      React.createElement('button',{onClick:send,style:{background:'#C41230',color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,fontWeight:700}},'→')
+    React.createElement('div',{className:'bf-chat__input'},
+      React.createElement('input',{className:'bf-input',value:msg,onChange:function(e){setMsg(e.target.value);},onKeyDown:function(e){if(e.key==='Enter')send();},placeholder:'Digite uma mensagem…',autoCorrect:'off',autoCapitalize:'sentences',maxLength:200,style:{minHeight:40,fontSize:inpFs>=16?16:14}}),
+      React.createElement(DsButton,{variant:'accent',size:'sm',icon:'chevron-right',iconOnly:true,'aria-label':'Enviar',onClick:send,disabled:!msg.trim()})
     )
   ) : null;
 
