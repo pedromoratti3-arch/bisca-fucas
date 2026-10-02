@@ -89,7 +89,7 @@ export function RoomPickScreen(props: { onBack: () => void; onSelect: (id: strin
               style={{
                 animationDelay: `${i * 60}ms`,
                 background: `${r.texture}, ${r.bg}`,
-                backgroundSize: r.id === "hub" ? "9px 9px, auto" : undefined,
+                backgroundSize: r.id === "hub" ? "9px 9px, auto" : "auto, auto",
                 borderColor: r.color + "66",
                 ["--room" as string]: r.color,
                 ["--room-glow" as string]: r.glow,
