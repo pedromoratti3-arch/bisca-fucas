@@ -169,7 +169,9 @@ function advanceMissions(list: MissionProgress[], deltas: Record<string, number>
     ev.missionsProgressed.push(mp.id);
     const done = next >= def.target;
     if (done) ev.missionsCompleted.push(mp.id);
-    return { ...mp, progress: Math.min(def.target, next), done, completedAt: done ? now : mp.completedAt };
+    const out: MissionProgress = { ...mp, progress: Math.min(def.target, next), done };
+    if (done) out.completedAt = mp.completedAt || now;
+    return out;
   });
 }
 
@@ -187,7 +189,9 @@ function advanceAchievements(state: ProgressState, deltas: Record<string, number
       ev.missionsProgressed.push(m.id);
       const done = val >= m.target;
       if (done) ev.missionsCompleted.push(m.id);
-      out[m.id] = { ...cur, progress: val, done, completedAt: done ? now : cur.completedAt };
+      const np: MissionProgress = { ...cur, progress: val, done };
+      if (done) np.completedAt = cur.completedAt || now;
+      out[m.id] = np;
     } else out[m.id] = cur;
   }
   return out;

@@ -20,8 +20,13 @@ export async function readProgress(uid: string, now = Date.now()): Promise<Progr
   return normalizeProgress(snap.exists() ? snap.val() : null, now);
 }
 
+/** O Firebase rejeita `undefined`: remove antes de gravar. */
+function clean<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v)) as T;
+}
+
 export async function writeProgress(uid: string, state: ProgressState): Promise<void> {
-  await progressRef(uid).set(state);
+  await progressRef(uid).set(clean(state));
 }
 
 function clampInt(v: unknown, lo: number, hi: number): number {
@@ -73,7 +78,7 @@ export async function applyMatchForUser(uid: string, report: MatchReport): Promi
     }
     const out = applyMatch(s, report);
     events = out.events;
-    return out.state;
+    return clean(out.state);
   });
   const state = normalizeProgress(res.snapshot.val(), report.at);
   const ev = events || emptyEvents(state.level);
@@ -88,7 +93,7 @@ export async function claimForUser(uid: string, missionId: string, now = Date.no
     const out = claimMission(normalizeProgress(cur, now), missionId, now);
     events = out.events;
     ok = out.ok;
-    return out.state;
+    return clean(out.state);
   });
   const state = normalizeProgress(res.snapshot.val(), now);
   const ev = events || emptyEvents(state.level);
@@ -97,12 +102,12 @@ export async function claimForUser(uid: string, missionId: string, now = Date.no
 }
 
 export async function equipForUser(uid: string, deckId: string, now = Date.now()): Promise<ProgressState> {
-  const res = await progressRef(uid).transaction((cur) => equipDeck(normalizeProgress(cur, now), deckId));
+  const res = await progressRef(uid).transaction((cur) => clean(equipDeck(normalizeProgress(cur, now), deckId)));
   return normalizeProgress(res.snapshot.val(), now);
 }
 
 export async function markSeenForUser(uid: string, ids: string[], now = Date.now()): Promise<ProgressState> {
-  const res = await progressRef(uid).transaction((cur) => markDecksSeen(normalizeProgress(cur, now), ids));
+  const res = await progressRef(uid).transaction((cur) => clean(markDecksSeen(normalizeProgress(cur, now), ids)));
   return normalizeProgress(res.snapshot.val(), now);
 }
 
@@ -111,7 +116,7 @@ export async function setClanForUser(uid: string, clanId: string | null, now = D
   const res = await progressRef(uid).transaction((cur) => {
     const out = setClan(normalizeProgress(cur, now), clanId, now);
     events = out.events;
-    return out.state;
+    return clean(out.state);
   });
   const state = normalizeProgress(res.snapshot.val(), now);
   return { state, events: events || emptyEvents(state.level) };
@@ -137,7 +142,7 @@ export async function importGuestProgress(uid: string, raw: unknown, now = Date.
       updatedAt: now,
     };
     imported = true;
-    return normalizeProgress(capped, now);
+    return clean(normalizeProgress(capped, now));
   });
   return { state: normalizeProgress(res.snapshot.val(), now), imported };
 }
