@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bisca Fucas
 
-## Getting Started
+Jogo de bisca online (4 jogadores, duplas) feito para a galera da Fucape. Funciona no celular e no notebook.
 
-First, run the development server:
+## Rodar no seu computador
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra `http://localhost:3000`. Para o login com Google e o modo online funcionarem, copie `.env.example` para `.env.local` e preencha as chaves (o arquivo explica cada uma).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Páginas úteis durante o desenvolvimento:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/design` — guia visual do design system (cores, botões, cartas, baralhos, animações, telas de resultado).
+- `/design/phone?p=/` — qualquer tela dentro de uma moldura de celular.
 
-## Learn More
+## Onde fica cada coisa
 
-To learn more about Next.js, take a look at the following resources:
+| Pasta | O que tem |
+|---|---|
+| `src/app/page.tsx` | A mesa de jogo e o fluxo de salas online (lógica da bisca e do multiplayer). |
+| `src/lib/bisca/` | Regras puras, motor de simulação e a IA dos bots. |
+| `src/screens/` | Telas: início, missões, coleção, clã, ranking, sala de espera, resultado, abertura. |
+| `src/design/` | Design system: tokens, componentes, cartas, fundo animado, carregamento. |
+| `src/data/` | Dados editáveis: baralhos, missões, curva de XP e faixas, clãs oficiais, Tabela de Atributos. |
+| `src/lib/progress/` | Motor da progressão (XP, missões, desbloqueios) e o hook do navegador. |
+| `src/lib/server/` | Login, perfil, progressão e clãs no servidor (Firebase Admin). |
+| `src/app/api/` | Rotas do servidor. |
+| `docs/redesign/` | Decisões e explicações do redesign, em linguagem simples. |
+| `scripts/sim/` | Simuladores para calibrar a IA (`npm run bot:testes`, `npm run bot:torneio`). |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Dados que você pode editar sem programar
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Tabela de Atributos**: `src/data/tabela-atributos.json`.
+- **Baralhos**: `src/data/decks.ts` (copie um bloco e troque nome, cores e requisito).
+- **Missões**: `src/data/missions.ts`.
+- **Curva de XP e faixas**: `src/data/progression.ts`.
+- **Logos dos clubes**: coloque em `public/assets/clubes/` com os nomes listados em `src/data/clans.ts`.
 
-## Deploy on Vercel
+## Publicar
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O projeto roda na Vercel com Node 24. As variáveis de ambiente são as mesmas do `.env.example`.
