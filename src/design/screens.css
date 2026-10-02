@@ -36,7 +36,19 @@
 .bf-home__top { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--bf-safe-top)) var(--bf-gutter) 0; max-width: var(--bf-max-phone); width: 100%; margin: 0 auto; box-sizing: border-box; }
 .bf-home__body { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 16px var(--bf-gutter) calc(20px + var(--bf-safe-bottom)); max-width: var(--bf-max-phone); width: 100%; margin: 0 auto; box-sizing: border-box; }
 .bf-home__logo { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.bf-home__sub { font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--bf-text-4); }
+.bf-home__sub { font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--bf-text-4); margin-top: 2px; }
+/* celular: título no alto, cartão no meio, JOGAR embaixo, com respiro entre eles */
+.bf-home__center { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.bf-home--nav .bf-home__body { justify-content: space-evenly; gap: 16px; padding-top: 8px; }
+.bf-home--nav .bf-home__center { flex: 1; justify-content: space-evenly; min-height: 0; }
+.bf-home--nav .bf-home__logo { padding-top: 6px; }
+.bf-home__deckcard { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px; text-align: left; color: var(--bf-text); cursor: pointer; }
+.bf-home__deckcards { display: flex; gap: 4px; flex-shrink: 0; }
+.bf-home__deckcards > :nth-child(1) { transform: rotate(-6deg) translateY(2px); }
+.bf-home__deckcards > :nth-child(3) { transform: rotate(6deg) translateY(2px); }
+.bf-home__deckinfo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.bf-home__play { gap: 12px; }
+@media (min-width: 960px) { .bf-home__deckcard { display: none; } .bf-home--nav .bf-home__body { justify-content: center; } .bf-home--nav .bf-home__center { flex: initial; } }
 .bf-home__play { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .bf-home__tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
 .bf-tile {

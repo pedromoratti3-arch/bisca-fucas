@@ -7,7 +7,7 @@
  * No notebook vira três colunas (perfil · jogar · atalhos).
  */
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, Chip, CountBadge, Divider, Icon, Input, LevelBadge, Modal, ProgressBar, SuitBackdrop, useToast, type IconName } from "@/design";
+import { Button, Chip, CountBadge, Divider, Icon, Input, LevelBadge, Modal, PlayingCard, ProgressBar, SuitBackdrop, useToast, type IconName } from "@/design";
 import { GoogleSignInButton, type AuthUser } from "@/lib/googleAuth";
 import { NicknameSetup } from "@/app/ProfileScreen";
 import { useProgress } from "@/lib/progress/useProgress";
@@ -249,6 +249,25 @@ export function HomeHub(P: HomeHubProps) {
 
         <div className="bf-home__center">
           <Logo />
+          {/* cartão do celular: baralho em uso + números (no notebook essa informação fica na coluna da esquerda) */}
+          {P.hideTiles ? (
+            <button type="button" className="bf-panel bf-panel--interactive bf-home__deckcard" onClick={() => P.onOpen("profile")} aria-label="Abrir perfil">
+              <span className="bf-home__deckcards">
+                <PlayingCard back size="sm" deck={prog.equippedDeck} />
+                <PlayingCard card={{ s: "copas", v: "A" }} size="sm" deck={prog.equippedDeck} />
+                <PlayingCard card={{ s: "espadas", v: "K" }} size="sm" deck={prog.equippedDeck} />
+              </span>
+              <span className="bf-home__deckinfo">
+                <span className="bf-label">Baralho em uso</span>
+                <span className="bf-h3" style={{ marginTop: 2 }}>{prog.equippedDeck.name}</span>
+                <span className="bf-row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  <Chip size="sm" icon="cards">{p ? p.matches : 0} partidas</Chip>
+                  <Chip size="sm" tone="gold" icon="trophy">{p ? p.wins : 0} vitórias</Chip>
+                  <Chip size="sm" tone="accent">{tier.name}</Chip>
+                </span>
+              </span>
+            </button>
+          ) : null}
           <div className="bf-home__play">
             {!fixedName ? (
               <Input
@@ -268,6 +287,9 @@ export function HomeHub(P: HomeHubProps) {
               Jogar
             </Button>
             {err ? <div className="bf-field__error" role="alert" style={{ textAlign: "center" }}>{err}</div> : null}
+            {P.hideTiles ? (
+              <Button variant="secondary" block icon="share" onClick={() => setInviteOpen(true)}>Convidar amigos</Button>
+            ) : null}
             {!user ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }} className="bf-home__guestlogin">
                 <GoogleSignInButton onCredential={P.onGoogleCredential} width={300} />
@@ -276,11 +298,6 @@ export function HomeHub(P: HomeHubProps) {
           </div>
         </div>
 
-        {P.hideTiles ? (
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <Button variant="ghost" icon="share" onClick={() => setInviteOpen(true)}>Convidar amigos</Button>
-          </div>
-        ) : null}
         {P.hideTiles ? null : <div className="bf-home__tiles">
           {tiles.map((t) => (
             <button key={t.id} type="button" className={`bf-tile ${t.tone}`} onClick={() => (t.id === "invite" ? setInviteOpen(true) : P.onOpen(t.id))}>
