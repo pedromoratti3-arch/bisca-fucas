@@ -3,7 +3,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signInWithCustomToken, signOut } from "firebase/auth";
 import { fbAuth } from "@/lib/firebase";
 
-export type AuthUser = { uid: string; name: string; email: string; picture: string };
+/** Perfil do jogador logado (ver src/lib/server/profile.ts). name/picture já são o apelido e a foto efetivos. */
+export type AuthUser = {
+  uid: string;
+  email: string;
+  googleName: string;
+  googlePicture: string;
+  nickname: string | null;
+  name: string;
+  picture: string;
+  hasCustomAvatar: boolean;
+  nextNicknameChangeAt: number;
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -124,8 +135,13 @@ export function useGoogleAuth() {
     setBusy(false);
   }, []);
 
+  /** Atualiza o perfil local com a resposta das rotas /api/profile/*. */
+  const applyUser = useCallback((u: AuthUser | null) => {
+    if (u) setUser(u);
+  }, []);
+
   const loggedUid = user && fbUid === user.uid ? user.uid : null;
-  return { user, loggedUid, ready, busy, error, loginWithCredential, logout };
+  return { user, loggedUid, ready, busy, error, loginWithCredential, logout, applyUser };
 }
 
 /** Botão oficial "Entrar com Google" (Google Identity Services). */

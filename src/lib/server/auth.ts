@@ -65,11 +65,16 @@ function adminApp(): App {
   });
 }
 
-/** Cria ou atualiza o jogador em bisca/users/{uid}. Só o servidor escreve aqui (as regras bloqueiam o navegador). */
+/** Ref de bisca/users/{uid}. Só o servidor escreve aqui (as regras bloqueiam o navegador). */
+export function userRef(uid: string) {
+  return getDatabase(adminApp()).ref("bisca/users/" + uid);
+}
+
+/** Cria ou atualiza os dados vindos do Google; preserva apelido e foto escolhidos no perfil. */
 export async function upsertUser(u: SessionUser): Promise<void> {
-  const userRef = getDatabase(adminApp()).ref("bisca/users/" + u.uid);
   const now = Date.now();
-  await userRef.transaction((cur) => ({
+  await userRef(u.uid).transaction((cur) => ({
+    ...(cur || {}),
     name: u.name,
     email: u.email,
     picture: u.picture,

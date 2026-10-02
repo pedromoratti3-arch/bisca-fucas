@@ -40,6 +40,9 @@ export default function PrivacyPage() {
         <p>
           <strong>Se você entra com Google:</strong> recebemos do Google o seu identificador de conta, nome, endereço
           de e-mail e foto de perfil. Não recebemos sua senha nem acesso a nenhum outro dado da sua conta Google.
+          Também guardamos o nome no jogo que você escolher e, se você enviar ou tirar uma, a sua foto de perfil
+          (reduzida para 256×256 pixels). O nome e a foto ficam visíveis para os outros jogadores das salas em que
+          você entrar; o e-mail não é mostrado a ninguém.
         </p>
         <p>
           <strong>Se você joga como convidado:</strong> guardamos apenas o apelido que você digitar, junto com a sala

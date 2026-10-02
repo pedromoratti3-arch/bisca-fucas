@@ -9,6 +9,7 @@ import {
   verifyGoogleIdToken,
   type SessionUser,
 } from "@/lib/server/auth";
+import { readUserRecord, toProfile } from "@/lib/server/profile";
 
 /** Recebe o ID token do botão "Entrar com Google", valida-o no servidor e abre a sessão. */
 export async function POST(request: Request) {
@@ -40,7 +41,8 @@ export async function POST(request: Request) {
     const firebaseToken = await createFirebaseToken(user.uid);
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, await signSession(user), sessionCookieOptions);
-    return Response.json({ user, firebaseToken });
+    const rec = await readUserRecord(user.uid);
+    return Response.json({ user: toProfile(user.uid, rec || user), firebaseToken });
   } catch (e) {
     console.error("[auth/google]", e);
     return Response.json({ error: "Erro no servidor ao entrar" }, { status: 500 });

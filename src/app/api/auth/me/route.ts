@@ -1,16 +1,17 @@
-import { cookies } from "next/headers";
-import { SESSION_COOKIE, createFirebaseToken, readSession } from "@/lib/server/auth";
+import { createFirebaseToken } from "@/lib/server/auth";
+import { readUserRecord, sessionUid, toProfile } from "@/lib/server/profile";
 
-/** Diz quem está logado (pelo cookie) e devolve um passe novo para o Firebase. */
+/** Diz quem está logado (pelo cookie), com o perfil atual, e devolve um passe novo para o Firebase. */
 export async function GET() {
-  const cookieStore = await cookies();
-  const user = await readSession(cookieStore.get(SESSION_COOKIE)?.value);
-  if (!user) return Response.json({ user: null });
+  const uid = await sessionUid();
+  if (!uid) return Response.json({ user: null });
   try {
-    const firebaseToken = await createFirebaseToken(user.uid);
-    return Response.json({ user, firebaseToken });
+    const rec = await readUserRecord(uid);
+    if (!rec) return Response.json({ user: null });
+    const firebaseToken = await createFirebaseToken(uid);
+    return Response.json({ user: toProfile(uid, rec), firebaseToken });
   } catch (e) {
     console.error("[auth/me]", e);
-    return Response.json({ user, firebaseToken: null });
+    return Response.json({ error: "Erro no servidor" }, { status: 500 });
   }
 }

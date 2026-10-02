@@ -3978,6 +3978,8 @@ function GameScreen(props){
   var isRoomHost = !!props.isRoomHost;
   var seatHandoffProp = props.seatHandoff;
   var reconnectingBySeat = props.reconnectingBySeat || {};
+  /** Foto dos jogadores logados por assento (0..3); convidados e IA não têm. */
+  var avatarBySeat = props.avatarBySeat || {};
   var reconnectNow = typeof props.reconnectNow === "number" ? props.reconnectNow : Date.now();
   var seatHandoffUiSt = useState(
     /** @type {null | { seat: number; phase: string; prevName: string; botName: string }} */ (null)
@@ -4848,6 +4850,17 @@ function GameScreen(props){
     );
   };
 
+  /** Nome com a foto (se houver) — compacto para caber no celular. */
+  function rSeatNameWithAvatar(absSeat) {
+    var src = avatarBySeat[absSeat];
+    var nameEl = React.createElement('span', { style: { lineHeight: 1, display: 'block', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, NAMES[absSeat]);
+    if (!src) return nameEl;
+    return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: mob ? 4 : 6, minWidth: 0, maxWidth: '100%' } },
+      React.createElement(Avatar, { src: src, name: NAMES[absSeat], size: mob ? 16 : 20 }),
+      nameEl
+    );
+  }
+
   /** Nome no lugar do jogador: × + saída do nome → spinner → volta ao nome vindo do estado (IA). */
   function rSeatHandoffNameRow(absSeat, flexStyle, curPForSeat) {
     var ho = seatHandoffUI && seatHandoffUI.seat === absSeat ? seatHandoffUI : null;
@@ -4886,7 +4899,7 @@ function GameScreen(props){
       return React.createElement(
         'div',
         { style: flexStyle },
-        React.createElement('span', { style: { lineHeight: 1, display: 'block' } }, NAMES[absSeat]),
+        rSeatNameWithAvatar(absSeat),
         turn
       );
     }
@@ -4979,7 +4992,7 @@ function GameScreen(props){
     return React.createElement(
       'div',
       { style: flexStyle },
-      React.createElement('span', { style: { lineHeight: 1, display: 'block' } }, NAMES[absSeat]),
+      rSeatNameWithAvatar(absSeat),
       turn
     );
   }
@@ -6479,14 +6492,19 @@ export default function App(){
     var seatClamped = resolveOnlineMySeat(room, myId, myName, og.playerNames);
     var botSeatsMap = {};
     var reconnectingBySeat = {};
+    var avatarBySeatOnline = {};
     room.players.forEach(function(p){
       if(p.isBot && typeof p.seat==='number' && p.seat>=0) botSeatsMap[p.seat]=true;
+      if(!p.isBot && String(p.id).indexOf('g_')===0 && typeof p.seat==='number' && p.seat>=0 && p.seat<=3){
+        /* A minha foto vem do perfil (já atualizada); a dos outros, da rota pública. */
+        avatarBySeatOnline[p.seat] = (p.id===myId && auth.user && auth.user.picture) ? auth.user.picture : '/api/avatar/'+p.id;
+      }
       if (!p.isBot && reconnectingByPlayer[p.id] && typeof p.seat === "number" && p.seat >= 0 && p.seat <= 3) {
         reconnectingBySeat[p.seat] = reconnectingByPlayer[p.id];
       }
     });
     return React.createElement('div',{style:{position:'relative',boxSizing:'border-box',minHeight:'100vh'}},
-      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{g:og,sg:setOG,isSolo:false,isOnline:true,mySeat:seatClamped,myPid:myId,roomCode:roomCode,roomHostId:room.hostId||'',isRoomHost:room.hostId===myId,botSeats:botSeatsMap,reconnectingBySeat:reconnectingBySeat,avatarBySeat:avatarBySeatOnline,reconnectNow:reconnectNow,partnerCount:oPart,setPT:setOPT,shuffling:oShuf,setSh:setOSh,cutAnim:oCut,setCa:setOCa,hovHalf:oHov,setHovHalf:setOHov,onMenu:goHome,theme:theme,serverConnected:rtdbConnected,seatHandoff:room.lastSeatHandoff,cardInputMode:cardInputMode}),
       React.createElement(ChatPanel,{roomCode:roomCode,myName:myName}),
       exitBtn, exitModal,
       onlineLeaveToastEl
@@ -6495,7 +6513,7 @@ export default function App(){
 
   if(screen==='solo' && g){
     return React.createElement('div',{style:{position:'relative'}},
-      React.createElement(GameScreen,{g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
+      React.createElement(GameScreen,{g:g,sg:sg,isSolo:true,isOnline:false,mySeat:0,myPid:'solo',avatarBySeat:(auth.user && auth.user.picture) ? {0:auth.user.picture} : null,roomCode:'',partnerCount:partnerCount,setPT:setPT,shuffling:shuffling,setSh:setSh,cutAnim:cutAnim,setCa:setCa,hovHalf:hovHalf,setHovHalf:setHovHalf,onMenu:goHome,theme:theme,cardInputMode:cardInputMode}),
       exitBtn, exitModal
     );
   }
