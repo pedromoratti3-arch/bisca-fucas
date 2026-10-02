@@ -96,6 +96,21 @@ var SCENARIOS = [
       trick: [[0, '3e']], deckLeft: 12, trickN: 4, tPts: [25, 25] },
     ok: function(c){ return c.id === 'A_espadas'; },
   },
+  {
+    name: 'Início: adv. saiu de 3♠; o meu parceiro (último) tem K de corte → arriscar o encarte com o Ás♠',
+    sp: { trump: 'c', me: 3, hand: ['Ae', '4p', '5o'], mate: ['Kc', '2o', '6p'], trick: [[0, '3e']], deckLeft: 28, trickN: 0, tPts: [0, 0] },
+    ok: function(c){ return c.id === 'A_espadas'; },
+  },
+  {
+    name: 'Início: adv. saiu de 3♠; o meu parceiro (último) tem K de corte → arriscar o encarte com o 7♠',
+    sp: { trump: 'c', me: 3, hand: ['7e', '4p', '5o'], mate: ['Kc', '2o', '6p'], trick: [[0, '3e']], deckLeft: 28, trickN: 0, tPts: [0, 0] },
+    ok: function(c){ return c.id === '7_espadas'; },
+  },
+  {
+    name: 'Início: adv. saiu de 3 de corte (♥); NÃO gastar o 7 de corte sem bisca na mesa',
+    sp: { trump: 'c', me: 3, hand: ['7c', '4p', '5o'], mate: ['Kc', '2o', '6p'], trick: [[0, '3c']], deckLeft: 28, trickN: 0, tPts: [0, 0] },
+    ok: function(c){ return c.id !== '7_copas'; },
+  },
 ];
 
 var pass = 0;

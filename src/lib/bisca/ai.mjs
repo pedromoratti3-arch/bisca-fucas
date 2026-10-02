@@ -17,7 +17,7 @@
  *    mão muda os pesos: perto do capote valem pontinhos seguros; mão ganha (61+) não arrisca.
  *
  * 3. FREIOS DE PROFISSIONAL (proRulePenalty, peso RULE_W): Ás/7 de corte em vaza pobre, sair de bisca
- *    desprotegida, encarte com adversário que provavelmente corta.
+ *    desprotegida, encarte arriscado (e bónus ao encarte coberto pelo corte do parceiro).
  *
  * Fim da mão (baralho vazio, últimas 3 vazas): busca exata em cada distribuição sorteada.
  * Calibrado com scripts/sim (torneio contra o bot antigo e situações-teste dos exemplos de mesa).
@@ -443,6 +443,52 @@ function pHasTrump(spec, s, T){
   return 1 - pNone;
 }
 
+/** Encarte: abaixo deste risco é aposta boa (bónus), acima de ENC_RISKY é freio. */
+var ENC_SAFE = 0.4;
+var ENC_RISKY = 0.6;
+var ENC_BONUS = 2.5;
+
+/** Melhor corte conhecido do jogador `s` (cartas fixadas, ex.: mão do parceiro vista). */
+function bestPinnedTrump(spec, s, T){
+  var b = null;
+  spec.pinned[s].forEach(function(c){ if(c.s === T && (!b || cRnk(c) > cRnk(b))) b = c; });
+  return b;
+}
+
+/**
+ * Chance de um encarte com `card` correr mal: um adversário depois de mim corta e o meu parceiro (se jogar
+ * depois dele) não consegue sobrecortar; ou, sendo o 7, o Ás do naipe está com um adversário que joga depois.
+ */
+export function encarteRisk(pv, seat, card, after, spec){
+  var T = pv.trump, mt = pTm(seat);
+  var unkTrumps = spec.unknown.filter(function(c){ return c.s === T; });
+  var pOk = 1;
+  for(var i=0;i<after.length;i++){
+    var s = after[i];
+    if(pTm(s) === mt) continue;
+    var pCut = pHasTrump(spec, s, T);
+    // Parceiro que joga depois deste adversário: com corte mais alto que o dele, recupera a vaza.
+    var cover = 0;
+    for(var j=i+1;j<after.length;j++){
+      if(pTm(after[j]) !== mt) continue;
+      var best = bestPinnedTrump(spec, after[j], T);
+      if(best){
+        var lower = unkTrumps.filter(function(c){ return cRnk(c) < cRnk(best); }).length;
+        cover = unkTrumps.length ? lower / unkTrumps.length : 1;
+      } else {
+        cover = 0.5 * pHasTrump(spec, after[j], T);
+      }
+    }
+    pOk *= 1 - pCut * (1 - cover);
+    // Encartar o 7 com o Ás do naipe por aparecer: o adversário pode ter o Ás.
+    if(card.v === '7'){
+      var ace = spec.unknown.find(function(c){ return c.s === card.s && c.v === 'A'; });
+      if(ace && spec.need[s] > 0) pOk *= 1 - Math.min(1, spec.need[s] / spec.unknown.length);
+    }
+  }
+  return 1 - pOk;
+}
+
 /**
  * Regras de mesa de jogador profissional (penalidade em pontos de partida, 0 = jogada limpa).
  * São “freios”: a simulação decide, mas jogadas que um profissional não faz custam caro.
@@ -471,15 +517,14 @@ export function proRulePenalty(pv, seat, card, hand, spec, count){
     var risk = Math.min(1, count.oppTrumpsExp / 2);
     if(alt) pen += 0.8 * risk;
   }
-  // 3. Encarte arriscado: bisca do naipe por cima da saída, com adversário depois que provavelmente corta.
+  // 3. Encarte: bisca do naipe por cima da saída com adversário ainda a jogar. Risco = ele cortar sem o meu
+  //    parceiro (que joga depois dele) poder sobrecortar, ou ter o Ás do naipe quando encarto o 7.
+  //    Risco baixo → aposta de profissional (bónus); risco alto → freio.
   if(trick.length && card.s === trick[0].card.s && card.s !== T && cPts(card) >= 10 && oppsAfter.length){
     var cw = getWin(trick, T);
     if(beats(card, cw.card, trick[0].card.s, T)){
-      var pCut = 1;
-      oppsAfter.forEach(function(s){ pCut *= 1 - pHasTrump(spec, s, T); });
-      pCut = 1 - pCut;
-      // Só freia quando o corte é provável de verdade; abaixo disso o encarte é uma aposta legítima.
-      if(pCut > 0.55) pen += (pCut - 0.55) / 0.45;
+      var risk = encarteRisk(pv, seat, card, after, spec);
+      pen += risk < ENC_SAFE ? -(ENC_SAFE - risk) * ENC_BONUS : risk > ENC_RISKY ? 1.5 * (risk - ENC_RISKY) / (1 - ENC_RISKY) : 0;
     }
   }
   // 4. Sair de corte cedo tendo outra carta para sair (cortes servem para pegar bisca).
