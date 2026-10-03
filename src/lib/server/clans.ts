@@ -90,7 +90,8 @@ export async function listClans(): Promise<ClanSummary[]> {
     const rec = normalizeClan(id, raw[id]);
     if (rec) out.push(rec);
   }
-  out.sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0) || b.score - a.score || a.name.localeCompare(b.name));
+  // ranking por pontos (oficiais e de jogadores juntos)
+  out.sort((a, b) => b.score - a.score || Object.keys(b.members).length - Object.keys(a.members).length || a.name.localeCompare(b.name));
   return out.map(summarize);
 }
 

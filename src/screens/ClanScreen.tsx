@@ -92,14 +92,19 @@ export function ClanScreen(props: { onBack: () => void }) {
   }
 
   const mine = clans?.find((c) => c.id === myClanId) || null;
-  const officials = (clans || []).filter((c) => c.official);
-  const players = (clans || []).filter((c) => !c.official);
+  // ranking: ordem por pontos (o servidor já manda ordenado; garantimos aqui)
+  const ranked = (clans || []).slice().sort((a, b) => b.score - a.score || b.memberCount - a.memberCount || a.name.localeCompare(b.name));
+  const positionOf = (id: string) => ranked.findIndex((c) => c.id === id) + 1;
+  const medal = (pos: number) => (pos === 1 ? { color: "var(--bf-gold-2)", label: "1º", cls: "bf-rankrow--1" } : pos === 2 ? { color: "var(--bf-rar-silver-2)", label: "2º", cls: "bf-rankrow--2" } : pos === 3 ? { color: "var(--bf-rar-bronze-2)", label: "3º", cls: "bf-rankrow--3" } : { color: "var(--bf-text-3)", label: pos + "º", cls: "" });
 
   function card(c: ClanSummary) {
     const isMine = c.id === myClanId;
+    const pos = positionOf(c.id);
+    const md = medal(pos);
     return (
-      <div key={c.id} className={["bf-panel bf-panel--interactive", c.official ? "bf-panel--gold" : ""].join(" ")} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderColor: isMine ? "var(--bf-accent)" : undefined }} role="button" tabIndex={0} onClick={() => void openDetail(c.id)} onKeyDown={(e) => { if (e.key === "Enter") void openDetail(c.id); }}>
-        <ClanEmblem kind={c.emblem} color={c.color} color2={c.color2} fg={c.fg} logo={c.logo} size={50} />
+      <div key={c.id} className={["bf-panel bf-panel--interactive", md.cls].filter(Boolean).join(" ")} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderColor: isMine ? "var(--bf-accent)" : undefined }} role="button" tabIndex={0} onClick={() => void openDetail(c.id)} onKeyDown={(e) => { if (e.key === "Enter") void openDetail(c.id); }}>
+        <span className="bf-rankrow__pos" style={{ color: md.color, width: 30, fontSize: pos <= 3 ? 18 : 15 }}>{md.label}</span>
+        <ClanEmblem kind={c.emblem} color={c.color} color2={c.color2} fg={c.fg} logo={c.logo} size={46} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="bf-row" style={{ gap: 6, flexWrap: "wrap", rowGap: 4 }}>
             <span style={{ fontFamily: "var(--bf-font-display)", fontWeight: 800, fontSize: 15, minWidth: 0 }}>{c.short}</span>
@@ -127,13 +132,15 @@ export function ClanScreen(props: { onBack: () => void }) {
           </div>
         ) : null}
         <div>
-          <div className="bf-label" style={{ marginBottom: 8 }}>Clubes oficiais</div>
-          {clans === null ? <div className="bf-skeleton" style={{ height: 74 }} /> : <div className="bf-stack">{officials.map(card)}</div>}
+          <div className="bf-row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="bf-label">Ranking de clãs</span>
+            <span className="bf-caption">pontos = XP ganho pelos membros</span>
+          </div>
+          {clans === null ? <div className="bf-skeleton" style={{ height: 74 }} /> : ranked.length ? <div className="bf-stack">{ranked.map(card)}</div> : <EmptyState icon="shield" title="Nenhum clã ainda" />}
         </div>
-        <div>
-          <div className="bf-label" style={{ marginBottom: 8 }}>Clãs dos jogadores</div>
-          {clans === null ? null : players.length ? <div className="bf-stack">{players.map(card)}</div> : <EmptyState icon="shield" title="Nenhum clã criado ainda" text="Seja o primeiro: crie o seu e chame os amigos." action={logged && !myClanId ? <Button variant="accent" icon="plus" onClick={() => setCreateOpen(true)}>Criar clã</Button> : null} />}
-        </div>
+        {clans !== null && !ranked.some((c) => !c.official) ? (
+          <EmptyState icon="shield" title="Nenhum clã de jogadores ainda" text="Seja o primeiro: crie o seu e chame os amigos." action={logged && !myClanId ? <Button variant="accent" icon="plus" onClick={() => setCreateOpen(true)}>Criar clã</Button> : null} />
+        ) : null}
       </div>
 
       {/* Detalhe do clã */}

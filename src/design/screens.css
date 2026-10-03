@@ -319,3 +319,4 @@
 .bf-tiername--purple { text-shadow: 0 0 12px rgba(168,85,247,.55); animation: bf-name-pulse 2.6s ease-in-out infinite; }
 @keyframes bf-name-pulse { 0%, 100% { text-shadow: 0 0 10px rgba(168,85,247,.4); } 50% { text-shadow: 0 0 20px rgba(168,85,247,.85); } }
 @media (prefers-reduced-motion: reduce) { .bf-frame--silver::after, .bf-frame--gold, .bf-frame--gold::after, .bf-tiername--sheen, .bf-tiername--purple { animation: none !important; } }
+.bf-rankrow--2 { border-color: rgba(195,201,212,.45) !important; background: linear-gradient(90deg, rgba(195,201,212,.12), transparent 60%), var(--bf-glass) !important; }
