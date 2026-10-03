@@ -101,6 +101,7 @@ export function LobbyScreen(props: {
       onBack={props.onLeave}
       right={props.serverConnected === false ? <Chip tone="danger" size="sm" icon="x">Sem conexão</Chip> : props.serverConnected ? <Chip tone="success" size="sm"><StatusDot online pulse />online</Chip> : null}
       className="bf-lobby bf-live-bg"
+      backdrop={<SuitBackdrop intensity={0.5} showCard={false} />}
     >
       <div style={{ position: "relative" }}>
         <div className="bf-stack bf-stack--lg" style={{ position: "relative", zIndex: 1 }}>
@@ -186,7 +187,6 @@ export function LobbyScreen(props: {
         </div>
       </div>
       <InviteSheet open={invite} onClose={() => setInvite(false)} roomCode={room.code} onCopied={() => toast.show({ text: "Convite copiado!", tone: "success", icon: "check" })} />
-      <SuitBackdrop intensity={0.5} showCard={false} />
     </SectionShell>
   );
 }

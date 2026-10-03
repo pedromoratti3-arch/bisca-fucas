@@ -33,9 +33,10 @@ export function TierName(props: { name: string; level: number; style?: CSSProper
 }
 
 /** Cabeçalho + conteúdo de uma seção que abre por cima da home (com botão de voltar). */
-export function SectionShell(props: { title: ReactNode; subtitle?: ReactNode; onBack: () => void; right?: ReactNode; children: ReactNode; wide?: boolean; icon?: IconName; className?: string }) {
+export function SectionShell(props: { title: ReactNode; subtitle?: ReactNode; onBack: () => void; right?: ReactNode; children: ReactNode; wide?: boolean; icon?: IconName; className?: string; /** fundo animado atrás da seção inteira (largura total) */ backdrop?: ReactNode }) {
   return (
     <div className={["bf-screen bf-section", props.className || ""].filter(Boolean).join(" ")}>
+      {props.backdrop}
       <header className="bf-topbar">
         <Button variant="ghost" size="sm" icon="arrow-left" iconOnly aria-label="Voltar" onClick={props.onBack} />
         <div className="bf-topbar__title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
