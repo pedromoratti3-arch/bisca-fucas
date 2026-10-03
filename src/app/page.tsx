@@ -4152,7 +4152,8 @@ function App(props){
     current: screen === 'missions' || screen === 'collection' || screen === 'clan' || screen === 'ranking' ? screen : 'home',
     badges: navBadges,
     onSelect: function(sec){ setScreen(sec); },
-    onPlay: function(){ setScreen('home'); setPlayReq(Date.now()); }
+    /* botão do meio da barra: só volta para a tela inicial (o JOGAR grande da tela é que abre as opções) */
+    onPlay: function(){ setScreen('home'); }
   });
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
