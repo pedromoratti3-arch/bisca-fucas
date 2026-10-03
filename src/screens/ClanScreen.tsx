@@ -6,6 +6,7 @@ import { PLAYER_CLAN_COLORS, PLAYER_CLAN_EMBLEMS, type ClanEmblemKind } from "@/
 import { useProgress } from "@/lib/progress/useProgress";
 import { normalizeProgress } from "@/lib/progress/engine";
 import { EmptyState, SectionShell } from "./common";
+import { PlayerProfileModal } from "./PlayerProfileModal";
 
 type ClanSummary = { id: string; name: string; short: string; tag: string; emblem: ClanEmblemKind; color: string; color2: string; fg: string; official: boolean; score: number; memberCount: number; motto?: string; logo?: string; ownerUid: string | null };
 type ClanFull = ClanSummary & { members: Record<string, { name: string; picture: string; joinedAt: number; level: number }> };
@@ -15,6 +16,7 @@ export function ClanScreen(props: { onBack: () => void }) {
   const toast = useToast();
   const [clans, setClans] = useState<ClanSummary[] | null>(null);
   const [detail, setDetail] = useState<ClanFull | null>(null);
+  const [profileUid, setProfileUid] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ name: "", tag: "", emblem: "shield" as ClanEmblemKind, color: PLAYER_CLAN_COLORS[2] });
@@ -99,8 +101,8 @@ export function ClanScreen(props: { onBack: () => void }) {
       <div key={c.id} className={["bf-panel bf-panel--interactive", c.official ? "bf-panel--gold" : ""].join(" ")} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderColor: isMine ? "var(--bf-accent)" : undefined }} role="button" tabIndex={0} onClick={() => void openDetail(c.id)} onKeyDown={(e) => { if (e.key === "Enter") void openDetail(c.id); }}>
         <ClanEmblem kind={c.emblem} color={c.color} color2={c.color2} fg={c.fg} logo={c.logo} size={50} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="bf-row" style={{ gap: 6 }}>
-            <span style={{ fontFamily: "var(--bf-font-display)", fontWeight: 800, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.short}</span>
+          <div className="bf-row" style={{ gap: 6, flexWrap: "wrap", rowGap: 4 }}>
+            <span style={{ fontFamily: "var(--bf-font-display)", fontWeight: 800, fontSize: 15, minWidth: 0 }}>{c.short}</span>
             <Chip size="sm">{c.tag}</Chip>
             {c.official ? <Chip size="sm" tone="gold" icon="crown">Oficial</Chip> : null}
             {isMine ? <Chip size="sm" tone="accent" icon="check">Meu clã</Chip> : null}
@@ -158,11 +160,12 @@ export function ClanScreen(props: { onBack: () => void }) {
                 {Object.entries(detail.members)
                   .sort((a, b) => b[1].level - a[1].level)
                   .map(([uid, m]) => (
-                    <div key={uid} className="bf-row" style={{ gap: 10, padding: "6px 0" }}>
+                    <button key={uid} type="button" className="bf-row bf-memberrow" style={{ gap: 10, padding: "8px 8px", width: "100%", textAlign: "left", background: "transparent", border: 0, borderRadius: 12, color: "var(--bf-text)", cursor: "pointer" }} onClick={() => setProfileUid(uid)} aria-label={"Ver perfil de " + m.name}>
                       <Avatar src={m.picture} name={m.name} size={32} />
                       <span style={{ flex: 1, fontWeight: 700 }}>{m.name}{detail.ownerUid === uid ? <Chip size="sm" tone="gold" style={{ marginLeft: 6 }}>Líder</Chip> : null}</span>
                       <Chip size="sm" tone="accent">Nível {m.level}</Chip>
-                    </div>
+                      <Icon name="chevron-right" size={16} style={{ color: "var(--bf-text-4)" }} />
+                    </button>
                   ))}
               </div>
             )}
@@ -178,6 +181,8 @@ export function ClanScreen(props: { onBack: () => void }) {
           </div>
         ) : null}
       </Modal>
+
+      <PlayerProfileModal uid={profileUid} onClose={() => setProfileUid(null)} clanName={detail ? detail.short : undefined} />
 
       {/* Criar clã */}
       <Modal

@@ -9,6 +9,7 @@ import { useProgress } from "@/lib/progress/useProgress";
 import { ROOM_BY_ID } from "./RoomPickScreen";
 import { InviteSheet } from "./InviteSheet";
 import { SectionShell } from "./common";
+import { PlayerProfileModal } from "./PlayerProfileModal";
 
 export type LobbyPlayer = { id: string; name: string; seat: number; team: "A" | "B" | null; isBot?: boolean };
 export type LobbyRoom = { code: string; hostId: string; players: LobbyPlayer[]; themeId?: string };
@@ -37,6 +38,7 @@ export function LobbyScreen(props: {
   const prog = useProgress();
   const toast = useToast();
   const [invite, setInvite] = useState(false);
+  const [profileUid, setProfileUid] = useState<string | null>(null);
   const [tip, setTip] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTip((x) => (x + 1) % TIPS.length), 6000);
@@ -78,7 +80,7 @@ export function LobbyScreen(props: {
     const rc = props.reconnectingById[p.id];
     const secLeft = rc ? Math.max(0, Math.ceil((rc.deadlineAt - props.now) / 1000)) : 0;
     return (
-      <div key={p.id} className="bf-panel bf-anim-scale-in" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderColor: p.id === myId ? "var(--bf-accent)" : `${color}55` }}>
+      <div key={p.id} className={"bf-panel bf-anim-scale-in" + (p.id.indexOf("g_") === 0 ? " bf-panel--interactive" : "")} role={p.id.indexOf("g_") === 0 ? "button" : undefined} tabIndex={p.id.indexOf("g_") === 0 ? 0 : undefined} onClick={() => { if (p.id.indexOf("g_") === 0) setProfileUid(p.id); }} title={p.id.indexOf("g_") === 0 ? "Ver perfil" : undefined} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderColor: p.id === myId ? "var(--bf-accent)" : `${color}55` }}>
         <span style={{ position: "relative" }}>
           <Avatar src={p.id.indexOf("g_") === 0 ? `/api/avatar/${p.id}` : undefined} name={p.name} size={36} />
           <StatusDot online={online} style={{ position: "absolute", bottom: 0, right: 0 }} />
@@ -187,6 +189,7 @@ export function LobbyScreen(props: {
         </div>
       </div>
       <InviteSheet open={invite} onClose={() => setInvite(false)} roomCode={room.code} onCopied={() => toast.show({ text: "Convite copiado!", tone: "success", icon: "check" })} />
+      <PlayerProfileModal uid={profileUid} onClose={() => setProfileUid(null)} />
     </SectionShell>
   );
 }

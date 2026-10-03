@@ -71,3 +71,5 @@ html[data-bf-hidden] .bf-amb *, html[data-bf-paused] .bf-amb * { animation-play-
 /* ── Mesa: feltro com textura e luz ───────────────────────────────────── */
 .bf-table-felt { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, 0.09), transparent 60%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px); pointer-events: none; }
 .bf-table-rim { position: absolute; inset: -6px; border-radius: inherit; border: 6px solid rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 14px 40px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.bf-memberrow { -webkit-tap-highlight-color: transparent; transition: background var(--bf-dur-sm); }
+.bf-memberrow:hover, .bf-memberrow:focus-visible { background: rgba(255, 255, 255, 0.06); outline: none; }
