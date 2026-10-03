@@ -3,7 +3,7 @@
  * Cartas: valor + naipe (o=ouros, c=copas, e=espadas, p=paus). Ex.: 'Ac' = Ás de copas.
  * Ordem da mesa (TORD): 0 → 3 → 2 → 1 → 0. Duplas: {0,2} e {1,3}.
  */
-import { mkDk, TORD } from '../../src/lib/bisca/rules.mjs';
+import { mkDk } from '../../src/lib/bisca/rules.mjs';
 import { chooseCard } from '../../src/lib/bisca/ai.mjs';
 import { chooseCardOld } from './old-ai.mjs';
 var USE_OLD = process.argv[3] === 'antigo';
@@ -53,6 +53,37 @@ function buildPv(sp){
 
 var SCENARIOS = [
   {
+    name: 'Pedro — copas batido: parceiro saiu de 3♠, adv. cortou com 5♥; eu com K♥ e cartas comuns: NÃO sobrecortar com o Rei',
+    sp: { trump: 'c', me: 2, hand: ['Kc', '4o', '6p'], trick: [[0, '3e'], [3, '5c']], deckLeft: 28, trickN: 0, tPts: [0, 0] },
+    ok: function(c){ return c.id !== 'K_copas'; },
+  },
+  {
+    name: 'Pedro — saída: NÃO sair de Rei/Dama de corte de primeira carta tendo carta comum',
+    sp: { trump: 'p', me: 1, hand: ['Kp', 'Qp', '4c'], trick: [], deckLeft: 28, trickN: 1, tPts: [0, 0] },
+    ok: function(c){ return c.s !== 'paus'; },
+  },
+  {
+    name: 'Pedro — saída: NÃO sair de bisca de primeira carta tendo carta comum (parceiro desconhecido)',
+    sp: { trump: 'p', me: 1, hand: ['Ae', '4c', '6o'], trick: [], deckLeft: 28, trickN: 1, tPts: [0, 0] },
+    ok: function(c){ return c.id !== 'A_espadas'; },
+  },
+  {
+    name: 'Pedro — encarte: parceiro (mão conhecida) tem J♣ e J♥; eu com 3♣ 2♦ 4♦ → sair de 3♣ para ele encartar',
+    sp: { trump: 'e', me: 0, hand: ['3p', '2o', '4o'], mate: ['Jc', 'Jp', '3c'], trick: [], deckLeft: 28, trickN: 1, tPts: [0, 0] },
+    ok: function(c){ return c.id === '3_paus'; },
+  },
+  {
+    name: 'Encarte: parceiro conhecido tem A♣ (topo do naipe) e eu 3♣ 5♦ 6♦ → sair de 3♣',
+    sp: { trump: 'e', me: 0, hand: ['3p', '5o', '6o'], mate: ['Ap', '4c', '2c'], trick: [], deckLeft: 28, trickN: 1, tPts: [0, 0] },
+    ok: function(c){ return c.id === '3_paus'; },
+  },
+  {
+    name: 'Saída com o maior corte que resta (Ás, 7 já saiu) e parceiro conhecido com bisca: PODE sair do Ás de corte',
+    sp: { trump: 'e', me: 0, hand: ['Ae', '5o', '6o'], mate: ['Ac', '4c', '2c'], sevenOut: true, played: ['7e'], trick: [], deckLeft: 24, trickN: 2, tPts: [10, 6] },
+    ok: function(){ return true; },
+    prefer: function(c){ return c.id === 'A_espadas'; },
+  },
+  {
     name: 'Ex. 2 — parceira por último com Ás de corte; adversário jogou um Rei: NÃO gastar o Ás',
     sp: { trump: 'c', me: 1, hand: ['Ac', '4e', '5p'], sevenOut: true, played: ['7c'],
       trick: [[0, '3o'], [3, '2e'], [2, 'Ko']], deckLeft: 12, trickN: 4, tPts: [14, 20] },
@@ -71,7 +102,8 @@ var SCENARIOS = [
   },
   {
     name: 'Encarte arriscado: adv. saiu de 3♠; eu e o parceiro SEM corte → não encartar o 7♠',
-    sp: { trump: 'o', me: 3, hand: ['7e', '4p', '5c'], mate: ['3p', '6c', '2p'], trick: [[0, '3e']], deckLeft: 16, trickN: 2, tPts: [5, 5] },
+    sp: { trump: 'o', me: 3, hand: ['7e', '4p', '5c'], mate: ['3p', '6c', '2p'], trick: [[0, '3e']], deckLeft: 16, trickN: 2, tPts: [5, 5],
+      played: ['2e', '4e', '5e', '6e', '2c', '3c', '4c', 'Qc', 'Jc', '5p', '6p', 'Qp'] },
     ok: function(c){ return c.id !== '7_espadas'; },
   },
   {
