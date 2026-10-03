@@ -24,9 +24,10 @@ export function FramedAvatar(props: { src?: string | null; name?: string; size?:
 /** Nome do jogador com a cor da faixa. */
 export function TierName(props: { name: string; level: number; style?: CSSProperties; className?: string }) {
   const t = tierForLevel(props.level);
-  const cls = ["bf-tiername", t.frame === "holo" ? "bf-tiername--holo" : "", props.className || ""].filter(Boolean).join(" ");
+  const fx = t.frame === "holo" ? "bf-tiername--holo" : t.frame === "purple" ? "bf-tiername--purple" : t.frame === "gold" || t.frame === "silver" ? "bf-tiername--sheen" : "";
+  const cls = ["bf-tiername", fx, props.className || ""].filter(Boolean).join(" ");
   return (
-    <span className={cls} style={{ color: t.nameColor, ...props.style }}>
+    <span className={cls} style={{ color: t.nameColor, ["--tn" as string]: t.nameColor, ...props.style }}>
       {props.name}
     </span>
   );

@@ -4152,7 +4152,7 @@ function App(props){
     current: screen === 'missions' || screen === 'collection' || screen === 'clan' || screen === 'ranking' ? screen : 'home',
     badges: navBadges,
     onSelect: function(sec){ setScreen(sec); },
-    onPlay: function(){ setScreen('home'); setPlayReq(function(n){ return n + 1; }); }
+    onPlay: function(){ setScreen('home'); setPlayReq(Date.now()); }
   });
   var screenRef=useRef(screen);
   var myIdRef=useRef(myId);
@@ -4969,6 +4969,7 @@ function App(props){
         onJoinCode: joinRoomByCode,
         hideTiles: true,
         playRequest: playReq,
+        onPlayRequestConsumed: function(){ setPlayReq(0); },
         pendingJoinCode: pendingJoin,
         onPendingJoinConsumed: consumePendingJoin
       }),

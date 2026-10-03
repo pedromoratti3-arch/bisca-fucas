@@ -305,3 +305,17 @@
   .bf-result__title, .bf-result__lvl { opacity: 1; transform: none; }
   .bf-result__flash, .bf-result__burst, .bf-result__coin, .bf-result__particle { display: none; }
 }
+
+/* ── Evolução visual por faixa: cada faixa ganha um efeito a mais ────── */
+/* Prata (nível 10+): brilho suave que passa pela moldura */
+.bf-frame--silver::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 70%, rgba(255,255,255,.55) 80%, transparent 90%); animation: bf-spin 6s linear infinite; mix-blend-mode: screen; pointer-events: none; }
+/* Ouro (nível 20+): pulsação dourada */
+.bf-frame--gold { animation: bf-frame-gold 2.8s ease-in-out infinite; }
+.bf-frame--gold::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 65%, rgba(255,250,220,.7) 78%, transparent 90%); animation: bf-spin 4.5s linear infinite; mix-blend-mode: screen; pointer-events: none; }
+@keyframes bf-frame-gold { 0%, 100% { box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 4px 18px rgba(227,183,74,.45); } 50% { box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 4px 28px rgba(227,183,74,.8); } }
+/* Nome: prata e ouro com brilho que passa; roxo com leve pulso; holográfico já é iridescente */
+.bf-tiername--sheen { background: linear-gradient(90deg, var(--tn, #fff) 0%, var(--tn, #fff) 40%, #ffffff 50%, var(--tn, #fff) 60%, var(--tn, #fff) 100%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: bf-name-sheen 4s ease-in-out infinite; }
+@keyframes bf-name-sheen { 0%, 60% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.bf-tiername--purple { text-shadow: 0 0 12px rgba(168,85,247,.55); animation: bf-name-pulse 2.6s ease-in-out infinite; }
+@keyframes bf-name-pulse { 0%, 100% { text-shadow: 0 0 10px rgba(168,85,247,.4); } 50% { text-shadow: 0 0 20px rgba(168,85,247,.85); } }
+@media (prefers-reduced-motion: reduce) { .bf-frame--silver::after, .bf-frame--gold, .bf-frame--gold::after, .bf-tiername--sheen, .bf-tiername--purple { animation: none !important; } }

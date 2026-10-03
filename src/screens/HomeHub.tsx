@@ -35,8 +35,9 @@ export type HomeHubProps = {
   topPad?: number;
   /** barra inferior cuida das seções: esconde os atalhos */
   hideTiles?: boolean;
-  /** incrementa para abrir as opções de jogo (botão JOGAR da barra) */
+  /** pedido para abrir as opções de jogo (botão JOGAR da barra); consumido uma vez */
   playRequest?: number;
+  onPlayRequestConsumed?: () => void;
   /** código vindo do link de convite (?sala=ABCD): entra direto na sala */
   pendingJoinCode?: string | null;
   onPendingJoinConsumed?: () => void;
@@ -108,6 +109,7 @@ export function HomeHub(P: HomeHubProps) {
       const n = fixedName || cleanName(name);
       if (n) setPlayOpen(true);
       else setErr("Digite seu nome para jogar");
+      P.onPlayRequestConsumed?.();
     }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
