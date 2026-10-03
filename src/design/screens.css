@@ -76,8 +76,7 @@
 @media (min-width: 960px) {
   .bf-home__top { max-width: 1080px; padding-left: 32px; padding-right: 32px; }
   .bf-home__body { max-width: 1080px; display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; grid-template-areas: "left center right"; align-items: center; gap: 32px; padding-left: 32px; padding-right: 32px; }
-  .bf-home__logo { grid-area: center; align-self: end; }
-  .bf-home__play { grid-area: center; align-self: start; max-width: 380px; margin: 0 auto; }
+  .bf-home__play { max-width: 380px; }
   .bf-home__tiles { grid-area: right; grid-template-columns: 1fr 1fr; }
   .bf-home__side { grid-area: left; display: flex; }
   .bf-home__center { grid-area: center; display: flex; flex-direction: column; align-items: center; gap: 28px; }
