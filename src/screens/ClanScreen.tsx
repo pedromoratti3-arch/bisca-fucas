@@ -161,7 +161,7 @@ export function ClanScreen(props: { onBack: () => void }) {
                   .sort((a, b) => b[1].level - a[1].level)
                   .map(([uid, m]) => (
                     <button key={uid} type="button" className="bf-row bf-memberrow" style={{ gap: 10, padding: "8px 8px", width: "100%", textAlign: "left", background: "transparent", border: 0, borderRadius: 12, color: "var(--bf-text)", cursor: "pointer" }} onClick={() => setProfileUid(uid)} aria-label={"Ver perfil de " + m.name}>
-                      <Avatar src={m.picture} name={m.name} size={32} />
+                      <Avatar src={`/api/avatar/${uid}`} name={m.name} size={32} />
                       <span style={{ flex: 1, fontWeight: 700 }}>{m.name}{detail.ownerUid === uid ? <Chip size="sm" tone="gold" style={{ marginLeft: 6 }}>Líder</Chip> : null}</span>
                       <Chip size="sm" tone="accent">Nível {m.level}</Chip>
                       <Icon name="chevron-right" size={16} style={{ color: "var(--bf-text-4)" }} />

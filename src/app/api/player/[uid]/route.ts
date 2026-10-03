@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/player/[uid]">)
       {
         uid,
         name: prof.name,
-        picture: prof.picture,
+        picture: `/api/avatar/${uid}?v=${rec.avatarUpdatedAt || 0}`,
         level: p.level,
         tier: tierForLevel(p.level).id,
         xpInto: lf.into,

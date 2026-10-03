@@ -97,14 +97,29 @@ export async function listClans(): Promise<ClanSummary[]> {
 export async function getClan(id: string): Promise<ClanRecord | null> {
   if (!/^[a-z0-9-]{2,60}$/.test(id)) return null;
   const snap = await clansRef().child(id).get();
-  return normalizeClan(id, snap.exists() ? snap.val() : null);
+  const clan = normalizeClan(id, snap.exists() ? snap.val() : null);
+  if (!clan) return null;
+  // nome e nível sempre atuais (apelido pode mudar; nível sobe a cada partida)
+  const uids = Object.keys(clan.members);
+  await Promise.all(
+    uids.map(async (uid) => {
+      try {
+        const [rec, prog] = await Promise.all([readUserRecord(uid), readProgress(uid)]);
+        const prof = toProfile(uid, rec || {});
+        clan.members[uid] = { ...clan.members[uid], name: prof.name, picture: "/api/avatar/" + uid, level: prog.level };
+      } catch {
+        /* mantém o que estava gravado */
+      }
+    })
+  );
+  return clan;
 }
 
 async function memberInfo(uid: string): Promise<ClanMember> {
   const rec = await readUserRecord(uid);
   const prof = toProfile(uid, rec || {});
   const prog = await readProgress(uid);
-  return { name: prof.name, picture: prof.picture, joinedAt: Date.now(), level: prog.level };
+  return { name: prof.name, picture: "/api/avatar/" + uid, joinedAt: Date.now(), level: prog.level };
 }
 
 export async function joinClan(uid: string, clanId: string): Promise<{ ok: boolean; error?: string; clan?: ClanRecord }> {
