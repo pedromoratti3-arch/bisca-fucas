@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { ref, get, set as rtSet, onValue, onDisconnect, remove } from "firebase/database";
+import { ref, get, set as rtSet, onValue, onDisconnect, remove, runTransaction } from "firebase/database";
 import { db } from "@/lib/firebase";
 import {
   SUITS, VALS, PTS, RNK, TORD, nxt, prv, parseSeat, cPts, cRnk, pTm, mkDk, beats, getWin,
@@ -442,6 +442,20 @@ function resolveOnlineMySeat(room, myPlayerId, myDisplayName, gamePlayerNames) {
   return 0;
 }
 
+/** Versão do estado do jogo no RT (cresce 1 a cada gravação aceite). Estados antigos/sem versão contam como 0. */
+function gameRev(g) {
+  var r = g && typeof g === "object" ? g.rev : null;
+  return typeof r === "number" && isFinite(r) ? r : 0;
+}
+
+/** Fases em que todos os clientes tratam o host como `lastActor` (timers/gravações só no host). */
+var BF_HOST_ACTOR_PHASES = { shuffle: 1, cut: 1, deal: 1, end_trick: 1, end_round: 1, show_summary: 1 };
+function forceHostActorForPhase(gm, hostId) {
+  if (!gm || !hostId) return gm;
+  if (BF_HOST_ACTOR_PHASES[gm.phase] && gm.lastActor !== hostId) return Object.assign({}, gm, { lastActor: hostId });
+  return gm;
+}
+
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
   isConfigured: function () {
@@ -476,6 +490,12 @@ var RT = {
         var plp = payload.lastPing;
         if (slp && typeof slp === "object" && !Array.isArray(slp)) {
           payload.lastPing = Object.assign({}, slp, plp && typeof plp === "object" && !Array.isArray(plp) ? plp : {});
+        }
+        /* Jogo gravado junto com a sala (substituir por IA, saída, novo host): versão acima da do servidor,
+           senão os clientes descartam-no como snapshot antigo. */
+        if (payload.game && typeof payload.game === "object") {
+          var srvGameRev = gameRev(ev && ev.game);
+          payload.game = Object.assign({}, payload.game, { rev: Math.max(srvGameRev, gameRev(payload.game)) + 1 });
         }
       }
       if (Array.isArray(payload.players)) {
@@ -803,22 +823,51 @@ var RT = {
       return false;
     }
   },
-  setGame: async function (code, game) {
-    if (!db) return false;
+  /**
+   * Grava o estado do jogo por transação (nunca “por cima” de um estado mais novo de outro jogador).
+   * Regra: aceita se o servidor ainda está na versão em que este estado se baseou (`game.rev`),
+   * ou se a última gravação no servidor é do próprio `actorId` (gravações seguidas do mesmo jogador).
+   * Caso contrário recusa e devolve o estado do servidor para o cliente se realinhar.
+   * Antes era um `set` cego: uma gravação atrasada (rede oscilando, aba em segundo plano) apagava a carta que
+   * outro jogador acabara de jogar — e o host, por manter o estado local, ficava a ver a carta na mesa
+   * enquanto os outros não.
+   */
+  setGame: async function (code, game, actorId) {
+    if (!db || !game) return { ok: false };
     var gref = gameDbRef(code);
-    if (!gref) return false;
+    if (!gref) return { ok: false };
+    var baseRev = gameRev(game);
+    var me = actorId != null ? String(actorId) : "";
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        await rtSet(gref, game);
-        return true;
+        var written = /** @type {any} */ (null);
+        var res = await runTransaction(
+          gref,
+          function (cur) {
+            if (cur && typeof cur === "object") {
+              var curRev = gameRev(cur);
+              var curActor = cur.lastActor != null ? String(cur.lastActor) : "";
+              var ownChain = !!me && curActor === me;
+              if (!ownChain && curRev !== baseRev) return undefined;
+              written = Object.assign({}, game, { rev: curRev + 1 });
+              return written;
+            }
+            written = Object.assign({}, game, { rev: baseRev + 1 });
+            return written;
+          },
+          { applyLocally: false }
+        );
+        if (res.committed) return { ok: true, rev: written ? written.rev : baseRev + 1 };
+        var srv = res.snapshot && res.snapshot.exists() ? res.snapshot.val() : null;
+        return { ok: false, rejected: true, server: srv };
       } catch {
-        if (attempt === 2) return false;
+        if (attempt === 2) return { ok: false };
         await new Promise(function (r) {
           setTimeout(r, 280 * (attempt + 1));
         });
       }
     }
-    return false;
+    return { ok: false };
   },
   setChat: async function (code, msgs) {
     if (!db) return false;
@@ -1256,7 +1305,17 @@ function sumHandCards(g) {
  */
 function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
   if (!incoming) return prev;
-  if (!hostId || myPlayerId !== hostId || !prev) return incoming;
+  if (!prev) return incoming;
+  var prevRev = gameRev(prev);
+  var incRev = gameRev(incoming);
+  /* Snapshot mais antigo do que a versão em que o estado local se baseia: descartar sempre. */
+  if (incRev < prevRev) return prev;
+  if (!hostId || myPlayerId !== hostId) {
+    /* Não-host: mesma versão = cópia do estado em que já me baseei (ex.: sala reenviada por lastPing)
+       enquanto a minha jogada ainda está a caminho do servidor — manter o local, senão a carta “volta à mão”. */
+    if (incRev === prevRev) return prev;
+    return incoming;
+  }
 
   /* Nova rodada já no RT: não deixar o resumo anterior “ganhar” ao shuffle pela ordem de rank da fase. */
   if (
@@ -2762,7 +2821,19 @@ function GameScreen(props){
   useEffect(function(){
     if(!isOnline || !roomCode) return;
     if(!g.lastActor || g.lastActor!==myPid) return;
-    RT.setGame(roomCode, g);
+    var sent = g;
+    void RT.setGame(roomCode, g, myPid).then(function(res){
+      if(!res || !res.rejected) return;
+      /* O servidor já tinha um estado mais novo de outro jogador: a minha gravação foi recusada.
+         Realinhar com o servidor (a jogada local volta — o jogador repete-a se ainda for a sua vez). */
+      var srv = res.server ? normalizeGame(res.server) : null;
+      if(!srv) return;
+      srv = forceHostActorForPhase(srv, roomHostId);
+      sg(function(prev){
+        if(prev && prev!==sent && gameRev(prev) >= gameRev(srv)) return prev;
+        return srv;
+      });
+    });
   },[g]);
 
   // Shuffle phase — online: só o host avança para corte (evita 4 timers e sg paralelos).
@@ -4013,7 +4084,7 @@ function GameScreen(props){
           deckId: CURRENT_DECK_ID,
           isOnline: isOnline,
           isRoomHost: isRoomHost || !isOnline,
-          onNext: function(){ sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins)); },
+          onNext: function(){ sg(Object.assign(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins), { rev: gameRev(g) })); },
           onHome: function(){ if(typeof props.onMenu==='function') props.onMenu(); }
         })
       : React.createElement(RoundSummary, {
@@ -4022,7 +4093,7 @@ function GameScreen(props){
           setWins: g.setWins || [0, 0],
           canNext: !(isOnline && !isRoomHost),
           waitingText: 'Apenas o anfitrião pode iniciar a próxima mão. Aguarde…',
-          onNext: function(){ sg(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins)); }
+          onNext: function(){ sg(Object.assign(mkGame(g.mPts, gStart, g.tieBonus, g.playerNames, isOnline ? myPid : g.lastActor, g.setWins), { rev: gameRev(g) })); }
         })
     ) : null
   );
