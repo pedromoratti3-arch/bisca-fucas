@@ -1386,7 +1386,29 @@ function sumHandCards(g) {
  * podem repor trick menor, dealStep menor ou fase anterior — cancela timers e trava a mesa.
  * Só o host faz merge conservador; outros clientes seguem sempre o servidor.
  */
+/**
+ * Marca (propriedade não enumerável, não vai para o RT nem para cópias via Object.assign) um estado que veio
+ * tal e qual do servidor. O GameScreen nunca regrava um estado marcado: com a versão `rev` a subir a cada
+ * gravação, regravar o eco da própria gravação gerava um laço infinito (eco → grava → eco novo → grava …).
+ */
+function markGameFromServer(g) {
+  if (g && typeof g === "object" && !g.__bfSrv) {
+    try {
+      Object.defineProperty(g, "__bfSrv", { value: true, enumerable: false, configurable: true });
+    } catch (e) {
+      void e;
+    }
+  }
+  return g;
+}
+
 function mergeOnlineGameState(prev, incoming, hostId, myPlayerId) {
+  var out = mergeOnlineGameStateInner(prev, incoming, hostId, myPlayerId);
+  if (out === incoming) markGameFromServer(out);
+  return out;
+}
+
+function mergeOnlineGameStateInner(prev, incoming, hostId, myPlayerId) {
   if (!incoming) return prev;
   if (!prev) return incoming;
   var prevRev = gameRev(prev);
@@ -2904,6 +2926,8 @@ function GameScreen(props){
   useEffect(function(){
     if(!isOnline || !roomCode) return;
     if(!g.lastActor || g.lastActor!==myPid) return;
+    /* Estado recebido do servidor sem alteração local: não regravar (ver markGameFromServer). */
+    if(g.__bfSrv) return;
     var sent = g;
     void RT.setGame(roomCode, g, myPid).then(function(res){
       if(!res || !res.rejected) return;
@@ -2911,7 +2935,7 @@ function GameScreen(props){
          Realinhar com o servidor (a jogada local volta — o jogador repete-a se ainda for a sua vez). */
       var srv = res.server ? normalizeGame(res.server) : null;
       if(!srv) return;
-      srv = forceHostActorForPhase(srv, roomHostId);
+      srv = markGameFromServer(forceHostActorForPhase(srv, roomHostId));
       sg(function(prev){
         if(prev && prev!==sent && gameRev(prev) >= gameRev(srv)) return prev;
         return srv;
