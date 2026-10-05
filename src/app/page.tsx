@@ -456,6 +456,55 @@ function forceHostActorForPhase(gm, hostId) {
   return gm;
 }
 
+/** Compara dois estados de jogo ignorando a versão. */
+function gameSameIgnoringRev(a, b) {
+  if (!a || !b) return a === b;
+  try {
+    return JSON.stringify(Object.assign({}, a, { rev: 0 })) === JSON.stringify(Object.assign({}, b, { rev: 0 }));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sala (formato local: players em array) → nó a gravar no RT (players em mapa por id).
+ * Mantém reconnectGrace/lastPing que outros aparelhos gravaram por caminhos profundos e, se o jogo mudou,
+ * sobe a versão acima da do servidor (senão os clientes descartam-no como snapshot antigo).
+ */
+function roomToPayload(room, serverRaw) {
+  var payload = Object.assign({}, room);
+  var ev = serverRaw && typeof serverRaw === "object" ? serverRaw : null;
+  if (ev) {
+    var sg = ev.reconnectGrace;
+    var pg = payload.reconnectGrace;
+    if (sg && typeof sg === "object" && !Array.isArray(sg)) {
+      payload.reconnectGrace = Object.assign({}, sg, pg && typeof pg === "object" && !Array.isArray(pg) ? pg : {});
+    }
+    var slp = ev.lastPing;
+    var plp = payload.lastPing;
+    if (slp && typeof slp === "object" && !Array.isArray(slp)) {
+      payload.lastPing = Object.assign({}, slp, plp && typeof plp === "object" && !Array.isArray(plp) ? plp : {});
+    }
+  }
+  if (payload.game && typeof payload.game === "object") {
+    var srvGame = ev && ev.game && typeof ev.game === "object" ? ev.game : null;
+    var srvGameRev = gameRev(srvGame);
+    var changed = !srvGame || !gameSameIgnoringRev(normalizeGame(srvGame), normalizeGame(payload.game));
+    payload.game = Object.assign({}, payload.game, {
+      rev: changed ? Math.max(srvGameRev, gameRev(payload.game)) + 1 : srvGameRev,
+    });
+  }
+  if (Array.isArray(payload.players)) {
+    var pm = {};
+    for (var pi = 0; pi < payload.players.length; pi++) {
+      var pl = payload.players[pi];
+      if (pl && pl.id) pm[pl.id] = pl;
+    }
+    payload.players = pm;
+  }
+  return payload;
+}
+
 /** Firebase Realtime Database — salas, jogo e chat (multijogador). */
 var RT = {
   isConfigured: function () {
@@ -472,45 +521,85 @@ var RT = {
       return null;
     }
   },
-  setRoom: async function (code, room) {
-    if (!db) return false;
+  /** Só cria a sala se o código ainda não existir (transação). */
+  createRoom: async function (code, room) {
+    if (!db || !code || !room) return false;
+    var rref = roomDbRef(code);
+    if (!rref) return false;
     try {
-      var rref = roomDbRef(code);
-      if (!rref) return false;
-      var snap = await get(rref);
-      var payload = Object.assign({}, room);
-      if (snap.exists()) {
-        var ev = snap.val();
-        var sg = ev && ev.reconnectGrace;
-        var pg = payload.reconnectGrace;
-        if (sg && typeof sg === "object" && !Array.isArray(sg)) {
-          payload.reconnectGrace = Object.assign({}, sg, pg && typeof pg === "object" && !Array.isArray(pg) ? pg : {});
-        }
-        var slp = ev && ev.lastPing;
-        var plp = payload.lastPing;
-        if (slp && typeof slp === "object" && !Array.isArray(slp)) {
-          payload.lastPing = Object.assign({}, slp, plp && typeof plp === "object" && !Array.isArray(plp) ? plp : {});
-        }
-        /* Jogo gravado junto com a sala (substituir por IA, saída, novo host): versão acima da do servidor,
-           senão os clientes descartam-no como snapshot antigo. */
-        if (payload.game && typeof payload.game === "object") {
-          var srvGameRev = gameRev(ev && ev.game);
-          payload.game = Object.assign({}, payload.game, { rev: Math.max(srvGameRev, gameRev(payload.game)) + 1 });
-        }
-      }
-      if (Array.isArray(payload.players)) {
-        var pm = {};
-        for (var pi = 0; pi < payload.players.length; pi++) {
-          var pl = payload.players[pi];
-          if (pl && pl.id) pm[pl.id] = pl;
-        }
-        payload.players = pm;
-      }
-      await rtSet(rref, payload);
-      return true;
+      var res = await runTransaction(
+        rref,
+        function (cur) {
+          if (cur && typeof cur === "object") return undefined;
+          return roomToPayload(room, null);
+        },
+        { applyLocally: false }
+      );
+      return !!res.committed;
     } catch {
       return false;
     }
+  },
+  /**
+   * Lê-modifica-grava a sala numa transação do Firebase: `fn(room)` recebe a sala normalizada (já com a versão
+   * mais atual do servidor) e devolve a nova sala, `RT.DELETE_ROOM` para apagar, ou nada para não gravar.
+   * Antes cada aparelho fazia getRoom → mexer → setRoom da sala inteira: dois amigos a entrar (ou a trocar de
+   * dupla) no mesmo instante apagavam a alteração um do outro.
+   * Devolve { ok, room, missing, deleted } — `missing` quando a sala não existe.
+   */
+  DELETE_ROOM: "__bf_delete_room__",
+  updateRoom: async function (code, fn) {
+    if (!db || !code || typeof fn !== "function") return { ok: false, room: null, missing: false, deleted: false };
+    var rref = roomDbRef(code);
+    if (!rref) return { ok: false, room: null, missing: false, deleted: false };
+    for (var attempt = 0; attempt < 4; attempt++) {
+      var result = /** @type {any} */ (null);
+      var wantDelete = false;
+      try {
+        var res = await runTransaction(
+          rref,
+          function (cur) {
+            result = null;
+            wantDelete = false;
+            if (!cur || typeof cur !== "object") {
+              /* Sem cópia local ainda (1.ª chamada): devolver o mesmo valor obriga o servidor a confirmar —
+                 se a sala existir, a função corre de novo com os dados reais. */
+              return null;
+            }
+            var room = normalizeRoom(cur);
+            if (!room) return undefined;
+            var next = fn(room, cur);
+            if (next === RT.DELETE_ROOM) {
+              wantDelete = true;
+              return null;
+            }
+            if (!next || typeof next !== "object") return undefined;
+            result = next;
+            return roomToPayload(next, cur);
+          },
+          { applyLocally: false }
+        );
+        if (!res.committed) return { ok: false, room: null, missing: !(res.snapshot && res.snapshot.exists()), deleted: false };
+        if (wantDelete) {
+          try {
+            var pref = presenceRoomRef(code);
+            if (pref) await remove(pref);
+          } catch (e) {
+            void e;
+          }
+          return { ok: true, room: null, missing: false, deleted: true };
+        }
+        if (!result) return { ok: false, room: null, missing: true, deleted: false };
+        return { ok: true, room: result, missing: false, deleted: false };
+      } catch {
+        /* Transação cancelada por uma gravação local no mesmo ramo (ex.: heartbeat lastPing) — repetir. */
+        if (attempt === 3) return { ok: false, room: null, missing: false, deleted: false };
+        await new Promise(function (r) {
+          setTimeout(r, 180 * (attempt + 1));
+        });
+      }
+    }
+    return { ok: false, room: null, missing: false, deleted: false };
   },
   deleteRoom: async function (code) {
     if (!db || !code) return false;
@@ -591,37 +680,34 @@ var RT = {
   kickDisconnectedHumanFromLobby: async function (code, playerId) {
     if (!db || !code || !playerId) return false;
     try {
-      var r = await RT.getRoom(code);
-      if (!r || !Array.isArray(r.players)) return false;
-      var leaverRec = playerInRoom(r, playerId);
-      if (!leaverRec || leaverRec.isBot) return false;
-      var leaveDisp =
-        typeof leaverRec.name === "string" ? clampDisplayName(leaverRec.name) || "Jogador" : "Jogador";
-      if (String(r.hostId) === String(playerId)) {
-        await RT.deleteRoom(code);
-        return true;
-      }
-      var players = r.players.filter(function (p) {
-        return p && p.id !== playerId;
+      var res = await RT.updateRoom(code, function (r) {
+        if (!Array.isArray(r.players)) return null;
+        var leaverRec = playerInRoom(r, playerId);
+        if (!leaverRec || leaverRec.isBot) return null;
+        var leaveDisp =
+          typeof leaverRec.name === "string" ? clampDisplayName(leaverRec.name) || "Jogador" : "Jogador";
+        if (String(r.hostId) === String(playerId)) return RT.DELETE_ROOM;
+        var players = r.players.filter(function (p) {
+          return p && p.id !== playerId;
+        });
+        var humans = players.filter(function (p) {
+          return !p.isBot;
+        });
+        if (humans.length === 0) return RT.DELETE_ROOM;
+        var hostId = r.hostId;
+        if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
+          hostId = humans[0].id;
+        }
+        return roomEnsureGameLastActorForPlayers(
+          Object.assign({}, r, {
+            players: players,
+            hostId: hostId,
+            lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
+          })
+        );
       });
-      var humans = players.filter(function (p) {
-        return !p.isBot;
-      });
-      if (humans.length === 0) {
-        await RT.deleteRoom(code);
-        return true;
-      }
-      var hostId = r.hostId;
-      if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
-        hostId = humans[0].id;
-      }
-      var nextRoom = Object.assign({}, r, {
-        players: players,
-        hostId: hostId,
-        lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
-      });
-      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
-      await RT.clearReconnectDeadline(code, playerId);
+      if (!res.ok) return false;
+      if (!res.deleted) await RT.clearReconnectDeadline(code, playerId);
       return true;
     } catch (e) {
       void e;
@@ -759,48 +845,36 @@ var RT = {
       void e;
     }
     try {
-      var r = await RT.getRoom(code);
-      if (!r) return;
-      if (!Array.isArray(r.players)) return;
-      var leaverRec = null;
-      for (var li = 0; li < r.players.length; li++) {
-        if (r.players[li] && r.players[li].id === playerId) {
-          leaverRec = r.players[li];
-          break;
+      await RT.updateRoom(code, function (r) {
+        if (!Array.isArray(r.players)) return null;
+        var leaverRec = playerInRoom(r, playerId);
+        if (!leaverRec) return null;
+        var leaveDisp =
+          typeof leaverRec.name === "string" ? clampDisplayName(leaverRec.name) || "Jogador" : "Jogador";
+        var tryBot = !!(!leaverRec.isBot && r.hostId && String(r.hostId) !== String(playerId));
+        if (tryBot) {
+          var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
+          if (nextRoomBot) return roomEnsureGameLastActorForPlayers(nextRoomBot);
         }
-      }
-      var leaveDisp =
-        leaverRec && typeof leaverRec.name === "string"
-          ? clampDisplayName(leaverRec.name) || "Jogador"
-          : "Jogador";
-      var tryBot = !!(leaverRec && !leaverRec.isBot && r.hostId && String(r.hostId) !== String(playerId));
-      if (tryBot) {
-        var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
-        if (nextRoomBot) {
-          await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
-          return;
+        var players = r.players.filter(function (p) {
+          return p && p.id !== playerId;
+        });
+        var humans = players.filter(function (p) {
+          return !p.isBot;
+        });
+        if (humans.length === 0) return RT.DELETE_ROOM;
+        var hostId = r.hostId;
+        if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
+          hostId = humans[0].id;
         }
-      }
-      var players = r.players.filter(function (p) {
-        return p && p.id !== playerId;
+        return roomEnsureGameLastActorForPlayers(
+          Object.assign({}, r, {
+            players: players,
+            hostId: hostId,
+            lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
+          })
+        );
       });
-      var humans = players.filter(function (p) {
-        return !p.isBot;
-      });
-      if (humans.length === 0) {
-        await RT.deleteRoom(code);
-        return;
-      }
-      var hostId = r.hostId;
-      if (hostId === playerId || !players.some(function (p) { return p.id === hostId; })) {
-        hostId = humans[0].id;
-      }
-      var nextRoom = Object.assign({}, r, {
-        players: players,
-        hostId: hostId,
-        lastLeaveNotice: { playerId: playerId, name: leaveDisp, at: Date.now() },
-      });
-      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoom));
     } catch (e) {
       void e;
     }
@@ -808,14 +882,16 @@ var RT = {
   replaceDisconnectedWithBot: async function (code, playerId) {
     if (!db || !code || !playerId) return false;
     try {
-      var r = await RT.getRoom(code);
-      if (!r || !Array.isArray(r.players)) return false;
-      var me = playerInRoom(r, playerId);
-      if (!me || me.isBot) return false;
-      if (!r.hostId || String(r.hostId) === String(playerId)) return false;
-      var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
-      if (!nextRoomBot) return false;
-      await RT.setRoom(code, roomEnsureGameLastActorForPlayers(nextRoomBot));
+      var res = await RT.updateRoom(code, function (r) {
+        if (!Array.isArray(r.players)) return null;
+        var me = playerInRoom(r, playerId);
+        if (!me || me.isBot) return null;
+        if (!r.hostId || String(r.hostId) === String(playerId)) return null;
+        var nextRoomBot = roomReplaceDisconnectedWithBot(r, playerId);
+        if (!nextRoomBot) return null;
+        return roomEnsureGameLastActorForPlayers(nextRoomBot);
+      });
+      if (!res.ok) return false;
       await RT.clearReconnectDeadline(code, playerId);
       return true;
     } catch (e) {
@@ -916,8 +992,15 @@ var RT = {
         if (!hostOk) {
           var fixedHost = roomEnsureGameLastActorForPlayers(Object.assign({}, r, { hostId: humans[0].id }));
           try {
-            await RT.setRoom(code, fixedHost);
-            cb(fixedHost);
+            var fixRes = await RT.updateRoom(code, function (live) {
+              var liveHumans = live.players.filter(function (p) {
+                return p && !p.isBot;
+              });
+              if (!liveHumans.length) return null;
+              if (live.players.some(function (p) { return p && p.id === live.hostId; })) return null;
+              return roomEnsureGameLastActorForPlayers(Object.assign({}, live, { hostId: liveHumans[0].id }));
+            });
+            cb(fixRes.ok && fixRes.room ? fixRes.room : fixedHost);
           } catch (e) {
             void e;
             cb(r);
@@ -4845,18 +4928,22 @@ function App(props){
     if(!RT.isConfigured()) return 'Firebase não configurado (NEXT_PUBLIC_FIREBASE_DATABASE_URL).';
     var cd = String(code || '').toUpperCase();
     if(cd.length!==4) return 'O código tem 4 letras';
-    var r = await RT.getRoom(cd);
-    if(!r) return 'Sala não encontrada';
-    if(r.game) return 'A partida já começou';
     var pid = auth.loggedUid || uid();
-    var alreadyIn = !!playerInRoom(r, pid);
-    if(!alreadyIn){
-      var humanN = r.players.filter(function(p){ return !p.isBot; }).length;
-      if(humanN>=4) return 'Sala cheia';
-      r.players.push({id:pid,name:nameOk,seat:-1,team:null});
-      var ok = await RT.setRoom(cd, r);
-      if(!ok) return 'Não foi possível entrar na sala';
-    }
+    var joinErr = '';
+    var seenRoom = /** @type {any} */ (null);
+    var res = await RT.updateRoom(cd, function(live){
+      joinErr = '';
+      seenRoom = live;
+      if(live.game){ joinErr = 'A partida já começou'; return null; }
+      if(playerInRoom(live, pid)) return null;
+      var humanN = live.players.filter(function(p){ return !p.isBot; }).length;
+      if(humanN>=4){ joinErr = 'Sala cheia'; return null; }
+      return Object.assign({}, live, { players: live.players.concat([{id:pid,name:nameOk,seat:-1,team:null}]) });
+    });
+    if(res.missing || !seenRoom) return 'Sala não encontrada';
+    if(joinErr) return joinErr;
+    var r = res.ok && res.room ? res.room : seenRoom;
+    if(!res.ok && !playerInRoom(r, pid)) return 'Não foi possível entrar na sala';
     writeBfSession({ code: cd, playerId: pid, playerName: nameOk });
     setMyId(pid); setMyName(nameOk); setRoomCode(cd); setRoom(r); if(r.themeId) setLocId(r.themeId); setScreen('lobby');
     consumePendingJoin();
@@ -4865,36 +4952,40 @@ function App(props){
 
   async function lobbyToggleTeam(team){
     if(!room) return;
-    var r = await RT.getRoom(room.code); if(!r) return;
-    var pl = r.players.find(function(p){ return p.id===myId && !p.isBot; }); if(!pl) return;
-    var H = r.players.filter(function(p){ return !p.isBot; });
-    if(pl.team===team) pl.team=null;
-    else if(H.filter(function(p){ return p.team===team; }).length<2) pl.team=team;
-    await RT.setRoom(r.code, r);
+    await RT.updateRoom(room.code, function(r){
+      var pl = r.players.find(function(p){ return p.id===myId && !p.isBot; }); if(!pl) return null;
+      var H = r.players.filter(function(p){ return !p.isBot; });
+      var nextTeam = pl.team;
+      if(pl.team===team) nextTeam=null;
+      else if(H.filter(function(p){ return p.team===team; }).length<2) nextTeam=team;
+      else return null;
+      var players = r.players.map(function(p){ return p.id===pl.id ? Object.assign({}, p, { team: nextTeam }) : p; });
+      return Object.assign({}, r, { players: players });
+    });
   }
 
   async function lobbyStart(){
     if(!room || room.hostId!==myId) return;
-    var r = await RT.getRoom(room.code); if(!r) return;
-    var H = r.players.filter(function(p){ return !p.isBot; });
-    var a=H.filter(function(p){return p.team==='A';}), b=H.filter(function(p){return p.team==='B';});
-    if(a.length>2||b.length>2||a.length+b.length!==H.length||H.length<1) return;
-    var needA = 2-a.length, needB = 2-b.length;
-    var bots=[], bn=0;
-    for(var ia=0;ia<needA;ia++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'A',isBot:true}); }
-    for(var ib=0;ib<needB;ib++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'B',isBot:true}); }
-    var aFull=a.concat(bots.filter(function(p){ return p.team==='A'; }));
-    var bFull=b.concat(bots.filter(function(p){ return p.team==='B'; }));
-    var sm={};
-    sm[aFull[0].id]=0; sm[aFull[1].id]=2;
-    sm[bFull[0].id]=1; sm[bFull[1].id]=3;
-    r.players=H.concat(bots);
-    r.players.forEach(function(p){ p.seat=sm[p.id]; });
-    var nm=['','','',''];
-    nm[0]=aFull[0].name; nm[2]=aFull[1].name;
-    nm[1]=bFull[0].name; nm[3]=bFull[1].name;
-    r.game = mkGame(null, undefined, 0, nm, r.hostId, undefined);
-    await RT.setRoom(r.code, r);
+    await RT.updateRoom(room.code, function(r){
+      if(r.game || r.hostId!==myId) return null;
+      var H = r.players.filter(function(p){ return !p.isBot; });
+      var a=H.filter(function(p){return p.team==='A';}), b=H.filter(function(p){return p.team==='B';});
+      if(a.length>2||b.length>2||a.length+b.length!==H.length||H.length<1) return null;
+      var needA = 2-a.length, needB = 2-b.length;
+      var bots=[], bn=0;
+      for(var ia=0;ia<needA;ia++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'A',isBot:true}); }
+      for(var ib=0;ib<needB;ib++){ bn++; bots.push({id:'bot:'+r.code+':'+uid(),name:'IA '+bn,seat:-1,team:'B',isBot:true}); }
+      var aFull=a.concat(bots.filter(function(p){ return p.team==='A'; }));
+      var bFull=b.concat(bots.filter(function(p){ return p.team==='B'; }));
+      var sm={};
+      sm[aFull[0].id]=0; sm[aFull[1].id]=2;
+      sm[bFull[0].id]=1; sm[bFull[1].id]=3;
+      var players = H.concat(bots).map(function(p){ return Object.assign({}, p, { seat: sm[p.id] }); });
+      var nm=['','','',''];
+      nm[0]=aFull[0].name; nm[2]=aFull[1].name;
+      nm[1]=bFull[0].name; nm[3]=bFull[1].name;
+      return Object.assign({}, r, { players: players, game: mkGame(null, undefined, 0, nm, r.hostId, undefined) });
+    });
   }
 
   var exitBtn = React.createElement(DsButton,{variant:'ghost',size:'sm',icon:'arrow-left',onClick:function(){setShowExit(true);},style:{position:'fixed',bottom:'max(12px, calc(12px + env(safe-area-inset-bottom)))',left:'max(12px, calc(12px + env(safe-area-inset-left)))',zIndex:100,background:'rgba(0,0,0,.45)',border:'1px solid rgba(255,255,255,.14)',color:'rgba(255,255,255,.75)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}},'Sair');
@@ -5116,7 +5207,13 @@ function App(props){
           setCrBusy(true);
           var c=mkCode(), pid=auth.loggedUid || uid();
           var roomNew={code:c,hostId:pid,players:[{id:pid,name:myName,seat:-1,team:null}],game:null,themeId:loc,lastPresenceAt:Date.now()};
-          var ok = await RT.setRoom(c, roomNew);
+          var ok = await RT.createRoom(c, roomNew);
+          if(!ok){
+            /* Código já em uso (ou falha momentânea): tentar mais uma vez com outro código. */
+            c = mkCode();
+            roomNew = Object.assign({}, roomNew, { code: c });
+            ok = await RT.createRoom(c, roomNew);
+          }
           setCrBusy(false);
           if(ok){
             writeBfSession({ code: c, playerId: pid, playerName: myName });
